@@ -1,0 +1,20 @@
+{
+  "name": "imis-ifc-structural-xr",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-wasm.mjs",
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "three": "0.181.2",
+    "web-ifc": "0.0.78"
+  },
+  "devDependencies": {
+    "vite": "7.1.12"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "source": "EJEMPLO SINTÉTICO, no SAP2000",
+    "units": "m, kN",
+    "note": "Resultados ficticios para probar el contrato JSON. Pórtico de 2 columnas y viga."
+  },
+  "nodes": [
+    {"id":"N1","x":0,"y":0,"z":0},
+    {"id":"N2","x":5,"y":0,"z":0},
+    {"id":"N3","x":0,"y":0,"z":3},
+    {"id":"N4","x":2.5,"y":0,"z":3},
+    {"id":"N5","x":5,"y":0,"z":3}
+  ],
+  "frames": [
+    {"id":"C1","i":"N1","j":"N3"},
+    {"id":"V1","i":"N3","j":"N4"},
+    {"id":"V2","i":"N4","j":"N5"},
+    {"id":"C2","i":"N2","j":"N5"}
+  ],
+  "loads": [
+    {"frame":"V1","pattern":"DEAD","type":"force_per_length","csys":"Global","dir":6,"start":0,"end":1,"w1":-8,"w2":-8},
+    {"frame":"V2","pattern":"DEAD","type":"force_per_length","csys":"Global","dir":6,"start":0,"end":1,"w1":-8,"w2":-8}
+  ],
+  "cases": [{
+    "name": "DEAD (ejemplo)",
+    "displacements": [
+      {"node":"N1","ux":0,"uy":0,"uz":0},
+      {"node":"N2","ux":0,"uy":0,"uz":0},
+      {"node":"N3","ux":0,"uy":0,"uz":-0.002},
+      {"node":"N4","ux":0,"uy":0,"uz":-0.014},
+      {"node":"N5","ux":0,"uy":0,"uz":-0.002}
+    ]
+  }]
+}

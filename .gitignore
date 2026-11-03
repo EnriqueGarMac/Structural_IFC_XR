@@ -1,0 +1,11 @@
+node_modules/
+dist/
+public/wasm/
+*.ifc
+*.ifczip
+*.sdb
+*.s2k
+resultado_sap*.json
+__pycache__/
+*.pyc
+.DS_Store

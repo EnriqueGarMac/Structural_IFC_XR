@@ -1,0 +1,106 @@
+import './style.css';
+import { StructuralScene } from './scene.js';
+import { readIFC } from './ifc-loader.js';
+import { demoGeometry, demoResults } from './demo.js';
+import { normalizeResults } from './results.mjs';
+const $=(id)=>document.getElementById(id);
+const app=new StructuralScene($('canvas-wrap'));
+let webcamStream=null;
+let demoActive=false;
+let syntheticResults=true;
+function info(message,error=false){const el=$('toast');el.hidden=false;el.textContent=message;el.classList.toggle('error',error);if(info.timer)clearTimeout(info.timer);info.timer=setTimeout(()=>el.hidden=true,error?9000:5000);}
+function status(message){$('status-summary').textContent=message;}
+function setModelLabel(text){$('model-state').textContent=`Modelo: ${text}`;$('scene-label').textContent=text.toUpperCase();}
+function updateStats(count){$('num-elements').textContent=count.toLocaleString('es-ES');}
+function setResults(results,label){
+  app.setResults(results);
+  $('sap-state').textContent=`Resultados: ${label}`;
+  $('num-nodes').textContent=results.nodes.length.toLocaleString('es-ES');
+  $('num-frames').textContent=results.frames.length.toLocaleString('es-ES');
+  const cases=$('case-select');cases.innerHTML='';
+  if(!results.cases.length)cases.add(new Option('Sin deformadas', ''));
+  results.cases.forEach(c=>cases.add(new Option(c.name,c.name)));
+  const patterns=$('pattern-select');patterns.innerHTML='';patterns.add(new Option('Todos los patrones','all'));
+  for(const pattern of [...new Set(results.loads.map(l=>l.pattern))].sort())patterns.add(new Option(pattern,pattern));
+  if(results.meta?.note)info(results.meta.note);
+  const rawFrameCount=results.loads.length;
+  status(`${results.cases.length} caso(s) · ${rawFrameCount} cargas`);
+}
+function showDemo(){
+  demoActive=true;
+  syntheticResults=true;
+  app.setModel(demoGeometry());
+  setModelLabel('Pórtico de demostración · 8 × 6 m');
+  updateStats(app.parts.length);
+  setResults(demoResults,'sintéticos · ejemplo demostrativo');
+  app.offset=[0,0,0]; for(const c of ['x','y','z'])$(`offset-${c}`).value='0';
+  $('amp').value='25';app.amp=25;$('amp-value').textContent='×25';
+  app.updateVisualization();status('DEMO · NO SAP2000');
+}
+$('demo-btn').addEventListener('click',showDemo);
+$('ifc-input').addEventListener('change',async(e)=>{
+  const file=e.target.files?.[0];if(!file)return;
+  status('Leyendo IFC…');
+  try{
+    const res=await readIFC(file,(message)=>status(message));
+    app.setModel(res.items);
+    // Never accidentally apply synthetic example results to a real IFC.
+    if(syntheticResults){app.setResults(null);$('sap-state').textContent='Resultados: importa SAP JSON';$('num-nodes').textContent='—';$('num-frames').textContent='—';$('case-select').innerHTML='<option>Sin resultados</option>'; $('pattern-select').innerHTML='<option value="all">Todos</option>';}
+    demoActive=false;
+    setModelLabel(file.name);
+    updateStats(res.elementCount);
+    status('IFC cargado');info(`${res.elementCount} elementos IFC renderizados. Carga el JSON de SAP2000 para superponer los resultados.`);
+  }catch(err){console.error(err);status('Error IFC');info(`Error importando IFC: ${err.message}`,true);}
+  e.target.value='';
+});
+$('sap-input').addEventListener('change',async(e)=>{
+  const f=e.target.files?.[0];if(!f)return;
+  try{const data=normalizeResults(JSON.parse(await f.text()));syntheticResults=false;setResults(data,f.name);
+    if(!app.parts.length)info('Resultados SAP cargados. Importa un IFC para representarlos.');
+    else if(demoActive)info('Resultados cargados sobre geometría DEMO: solo coincidirán si las coordenadas y dimensiones son equivalentes.',true);
+    else info('Resultados importados. Revisa la alineación espacial y las unidades antes de interpretarlos.');
+  }catch(err){console.error(err);info(`No se pudo leer SAP JSON: ${err.message}`,true);}
+  e.target.value='';
+});
+$('case-select').addEventListener('change',e=>app.setCase(e.target.value));
+$('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
+const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-axes':'showAxes' };
+for(const [id,key]of Object.entries(showControls)){
+  $(id).addEventListener('change',e=>{app[key]=e.target.checked;app.axes.visible=app.showAxes;
+    if(id==='show-axes'){app.grid.visible=app.showAxes&&!app.isXR;return;}
+    app.updateVisualization();
+  });
+}
+$('amp').addEventListener('input',e=>{app.amp=Number(e.target.value);$('amp-value').textContent=`×${app.amp}`;app.updateVisualization();});
+$('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(1)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
+$('apply-offset').addEventListener('click',()=>{
+  const off=['x','y','z'].map(c=>Number($(`offset-${c}`).value));
+  if(off.some(v=>!Number.isFinite(v))){info('Los offsets deben ser numéricos.',true);return;}
+  app.setOffset(off);info('Alineación actualizada. Verifica visualmente si las barras SAP coinciden con los elementos IFC.');
+});
+$('reset-view').addEventListener('click',()=>app.recenterCamera());
+app.onSelection=(name)=>info(`Elemento seleccionado: ${name}`);
+async function setWebcam(enable){
+  const el=$('webcam');
+  if(!enable){if(webcamStream){webcamStream.getTracks().forEach(track=>track.stop());webcamStream=null;}
+    el.srcObject=null;$('stage').classList.remove('cam-active');$('btn-cam').classList.remove('active');$('btn-3d').classList.add('active');return;}
+  try{
+    if(!navigator.mediaDevices?.getUserMedia)throw new Error('La cámara necesita localhost o HTTPS.');
+    webcamStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}});
+    el.srcObject=webcamStream;await el.play();
+    $('stage').classList.add('cam-active');$('btn-cam').classList.add('active');$('btn-3d').classList.remove('active');
+    info('Webcam activada. Se trata de una superposición 3D, sin seguimiento espacial ni calibración de cámara.');
+  }catch(err){await setWebcam(false);info(`No se pudo activar la cámara: ${err.message}`,true);}
+}
+$('btn-cam').addEventListener('click',()=>setWebcam(!webcamStream));
+$('btn-3d').addEventListener('click',()=>setWebcam(false));
+$('btn-xr').addEventListener('click',async()=>{
+  try{if(webcamStream)await setWebcam(false);await app.enterXR();$('btn-xr').textContent='◎ Salir de RM';}
+  catch(err){info(`WebXR: ${err.message}`,true);}
+});
+app.onXREnd=()=>{$('btn-xr').textContent='◉ Quest 3 RM';};
+(async()=>{
+  const xrOK=await app.webXRSupported();
+  $('xr-status').textContent=xrOK?'Quest RM disponible':'Quest RM: abrir con Quest Browser + HTTPS';
+})();
+showDemo();
