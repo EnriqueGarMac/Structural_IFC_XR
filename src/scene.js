@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude } from './results.mjs';
+import { StructuralXRControls } from './xr-controls.js';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -46,10 +47,15 @@ export class StructuralScene {
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showAxes=true;this.isXR=false;this.xrSession=null;
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
+    this.xrControls=new StructuralXRControls(this);
     this.renderer.domElement.addEventListener('pointerdown',(evt)=>this.pickStart={x:evt.clientX,y:evt.clientY});
     this.renderer.domElement.addEventListener('pointerup',(evt)=>this.pickElement(evt));
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
-    this.renderer.setAnimationLoop(()=>{if(!this.isXR)this.controls.update();this.renderer.render(this.scene,this.camera)});
+    this.renderer.setAnimationLoop((time,frame)=>{
+      if(this.isXR)this.xrControls.update(time,frame);
+      else this.controls.update();
+      this.renderer.render(this.scene,this.camera);
+    });
     this.resize();
   }
   resize(){let w=this.container.clientWidth,h=this.container.clientHeight;if(w<1||h<1)return;this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.renderer.setSize(w,h,false);}
@@ -209,18 +215,26 @@ export class StructuralScene {
     if(!ok)throw new Error('Este dispositivo/navegador no admite sesiones immersive-ar. Prueba Quest Browser en Quest 3.');
     this.renderer.xr.setReferenceSpaceType('local');
     const session=await navigator.xr.requestSession('immersive-ar',{
-      optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:document.body}
+      requiredFeatures:['local'],
+      optionalFeatures:['hit-test','local-floor']
     });
     this.xrSession=session;this.isXR=true;
-    this.worldRoot.position.set(0,-.9,-1.6);
     this.grid.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
-      this.xrSession=null;this.isXR=false;this.worldRoot.position.set(0,0,0);
+      this.xrSession=null;this.isXR=false;
+      this.xrControls.stop();
       this.grid.visible=this.showAxes;this.controls.enabled=true;
       this.onXREnd?.();
     });
-    await this.renderer.xr.setSession(session);
+    try{
+      await this.renderer.xr.setSession(session);
+      session.updateRenderState({depthNear:0.025,depthFar:75});
+      this.xrControls.start(session);
+    }catch(err){
+      await session.end().catch(()=>{});
+      throw err;
+    }
   }
   async webXRSupported(){try{return Boolean(await navigator.xr?.isSessionSupported('immersive-ar'));}catch{return false;}}
 }
