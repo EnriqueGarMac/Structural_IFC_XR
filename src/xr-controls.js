@@ -15,7 +15,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';
-    this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=true;this.hitAvailable=false;this.latestHit=null;
+    this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=true;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -74,11 +74,11 @@ export class StructuralXRControls {
       (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
     this.app.worldRoot.quaternion.copy(this.baseQuat);
     this.app.worldRoot.position.copy(this.basePosition);
-    this.contact.visible=false;
+    this.contact.visible=false;this.hasPlacedSurface=false;
   }
   stop(){
     this.session=null;this.panel.visible=false;this.reticle.visible=false;
-    this.contact.visible=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
+    this.contact.visible=false;this.hasPlacedSurface=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
     for(const h of this.hitSources.values())h.source?.cancel();
     this.hitSources.clear();this.hitByInput.clear();
     this.app.worldRoot.position.set(0,0,0);
@@ -141,7 +141,7 @@ export class StructuralXRControls {
         this.app.worldRoot.quaternion.copy(this.baseQuat);
         this.placeMode=false;this.reticle.visible=false;
         this.contact.position.set(plane.point.x,plane.point.y+.008,plane.point.z);
-        this.contact.visible=true;
+        this.hasPlacedSurface=true;this.contact.visible=this.shadow;
         this.dirty=true;
         this.app.onXRMessage?.('Modelo colocado en superficie horizontal detectada.');
       }
@@ -158,8 +158,8 @@ export class StructuralXRControls {
     // Trigger directly on structural geometry: select element and rotate
     // the entire IFC/SAP overlay according to the controller orientation.
     const picks=this._ray(controller).intersectObjects([
-      ...this.app.originalGroup.children.filter(x=>x.visible),
-      ...this.app.deformedGroup.children.filter(x=>x.visible)
+      ...(this.app.originalGroup.visible?this.app.originalGroup.children.filter(x=>x.visible):[]),
+      ...(this.app.deformedGroup.visible?this.app.deformedGroup.children.filter(x=>x.visible):[])
     ],false);
     const hit=picks.find(x=>x.object.visible);
     if(hit){
@@ -225,7 +225,7 @@ export class StructuralXRControls {
       txt(app.targetMeters.toFixed(1)+' m',385,684,29,'#f3ffff','center');
       btn('size:+','+',586,645,144,78);
       btn('reset-model','Recentrar estructura',38,769,335,76);
-      btn('menu-move','Mover menú',395,769,335,76,true);
+      btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
       txt(dataPresent?'Resultados importados o de ejemplo activos':'Sin resultados SAP importados',38,889,19);
       btn('exit','SALIR DE REALIDAD MIXTA',38,960,692,83);
     }else if(this.page==='results'){
@@ -292,7 +292,7 @@ export class StructuralXRControls {
     else if(id==='reset-model'){
       app.worldRoot.position.copy(this.basePosition);
       app.worldRoot.quaternion.copy(this.baseQuat);
-      this.contact.visible=false;
+      this.contact.visible=false;this.hasPlacedSurface=false;
     }
     else if(id==='size:+'||id==='size:-'){
       app.targetMeters=snapModelSize(app.targetMeters,id==='size:+'?.2:-.2);
@@ -324,12 +324,13 @@ export class StructuralXRControls {
       this.syncControl(domId,!app[prop]);
     }
     else if(id==='place'){
+      if(!this.hitAvailable){this.app.onXRMessage?.('WebXR hit-test no disponible.');return;}
       this.placeMode=!this.placeMode;
       this.latestHit=null;this.reticle.visible=false;
     }
     else if(id==='shadow'){
       this.shadow=!this.shadow;
-      if(!this.shadow)this.contact.visible=false;
+      this.contact.visible=this.shadow&&this.hasPlacedSurface;
     }
     this.dirty=true;
   }
