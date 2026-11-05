@@ -14,6 +14,7 @@ El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de 
 - **Gatillo sobre un elemento estructural**: seleccionarlo y mostrar su nombre/identificador. Mantener pulsado y girar el mando para **rotar el modelo IFC y las superposiciones SAP conjuntamente**.
 - **Botón lateral de agarre**: mover la estructura con el mando.
 - **Joystick izquierdo**: rotar en los ejes horizontal y vertical; **joystick derecho**: cambiar de tamaño progresivamente.
+- **Botón A/X del mando**: recentrar el menú si lo has movido fuera del campo visual.
 - **Cabecera del menú + gatillo**: arrastrar el menú. Alternativamente, pulsa **Mover menú**, señala el destino y vuelve a pulsar el gatillo para dejarlo fijo.
 - **Análisis y deformadas**: pasar entre casos y patrones de cargas SAP, modificar amplificación visual de desplazamientos y alternar la geometría original, deformadas y cargas.
 - **Capas y elementos**: activar/desactivar IFC, deformada, fuerzas, barras analíticas SAP y ejes.
