@@ -1,20 +1,20 @@
 import * as THREE from 'three';
 import { normalizeResults } from './results.mjs';
-function addBox(out,name,cx,cy,cz,sx,sy,sz,color){
+function addBox(out,name,cx,cy,cz,sx,sy,sz,color,ifcType='IfcBuildingElementProxy'){
   const g=new THREE.BoxGeometry(sx,sy,sz);
   g.translate(cx,cy,cz); // all geometry is built in IFC XYZ (Z up)
-  out.push({geometry:g, name, color});
+  out.push({geometry:g, name, color,ifcType});
 }
 export function demoGeometry(){
   const pieces=[];
-  addBox(pieces,'Losa de cubierta',4,3,3.15,8.2,6.2,.24,0xa5b8c1);
-  addBox(pieces,'Cimentación',4,3,-.16,8.5,6.5,.30,0x5a7785);
-  for(const x of [0,8]) for(const y of [0,6]) addBox(pieces,`Pilar (${x},${y})`,x,y,1.52,.36,.36,3.04,0x8facbc);
+  addBox(pieces,'Losa de cubierta',4,3,3.15,8.2,6.2,.24,0xa5b8c1,'IfcSlab');
+  addBox(pieces,'Cimentación',4,3,-.16,8.5,6.5,.30,0x5a7785,'IfcFooting');
+  for(const x of [0,8]) for(const y of [0,6]) addBox(pieces,`Pilar (${x},${y})`,x,y,1.52,.36,.36,3.04,0x8facbc,'IfcColumn');
   for(const y of [0,6]) {
-    addBox(pieces,`Viga larga ${y} A`,2,y,2.83,4,.32,.5,0xd4b7a0);
+    addBox(pieces,`Viga larga ${y} A`,2,y,2.83,4,.32,.5,0xd4b7a0,'IfcBeam');
     addBox(pieces,`Viga larga ${y} B`,6,y,2.83,4,.32,.5,0xd4b7a0);
   }
-  for(const x of [0,8])addBox(pieces,`Viga transversal ${x}`,x,3,2.83,.32,6,.5,0xd4b7a0);
+  for(const x of [0,8])addBox(pieces,`Viga transversal ${x}`,x,3,2.83,.32,6,.5,0xd4b7a0,'IfcBeam');
   return pieces;
 }
 export const demoResults=normalizeResults({
