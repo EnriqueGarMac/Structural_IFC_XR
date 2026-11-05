@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniquePattern} from './xr-logic.mjs';
+import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniquePattern,
+  amplificationFromSliderX,sliderXFromAmplification} from './xr-logic.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
@@ -14,7 +15,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 
 export class StructuralXRControls {
   constructor(app){
-    this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';
+    this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
     this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=true;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
@@ -240,25 +241,41 @@ export class StructuralXRControls {
       btn('pattern:-','‹',38,473,126,68);
       txt(textFit(app.pattern==='all'?'Todos':app.pattern,28),385,506,23,'#edffff','center');
       btn('pattern:+','›',606,473,124,68);
-      txt('Factor de amplificación visual (no físico)',38,584,21);
-      btn('amp:-','−',38,622,126,70);
-      txt('×'+app.amp,385,657,30,'#e6ffff','center');
-      btn('amp:+','+',606,622,124,70);
-      btn('deformed','Deformada: '+(app.showDeformed?'ON':'OFF'),38,748,334,81,true);
-      btn('original','Original: '+(app.showOriginal?'ON':'OFF'),394,748,336,81);
-      btn('loads','Cargas: '+(app.showLoads?'ON':'OFF'),38,853,692,75);
-      txt('SAP2000: superposición e interpolación visual',38,1010,19);
+      txt('AMPLIFICACIÓN DE LA DEFORMADA',38,584,21);
+      txt('×'+app.amp,712,584,29,'#8bf6df','right');
+      const left=163,right=604,y=660;
+      rounded(c,left-7,y-8,right-left+14,16,8,'#254859');
+      const x=sliderXFromAmplification(app.amp);
+      rounded(c,left-7,y-8,Math.max(10,x-left+7),16,8,'#45c6ae');
+      c.beginPath();c.arc(x,y,21,0,Math.PI*2);c.fillStyle='#e8ffff';c.fill();
+      c.strokeStyle='#72eed9';c.lineWidth=4;c.stroke();
+      this.hits.push({id:'amp-slider',x:153,y:619,w:461,h:82});
+      btn('amp:-','−',38,622,102,75);
+      btn('amp:+','+',629,622,101,75);
+      txt('×0',157,713,18,'#a2c6d1');
+      txt('×150',613,713,18,'#a2c6d1','right');
+      btn('deformed','Deformada: '+(app.showDeformed?'ON':'OFF'),38,756,334,73,true);
+      btn('original','IFC original: '+(app.showOriginal?'ON':'OFF'),394,756,336,73);
+      btn('loads','Cargas: '+(app.showLoads?'ON':'OFF'),38,847,692,69);
+      btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'VER SOLO ELEMENTOS SAP',
+        38,932,692,77,true);
+      txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
     }else if(this.page==='layers'){
       btn('back','‹ Volver',38,117,230,66);
-      txt('CAPAS / INFORMACIÓN',38,231,29,'#e1f7fc');
-      btn('original','IFC original: '+(app.showOriginal?'visible':'oculto'),38,292,692,83,true);
-      btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,404,692,83);
-      btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,516,692,83);
-      btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,628,692,83);
-      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,740,692,83);
-      txt('Gatillo en elemento IFC: selección + rotación.',38,882,20);
-      txt('Agarre lateral: desplazar todo el modelo.',38,929,20);
-      txt(textFit(this.selected,40),38,1005,18,'#83e9da');
+      txt('CAPAS / VISUALIZACIÓN',38,224,28,'#e1f7fc');
+      btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'Solo elementos SAP2000',
+        38,278,692,73,true);
+      btn('terrain',app.hideGround?'Terreno y cimentación: OCULTOS':'Mostrar terreno y cimentación',
+        38,366,692,73);
+      btn('original','IFC original: '+(app.showOriginal?'visible':'oculto'),38,462,692,74);
+      btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,551,692,74);
+      btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,640,692,74);
+      btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,729,692,74);
+      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,818,692,74);
+      txt(textFit(this.notice||'Se conservan los forjados estructurales.',63),
+        38,948,19,'#92e9d9');
+      txt('SAP puro: barras analíticas, nudos y cargas; sin IFC.',38,998,18);
+      txt(textFit(this.selected,40),38,1050,18,'#83e9da');
     }else if(this.page==='placement'){
       btn('back','‹ Volver',38,117,230,66);
       txt('COLOCACIÓN EN EL ENTORNO',38,220,28,'#e4f8ff');
@@ -295,6 +312,17 @@ export class StructuralXRControls {
       app.worldRoot.quaternion.copy(this.baseQuat);
       this.contact.visible=false;this.hasPlacedSurface=false;
     }
+    else if(id==='sap-only'){
+      const desired=!app.showSAPOnly;
+      this.syncControl('show-sap-only',desired);
+      this.notice=app.showSAPOnly===desired?
+        (desired?'Modo analítico SAP2000 activo.':'Vista IFC + SAP restaurada.') :
+        'Importa SAP2000 y un IFC antes de activar este modo.';
+    }
+    else if(id==='terrain'){
+      this.syncControl('hide-ground',!app.hideGround);
+      this.notice=app.hideGround?'Terreno oculto; forjados visibles.':'Terreno visible.';
+    }
     else if(id==='size:+'||id==='size:-'){
       app.targetMeters=snapModelSize(app.targetMeters,id==='size:+'?.2:-.2);
       app.updateScale();
@@ -314,9 +342,7 @@ export class StructuralXRControls {
       app.setPattern(p);$('pattern-select').value=p;
     }
     else if(id==='amp:+'||id==='amp:-'){
-      app.amp=clamp(app.amp+(id==='amp:+'?5:-5),0,150);
-      $('amp').value=String(app.amp);$('amp-value').textContent='×'+app.amp;
-      app.updateVisualization();
+      this.setAmplification(app.amp+(id==='amp:+'?5:-5));
     }
     else if(['loads','deformed','original','frames','axes'].includes(id)){
       const dict={loads:['showLoads','show-loads'],deformed:['showDeformed','show-displaced'],
