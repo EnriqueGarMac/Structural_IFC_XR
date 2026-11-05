@@ -153,6 +153,11 @@ export class StructuralXRControls {
       if(menuHit.item?.id==='menu-handle'){
         this.beginDrag('menu',controller,controller,this.panel);return;
       }
+      if(menuHit.item?.id==='amp-slider'){
+        this.drag={kind:'amp-slider',controller};
+        this.setAmplificationFromX(menuHit.intersection.uv.x*W);
+        return;
+      }
       if(menuHit.item)this.command(menuHit.item.id);
       return;
     }
@@ -187,7 +192,20 @@ export class StructuralXRControls {
     if(!d||d.controller!==controller)return;
     if(d.kind==='menu'&&button==='select'||
        d.kind==='rotate'&&button==='select'||
-       d.kind==='move'&&button==='squeeze')this.drag=null;
+       d.kind==='move'&&button==='squeeze'||
+       d.kind==='amp-slider'&&button==='select')this.drag=null;
+  }
+  setAmplification(value){
+    const next=Math.round(clamp(value,0,150));
+    if(next===this.app.amp)return false;
+    const input=$('amp');
+    input.value=String(next);
+    input.dispatchEvent(new Event('input'));
+    this.dirty=true;
+    return true;
+  }
+  setAmplificationFromX(x){
+    return this.setAmplification(amplificationFromSliderX(x));
   }
   _buttons(){
     const c=this.ctx;
@@ -399,17 +417,19 @@ export class StructuralXRControls {
     this.updateHitTesting(frame);
     if(this.drag){
       const d=this.drag;
-      d.source.updateMatrixWorld();
-      const p=new THREE.Vector3(),q=new THREE.Quaternion();
-      d.source.getWorldPosition(p);d.source.getWorldQuaternion(q);
-      if(d.kind==='rotate'){
-        const relative=q.clone().multiply(d.startQ.clone().invert());
-        d.object.quaternion.copy(relative.multiply(d.startObjectQ));
-      } else {
-        d.object.position.copy(d.startObjectPos).add(p.sub(d.startPos));
-        if(d.kind==='move'&&this.contact.visible){
-          // The contact shadow is only valid while the model rests on its plane.
-          this.contact.visible=false;
+      if(d.kind==='amp-slider'){
+        const hit=this._menuHit(d.controller);
+        if(hit?.intersection)this.setAmplificationFromX(hit.intersection.uv.x*W);
+      }else{
+        d.source.updateMatrixWorld();
+        const p=new THREE.Vector3(),q=new THREE.Quaternion();
+        d.source.getWorldPosition(p);d.source.getWorldQuaternion(q);
+        if(d.kind==='rotate'){
+          const relative=q.clone().multiply(d.startQ.clone().invert());
+          d.object.quaternion.copy(relative.multiply(d.startObjectQ));
+        } else {
+          d.object.position.copy(d.startObjectPos).add(p.sub(d.startPos));
+          if(d.kind==='move'&&this.contact.visible)this.contact.visible=false;
         }
       }
     }
