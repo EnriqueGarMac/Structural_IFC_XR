@@ -85,7 +85,7 @@ $('show-sap-only').addEventListener('change',e=>{
   info(app.showSAPOnly?'Vista analítica SAP2000 activa: IFC oculto.':'Vista combinada IFC + SAP2000 activa.');
 });
 $('hide-ground').addEventListener('change',e=>app.setHideGround(e.target.checked));
-$('amp').addEventListener('input',e=>{app.amp=Number(e.target.value);$('amp-value').textContent=`×${app.amp}`;app.updateVisualization();});
+$('amp').addEventListener('input',e=>{app.amp=Number(e.target.value);$('amp-value').textContent=`×${app.amp}`;app.updateVisualization(false);});
 $('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(1)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
 $('apply-offset').addEventListener('click',()=>{
   const off=['x','y','z'].map(c=>Number($(`offset-${c}`).value));
