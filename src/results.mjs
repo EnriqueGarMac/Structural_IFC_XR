@@ -58,6 +58,15 @@ export function interpolateDisplacement(x,y,z,nodes) {
   for (const {n,d2} of closest){ const w=1/(d2+1e-5);wSum+=w;ux+=w*n.ux;uy+=w*n.uy;uz+=w*n.uz;mag+=w*n.magnitude; }
   return [ux/wSum,uy/wSum,uz/wSum,mag/wSum];
 }
+// Analytic stick-model deformation: positions used for rendering only.
+// Original nodal coordinates and computed displacements remain unchanged.
+export function analyticalNodePositions(nodes,amplification=0,applyDeformation=false){
+  if(!applyDeformation)return nodes;
+  const amp=Number.isFinite(amplification)?amplification:0;
+  return nodes.map(n=>({
+    ...n,x:n.x+amp*(n.ux||0),y:n.y+amp*(n.uy||0),z:n.z+amp*(n.uz||0)
+  }));
+}
 export function maxDisplacement(nodes) { return nodes.reduce((v,n)=>Math.max(v,n.magnitude),0); }
 export function loadMagnitude(l) { return Math.max(Math.abs(l.w1),Math.abs(l.w2)); }
 export function selectedLoads(results, pattern) { return results.loads.filter(l=>pattern==='all' || l.pattern===pattern); }
