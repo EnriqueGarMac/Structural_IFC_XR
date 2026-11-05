@@ -72,7 +72,7 @@ export class StructuralScene {
   setModel(items){
     this.clearGroup(this.originalGroup);this.clearGroup(this.deformedGroup);this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     this.parts=[];
-    const bbox=new THREE.Box3();
+    const bbox=new THREE.Box3(),allBounds=new THREE.Box3();
     for(const piece of items){
       const originalGeom=piece.geometry;
       const copiedGeom=originalGeom.clone();
@@ -83,14 +83,22 @@ export class StructuralScene {
       b.userData=a.userData;
       a.castShadow=b.castShadow=false;
       this.originalGroup.add(a);this.deformedGroup.add(b);
-      bbox.expandByObject(a);
+      allBounds.expandByObject(a);
+      if(!this.hideGround||!isTerrainElement(piece))bbox.expandByObject(a);
       const pos=copiedGeom.getAttribute('position');
       const colors=new Float32Array(pos.count*3);
       for(let j=0;j<pos.count;j++){colors[3*j]=.35;colors[3*j+1]=.72;colors[3*j+2]=.85;}
       copiedGeom.setAttribute('color',new THREE.BufferAttribute(colors,3));
       this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
-    if(bbox.isEmpty())throw new Error('No se ha recibido geometría 3D.');
+    if(allBounds.isEmpty())throw new Error('No se ha recibido geometría 3D.');
+    if(bbox.isEmpty()){
+      // A terrain-only IFC should remain inspectable rather than disappear.
+      this.hideGround=false;
+      const toggle=document.getElementById('hide-ground');
+      if(toggle)toggle.checked=false;
+      bbox.copy(allBounds);
+    }
     this.bounds=bbox;
     const c=bbox.getCenter(new THREE.Vector3());
     this.contentRoot.position.set(-c.x,-c.y,-bbox.min.z);
