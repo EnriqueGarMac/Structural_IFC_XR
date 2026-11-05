@@ -23,9 +23,11 @@ export async function readIFC(file,onProgress=()=>{}) {
       if (count%150===0) onProgress(`Leyendo elementos IFC: ${count} de ${total}…`);
       let name=`IFC #${flatMesh.expressID}`;
       let guid='';
+      let ifcType='';
       try {
         const p=api.GetLine(modelId,flatMesh.expressID);
-        name=p?.Name?.value || `${api.GetNameFromTypeCode(p?.type) || 'IFC'} #${flatMesh.expressID}`;
+        ifcType=api.GetNameFromTypeCode(p?.type)||'';
+        name=p?.Name?.value || `${ifcType || 'IFC'} #${flatMesh.expressID}`;
         guid=p?.GlobalId?.value || '';
       } catch { /* some geometries are not IFC products */ }
       for(let k=0;k<flatMesh.geometries.size();k++){
@@ -48,7 +50,7 @@ export async function readIFC(file,onProgress=()=>{}) {
         wasmGeometry.delete?.();
         const c=pg.color;
         const col=new THREE.Color(Math.max(0,Math.min(1,c?.x??.71)),Math.max(0,Math.min(1,c?.y??.78)),Math.max(0,Math.min(1,c?.z??.84)));
-        items.push({geometry:g,name,guid,expressId:flatMesh.expressID,color:col});
+        items.push({geometry:g,name,guid,ifcType,expressId:flatMesh.expressID,color:col});
       }
     });
   } catch(e){ for(const it of items)it.geometry.dispose(); throw e; }
