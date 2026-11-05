@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude } from './results.mjs';
+import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
 import {isTerrainElement,displayModeVisibility} from './view-filters.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
@@ -175,14 +175,17 @@ export class StructuralScene {
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     if(!this.results)return;
     const nodes=caseNodes(this.results,this.caseName,this.offset);
-    const nodeMap=new Map(nodes.map(n=>[n.id,vector(n)]));
+    const showAnalyticalDeformation=this.showSAPOnly&&this.showDeformed&&
+      Boolean(this.results.cases?.length);
+    const displayedNodes=analyticalNodePositions(nodes,this.amp,showAnalyticalDeformation);
+    const nodeMap=new Map(displayedNodes.map(n=>[n.id,vector(n)]));
     const frameMap=new Map(this.results.frames.map(f=>[f.id,f]));
     if(this.showFrames){
       const points=[];
       for(const f of this.results.frames){const a=nodeMap.get(f.i),b=nodeMap.get(f.j);if(a&&b)points.push(...a.toArray(),...b.toArray());}
       if(points.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
         const line=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x53f0e1,transparent:true,opacity:.85}));this.framesGroup.add(line);}
-      for(const n of nodes){const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),new THREE.MeshBasicMaterial({color:0x82f5d6}));dot.position.copy(vector(n));this.framesGroup.add(dot);}
+      for(const n of displayedNodes){const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),new THREE.MeshBasicMaterial({color:0x82f5d6}));dot.position.copy(vector(n));this.framesGroup.add(dot);}
     }
     this.framesGroup.visible=this.showFrames;
     if(!this.showLoads)return;
