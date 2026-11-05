@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
+import {isTerrainElement,displayModeVisibility} from './view-filters.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -45,7 +46,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showAxes=true;this.isXR=false;this.xrSession=null;
+    this.showFrames=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
     this.renderer.domElement.addEventListener('pointerdown',(evt)=>this.pickStart={x:evt.clientX,y:evt.clientY});
@@ -78,7 +79,7 @@ export class StructuralScene {
       const origMat=new THREE.MeshStandardMaterial({color:piece.color??0xb2c7d1,side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
       const displacedMat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,side:THREE.DoubleSide,roughness:.54,metalness:.04});
       const a=new THREE.Mesh(originalGeom,origMat),b=new THREE.Mesh(copiedGeom,displacedMat);
-      a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId};
+      a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType};
       b.userData=a.userData;
       a.castShadow=b.castShadow=false;
       this.originalGroup.add(a);this.deformedGroup.add(b);
@@ -87,7 +88,7 @@ export class StructuralScene {
       const colors=new Float32Array(pos.count*3);
       for(let j=0;j<pos.count;j++){colors[3*j]=.35;colors[3*j+1]=.72;colors[3*j+2]=.85;}
       copiedGeom.setAttribute('color',new THREE.BufferAttribute(colors,3));
-      this.parts.push({orig:a,deformed:b,base:originalGeom.getAttribute('position').array.slice(), name:piece.name});
+      this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
     if(bbox.isEmpty())throw new Error('No se ha recibido geometría 3D.');
     this.bounds=bbox;
@@ -103,7 +104,7 @@ export class StructuralScene {
     this.maxSize=Math.max(size.x,size.y,size.z,.1);
     this.worldRoot.scale.setScalar(this.targetMeters/this.maxSize);
     this.grid.scale.setScalar(Math.max(.5,this.targetMeters/5));
-    this.grid.visible=this.showAxes;
+    this.grid.visible=this.showAxes&&!this.showSAPOnly&&!this.isXR;
   }
   recenterCamera(){
     if(!this.bounds)return;
@@ -118,15 +119,28 @@ export class StructuralScene {
   setCase(name){this.caseName=name;this.updateVisualization();}
   setPattern(name){this.pattern=name;this.updateVisualization();}
   setOffset(offset){this.offset=offset;this.updateVisualization();}
+  setHideGround(enabled){this.hideGround=!!enabled;this.updateVisualization();}
+  setSAPOnly(enabled){
+    // Avoid showing an empty environment if SAP geometry has not been imported.
+    if(enabled&&(!this.results?.frames?.length||!this.parts.length))return false;
+    this.showSAPOnly=!!enabled;
+    if(enabled)this.showFrames=true;
+    this.updateVisualization();
+    return true;
+  }
   updateVisualization(){
     const hasCases=!!this.results?.cases?.length;
     const nodes=hasCases?caseNodes(this.results,this.caseName,this.offset):[];
     this.maxU=maxDisplacement(nodes);
     const sample=makeDisplacementSampler(nodes);
     const deform=hasCases && this.showDeformed;
-    this.originalGroup.visible=this.showOriginal||!deform;
-    this.deformedGroup.visible=deform;
+    const visibility=displayModeVisibility({showSAPOnly:this.showSAPOnly,
+      hideGround:this.hideGround,showOriginal:this.showOriginal,
+      showDeformed:this.showDeformed,hasCases});
+    this.originalGroup.visible=visibility.original;
+    this.deformedGroup.visible=visibility.deformed;
     for(const part of this.parts){
+      part.orig.visible=part.deformed.visible=!(this.hideGround&&part.terrain);
       part.orig.material.opacity=deform ? 0.20 : 1;
       part.orig.material.depthWrite=!deform;
       if(!deform)continue;
