@@ -6,7 +6,7 @@ Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas apli
 
 
 
-## Realidad mixta interactiva en Meta Quest 3 (XR 0.2)
+## Realidad mixta interactiva en Meta Quest 3 (XR 0.3)
 
 El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de los paneles HTML del navegador. No requiere descargar software. Antes de entrar en **Quest 3 RM**, puedes cargar el IFC y el JSON exportado desde SAP2000, o utilizar el ejemplo incluido. Los resultados del ejemplo son **sintéticos**.
 
@@ -16,10 +16,13 @@ El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de 
 - **Joystick izquierdo**: rotar en los ejes horizontal y vertical; **joystick derecho**: cambiar de tamaño progresivamente.
 - **Botón A/X del mando**: recentrar el menú si lo has movido fuera del campo visual.
 - **Cabecera del menú + gatillo**: arrastrar el menú. Alternativamente, pulsa **Mover menú**, señala el destino y vuelve a pulsar el gatillo para dejarlo fijo.
-- **Análisis y deformadas**: pasar entre casos y patrones de cargas SAP, modificar amplificación visual de desplazamientos y alternar la geometría original, deformadas y cargas.
-- **Capas y elementos**: activar/desactivar IFC, deformada, fuerzas, barras analíticas SAP y ejes.
+- **Análisis y deformadas**: pasar entre casos y patrones de cargas SAP y **arrastrar el nuevo slider de amplificación con el gatillo** (×0–×150, paso de 1). Los botones −/+ ajustan en pasos de 5. El cambio es exclusivamente visual, no modifica los resultados del análisis.
+- **Modo «Solo SAP»**: desde «Análisis y deformadas» o «Capas y elementos», oculta toda la geometría IFC original y deformada, dejando únicamente las barras analíticas, nudos y cargas procedentes del JSON de SAP2000. Requiere un modelo IFC cargado y un JSON SAP con barras. Se pueden mantener las cargas encendidas/apagadas por separado. Esta vista es un esquema analítico de líneas/nudos, no una recreación de vigas sólidas calculadas por SAP2000.
+- **Capas y elementos**: activar/desactivar IFC, deformada, fuerzas, barras analíticas SAP y ejes. Contiene también **«Terreno y cimentación: ocultos»**, activado por defecto y reversible. En la demo desaparece la base de cimentación, **pero permanece el forjado de cubierta**. En un IFC externo se identifican elementos como `IfcSite`, `IfcGeographicElement`, `IfcFooting` y nombres habituales de terreno/cimentación. Las losas `IfcSlab`, vigas y pilares permanecen visibles. En IFC con clasificaciones o nombres atípicos es posible que haya que refinar el filtro.
 - **Colocación en la sala**: si Quest Browser admite WebXR \`hit-test\`, apuntar a una superficie horizontal para colocar el modelo y mostrar una sombra **de contacto aproximada**. El visor no reconstruye la habitación ni mide automáticamente el tamaño de la mesa en esta versión.
 - **Recentrar estructura**: devuelve el modelo a su posición inicial.
+
+El filtro de terreno y el modo Solo SAP también pueden activarse desde el panel web de escritorio. El slider de deformada de escritorio permite ahora pasos de 1.
 
 El menú se crea mediante una textura de canvas sobre un plano Three.js, con selección usando los rayos de los mandos. Las dimensiones del modelo están en metros visualizados y **no constituyen una nueva escala física del IFC/SAP ni modifican los resultados numéricos**. El modelo y los resultados SAP se transforman juntos para no desalinearse. Los valores \`u\` no cambian cuando aumenta la amplificación, solo lo hace la representación.
 
@@ -28,7 +31,7 @@ El recorte cercano WebXR se ajusta a 2,5 cm para poder inspeccionar los detalles
 
 ## Publicación directa en GitHub Pages (sin PC Windows)
 
-Esta distribución incluye `.github/workflows/ci.yml` para verificar la compilación y `.github/workflows/pages.yml` para publicar en GitHub Pages **solo cuando lo ejecutes manualmente**. Consulta **[GITHUB_PAGES.md](GITHUB_PAGES.md)** para instrucciones completas. No es necesario construir en Windows para ejecutar la web; **solo el exportador COM de SAP2000 necesita Windows**.
+Esta distribución incluye `.github/workflows/ci.yml` para verificar la compilación y `.github/workflows/pages.yml` para publicar en GitHub Pages **automáticamente al actualizar la rama main**, además de permitir publicación manual. Consulta **[GITHUB_PAGES.md](GITHUB_PAGES.md)** para instrucciones completas. No es necesario construir en Windows para ejecutar la web; **solo el exportador COM de SAP2000 necesita Windows**.
 
 ## 1. Probar en Windows / PC (recomendado)
 
