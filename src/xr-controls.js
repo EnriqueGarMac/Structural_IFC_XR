@@ -15,7 +15,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';
-    this.dirty=true;this.drag=null;this.placeMode=false;this.latestHit=null;
+    this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=true;this.hitAvailable=false;this.latestHit=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -69,14 +69,16 @@ export class StructuralXRControls {
   start(session){
     this.session=session;
     this.initializedPose=false;this.panel.visible=true;
-    this.page='main';this.dirty=true;this.placeMode=false;
+    this.page='main';this.dirty=true;this.placeMode=false;this.moveMenu=false;
+    this.hitAvailable=typeof session.requestHitTestSource==='function' &&
+      (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
     this.app.worldRoot.quaternion.copy(this.baseQuat);
     this.app.worldRoot.position.copy(this.basePosition);
     this.contact.visible=false;
   }
   stop(){
     this.session=null;this.panel.visible=false;this.reticle.visible=false;
-    this.contact.visible=false;this.placeMode=false;this.drag=null;
+    this.contact.visible=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
     for(const h of this.hitSources.values())h.source?.cancel();
     this.hitSources.clear();this.hitByInput.clear();
     this.app.worldRoot.position.set(0,0,0);
@@ -121,6 +123,11 @@ export class StructuralXRControls {
   }
   onSelectStart(controller){
     if(!this.session)return;
+    if(this.moveMenu){
+      // Second trigger confirms the current panel placement even when
+      // the menu is physically following the ray.
+      this.moveMenu=false;this.dirty=true;return;
+    }
     if(this.placeMode){
       // Buttons remain usable while scanning, but other clicks place the model.
       const menuHit=this._menuHit(controller);
@@ -278,7 +285,10 @@ export class StructuralXRControls {
     if(id==='back'){this.page='main';}
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='exit'){this.session?.end();return;}
-    else if(id==='menu-move'){this.moveMenu=!this.moveMenu;}
+    else if(id==='menu-move'){
+      this.moveMenu=!this.moveMenu;
+      // The first click only arms placement; the following click pins the panel.
+    }
     else if(id==='reset-model'){
       app.worldRoot.position.copy(this.basePosition);
       app.worldRoot.quaternion.copy(this.baseQuat);
@@ -398,10 +408,13 @@ export class StructuralXRControls {
           this.app.worldRoot.quaternion.premultiply(q);
         }
       }else if(source.handedness==='right'&&Math.abs(y)>.16){
-        const newSize=snapModelSize(this.app.targetMeters,-y*dt*1.3);
-        if(newSize!==this.app.targetMeters){
+        // Continuous scaling: rounding on every frame would swallow small
+        // joystick increments, so quantize the label, not the actual size.
+        const newSize=clamp(this.app.targetMeters-y*dt*1.3,0.4,5);
+        if(Math.abs(newSize-this.app.targetMeters)>1e-6){
           this.app.targetMeters=newSize;this.app.updateScale();this.dirty=true;
-          $('model-size').value=String(newSize);$('size-value').textContent=newSize.toFixed(1)+' m';
+          $('model-size').value=String(newSize);
+          $('size-value').textContent=newSize.toFixed(1)+' m';
         }
       }
     }
