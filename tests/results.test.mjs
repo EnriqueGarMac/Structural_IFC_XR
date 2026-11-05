@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeResults,caseNodes,interpolateDisplacement,maxDisplacement,selectedLoads } from '../src/results.mjs';
+import { normalizeResults,caseNodes,interpolateDisplacement,maxDisplacement,selectedLoads,analyticalNodePositions } from '../src/results.mjs';
 const good={nodes:[{id:'A',x:0,y:0,z:0},{id:'B',x:2,y:0,z:0}],frames:[{id:'E',i:'A',j:'B'}],loads:[{frame:'E',pattern:'G',w1:-2,w2:-4}],cases:[{name:'LC1',displacements:[{node:'A',ux:0,uy:0,uz:0},{node:'B',ux:0,uy:0,uz:-.01}]}]};
 test('validate units and identifiers',()=>{
   const s=normalizeResults(good);
@@ -34,4 +34,19 @@ test('spatial index matches exact displacement at a large model joint',()=>{
   const sampleNodes=Array.from({length:100},(_,i)=>({x:i,y:(i%5)*3,z:0,ux:.001*i,uy:0,uz:-.002*i,magnitude:.002*i}));
   const fn=makeDisplacementSampler(sampleNodes);
   assert.deepEqual(fn(53,9,0),[.053,0,-.106,.106]);
+});
+
+test('SAP-only analytic bars follow amplified case nodal displacements',()=>{
+  const original=caseNodes(normalizeResults(good),'LC1');
+  const displaced=analyticalNodePositions(original,50,true);
+  assert.equal(displaced[0].z,0);
+  assert.ok(Math.abs(displaced[1].z-(-.5))<1e-12);
+  assert.equal(original[1].z,0);
+  assert.equal(displaced[1].uz,-.01);
+  assert.equal(maxDisplacement(displaced),.01);
+});
+test('SAP frame coordinates remain undeformed when amplification is disabled',()=>{
+  const original=caseNodes(normalizeResults(good),'LC1');
+  assert.equal(analyticalNodePositions(original,150,false),original);
+  assert.equal(analyticalNodePositions(original,0,true)[1].z,0);
 });
