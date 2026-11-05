@@ -28,3 +28,11 @@ export function nextUniquePattern(loads,current,delta){
   const index=values.indexOf(current);
   return values[rotateIndex(index===-1?0:index,delta,values.length)];
 }
+
+export function amplificationFromSliderX(x,left=163,right=604,max=150) {
+  const ratio=clamp((x-left)/(right-left),0,1);
+  return Math.round(ratio*max);
+}
+export function sliderXFromAmplification(value,left=163,right=604,max=150) {
+  return left+clamp(value/max,0,1)*(right-left);
+}
