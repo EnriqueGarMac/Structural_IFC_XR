@@ -5,6 +5,26 @@ Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas apli
 **Estado:** prototipo 0.1.0, no es una herramienta de cálculo ni de verificación estructural. La demo contiene **resultados sintéticos**, no extraídos de SAP2000. La conexión COM con SAP2000 requiere verificarse en tu instalación.
 
 
+
+## Realidad mixta interactiva en Meta Quest 3 (XR 0.2)
+
+El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de los paneles HTML del navegador. No requiere descargar software. Antes de entrar en **Quest 3 RM**, puedes cargar el IFC y el JSON exportado desde SAP2000, o utilizar el ejemplo incluido. Los resultados del ejemplo son **sintéticos**.
+
+- **Gatillo sobre los botones del menú**: navegar por **Análisis y deformadas**, **Capas y elementos** y **Colocación en la sala**.
+- **Gatillo sobre un elemento estructural**: seleccionarlo y mostrar su nombre/identificador. Mantener pulsado y girar el mando para **rotar el modelo IFC y las superposiciones SAP conjuntamente**.
+- **Botón lateral de agarre**: mover la estructura con el mando.
+- **Joystick izquierdo**: rotar en los ejes horizontal y vertical; **joystick derecho**: cambiar de tamaño progresivamente.
+- **Cabecera del menú + gatillo**: arrastrar el menú. Alternativamente, pulsa **Mover menú**, señala el destino y vuelve a pulsar el gatillo para dejarlo fijo.
+- **Análisis y deformadas**: pasar entre casos y patrones de cargas SAP, modificar amplificación visual de desplazamientos y alternar la geometría original, deformadas y cargas.
+- **Capas y elementos**: activar/desactivar IFC, deformada, fuerzas, barras analíticas SAP y ejes.
+- **Colocación en la sala**: si Quest Browser admite WebXR \`hit-test\`, apuntar a una superficie horizontal para colocar el modelo y mostrar una sombra **de contacto aproximada**. El visor no reconstruye la habitación ni mide automáticamente el tamaño de la mesa en esta versión.
+- **Recentrar estructura**: devuelve el modelo a su posición inicial.
+
+El menú se crea mediante una textura de canvas sobre un plano Three.js, con selección usando los rayos de los mandos. Las dimensiones del modelo están en metros visualizados y **no constituyen una nueva escala física del IFC/SAP ni modifican los resultados numéricos**. El modelo y los resultados SAP se transforman juntos para no desalinearse. Los valores \`u\` no cambian cuando aumenta la amplificación, solo lo hace la representación.
+
+El recorte cercano WebXR se ajusta a 2,5 cm para poder inspeccionar los detalles de la estructura de cerca. Las funciones experimentales (interacción con los mandos y superficie real) están verificadas por compilación y pruebas automáticas, pero no se han validado físicamente en unas Quest 3 en esta sesión.
+
+
 ## Publicación directa en GitHub Pages (sin PC Windows)
 
 Esta distribución incluye `.github/workflows/ci.yml` para verificar la compilación y `.github/workflows/pages.yml` para publicar en GitHub Pages **solo cuando lo ejecutes manualmente**. Consulta **[GITHUB_PAGES.md](GITHUB_PAGES.md)** para instrucciones completas. No es necesario construir en Windows para ejecutar la web; **solo el exportador COM de SAP2000 necesita Windows**.
