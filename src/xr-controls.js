@@ -17,7 +17,7 @@ export class StructuralXRControls {
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';
     this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=true;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
-    this.session=null;this.initializedPose=false;
+    this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
     this.ctx=this.canvas.getContext('2d');
     this.texture=new THREE.CanvasTexture(this.canvas);
@@ -80,7 +80,7 @@ export class StructuralXRControls {
     this.session=null;this.panel.visible=false;this.reticle.visible=false;
     this.contact.visible=false;this.hasPlacedSurface=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
     for(const h of this.hitSources.values())h.source?.cancel();
-    this.hitSources.clear();this.hitByInput.clear();
+    this.hitSources.clear();this.hitByInput.clear();this.buttonLatches.clear();
     this.app.worldRoot.position.set(0,0,0);
     this.app.worldRoot.quaternion.copy(this.baseQuat);
   }
@@ -227,6 +227,7 @@ export class StructuralXRControls {
       btn('reset-model','Recentrar estructura',38,769,335,76);
       btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
       txt(dataPresent?'Resultados importados o de ejemplo activos':'Sin resultados SAP importados',38,889,19);
+      txt('A / X: recuperar menú ante tus ojos',38,920,18);
       btn('exit','SALIR DE REALIDAD MIXTA',38,960,692,83);
     }else if(this.page==='results'){
       btn('back','‹ Volver',38,117,230,66);
@@ -388,14 +389,17 @@ export class StructuralXRControls {
     }
     const dt=Math.min(.05,Math.max(0,(time-(this.lastFrameTime||time))/1000));
     this.lastFrameTime=time;
+    let hovered=null;
     for(const {controller,rayLine} of this.controllers){
       if(!controller.userData.xrInput)continue;
       const hit=this._menuHit(controller);
-      if(hit?.item?.id!==this.hoverId){
-        this.hoverId=hit?.item?.id??null;this.dirty=true;
-      }
+      hovered??=hit?.item?.id??null;
       rayLine.scale.z=hit?.intersection?.distance||2.8;
-      const source=controller.userData.xrInput,axes=source.gamepad?.axes;
+      const source=controller.userData.xrInput;
+      const resetPressed=!!source.gamepad?.buttons?.[4]?.pressed;
+      if(resetPressed&&!this.buttonLatches.get(source))this.resetPanel();
+      this.buttonLatches.set(source,resetPressed);
+      const axes=source.gamepad?.axes;
       if(!axes||axes.length<2||this.drag)continue;
       const x=axes.length>3?axes[2]:axes[0],y=axes.length>3?axes[3]:axes[1];
       if(source.handedness==='left'){
@@ -419,6 +423,7 @@ export class StructuralXRControls {
         }
       }
     }
+    if(hovered!==this.hoverId){this.hoverId=hovered;this.dirty=true;}
     if(this.moveMenu&&!this.drag){
       const ctrl=this.controllers.find(x=>x.controller.userData.xrInput)?.controller;
       if(ctrl){
