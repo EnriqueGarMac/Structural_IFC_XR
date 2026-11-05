@@ -67,10 +67,24 @@ $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value))
 const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-axes':'showAxes' };
 for(const [id,key]of Object.entries(showControls)){
   $(id).addEventListener('change',e=>{app[key]=e.target.checked;app.axes.visible=app.showAxes;
-    if(id==='show-axes'){app.grid.visible=app.showAxes&&!app.isXR;return;}
+    if(id==='show-axes'){
+      app.axes.visible=app.showAxes&&!app.showSAPOnly;
+      app.grid.visible=app.showAxes&&!app.isXR&&!app.showSAPOnly;
+      return;
+    }
     app.updateVisualization();
   });
 }
+$('show-sap-only').addEventListener('change',e=>{
+  if(!app.setSAPOnly(e.target.checked)){
+    e.target.checked=app.showSAPOnly;
+    info('Para mostrar solo SAP2000, importa un JSON con barras analíticas y carga un modelo IFC.',true);
+    return;
+  }
+  $('show-frames').checked=app.showFrames;
+  info(app.showSAPOnly?'Vista analítica SAP2000 activa: IFC oculto.':'Vista combinada IFC + SAP2000 activa.');
+});
+$('hide-ground').addEventListener('change',e=>app.setHideGround(e.target.checked));
 $('amp').addEventListener('input',e=>{app.amp=Number(e.target.value);$('amp-value').textContent=`×${app.amp}`;app.updateVisualization();});
 $('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(1)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
 $('apply-offset').addEventListener('click',()=>{
