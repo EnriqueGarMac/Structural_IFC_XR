@@ -128,7 +128,7 @@ export class StructuralScene {
     this.updateVisualization();
     return true;
   }
-  updateVisualization(){
+  updateVisualization(rebuildOverlays=true){
     const hasCases=!!this.results?.cases?.length;
     const nodes=hasCases?caseNodes(this.results,this.caseName,this.offset):[];
     this.maxU=maxDisplacement(nodes);
@@ -162,7 +162,7 @@ export class StructuralScene {
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
-    this.updateOverlays();
+    if(rebuildOverlays)this.updateOverlays();
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
