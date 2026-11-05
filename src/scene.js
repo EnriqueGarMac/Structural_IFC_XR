@@ -134,6 +134,8 @@ export class StructuralScene {
     this.maxU=maxDisplacement(nodes);
     const sample=makeDisplacementSampler(nodes);
     const deform=hasCases && this.showDeformed;
+    this.axes.visible=this.showAxes&&!this.showSAPOnly;
+    this.grid.visible=this.showAxes&&!this.isXR&&!this.showSAPOnly;
     const visibility=displayModeVisibility({showSAPOnly:this.showSAPOnly,
       hideGround:this.hideGround,showOriginal:this.showOriginal,
       showDeformed:this.showDeformed,hasCases});
