@@ -307,16 +307,22 @@ export class StructuralScene {
     // Geometries and materials are shared by these shadow surrogates.
   }
   enableMobileCastShadows(){
-    this.worldRoot.traverse(obj=>{
-      if(!obj.isMesh)return;
-      if(!this.mobileCastShadowState.has(obj))
-        this.mobileCastShadowState.set(obj,obj.castShadow);
-      obj.castShadow=true;
-    });
+    // Only stable IFC parts belong in the persistent map. Transient SAP
+    // overlays are rebuilt when changing load cases or amplification.
+    for(const group of [this.originalGroup,this.deformedGroup]){
+      group.traverse(obj=>{
+        if(!obj.isMesh)return;
+        if(!this.mobileCastShadowState.has(obj))
+          this.mobileCastShadowState.set(obj,obj.castShadow);
+        obj.castShadow=true;
+      });
+    }
+    this.framesGroup.traverse(obj=>{if(obj.isMesh)obj.castShadow=true;});
   }
   disableMobileCastShadows(){
     for(const [obj,original] of this.mobileCastShadowState)obj.castShadow=original;
     this.mobileCastShadowState.clear();
+    this.framesGroup.traverse(obj=>{if(obj.isMesh)obj.castShadow=false;});
   }
   positionMobileShadow(point,normal=[0,1,0]){
     if(!point)return;
