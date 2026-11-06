@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {caseNodes,analyticalNodePositions} from './results.mjs';
 import {makeDeformationExportMaterial} from './mobile-palette.js';
+import {createBakedShadow} from './mobile-shadow.js';
 
 // A snapshot exporter for AR Quick Look. The USDZ is created locally on the
 // user's iPhone from the currently loaded IFC/SAP geometry; no server upload.
@@ -79,8 +80,9 @@ export function buildStructuralARScene(app,maximumTriangles=150000){
     throw e;
   }
 }
-export async function exportStructuralUSDZ(app){
+export async function exportStructuralUSDZ(app,options={}){
   const scene=buildStructuralARScene(app);
+  if(options.includeShadow!==false)createBakedShadow(scene);
   try{
     const {USDZExporter}=await import('three/addons/exporters/USDZExporter.js');
     const buffer=await new USDZExporter().parseAsync(scene,{
