@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
 import {isTerrainElement,displayModeVisibility} from './view-filters.mjs';
+import {makeStructuralGroundGrid,makeColumnFootMarkers} from './ground-reference.js';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -69,7 +70,12 @@ export class StructuralScene {
     this.mobileSAPShadowGroup.visible=false;
     this.contentRoot.add(this.mobileSAPShadowGroup);
     this.grid=new THREE.GridHelper(11,22,0x557b89,0x244453);
-    this.grid.material.opacity=.35;this.grid.material.transparent=true;this.scene.add(this.grid);
+    // Structural coordinates are Z-up. The reference must share the same
+    // parent transform as the structure and rotate into the XY ground plane.
+    this.grid.rotation.x=Math.PI/2;
+    this.worldRoot.add(this.grid);
+    this.groundMarkers=new THREE.Group();
+    this.worldRoot.add(this.groundMarkers);
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
@@ -134,6 +140,12 @@ export class StructuralScene {
       bbox.copy(allBounds);
     }
     this.bounds=bbox;
+    // Rebuild the reference for the actual footprint, instead of a small
+    // fixed-size helper in unrelated scene coordinates.
+    this.worldRoot.remove(this.grid);
+    this.grid.geometry.dispose();this.grid.material.dispose();
+    this.grid=makeStructuralGroundGrid(bbox);
+    this.worldRoot.add(this.grid);
     const c=bbox.getCenter(new THREE.Vector3());
     // Demo roof coordinates are already engineering coordinates: the
     // pillar-foot level is Z=0 and the centre of the plan is X=Y=0.
@@ -142,7 +154,11 @@ export class StructuralScene {
     const fixedStructuralOrigin=items.length>0&&items.every(
       piece=>piece.preserveStructuralOrigin===true
     );
+    this.clearGroup(this.groundMarkers);
     if(fixedStructuralOrigin){
+      // Highlight all ten column feet exactly on the Z=0 structural plane.
+      const footMarkers=makeColumnFootMarkers(items);
+      this.groundMarkers.add(...footMarkers.children);
       this.contentRoot.position.set(0,0,0);
       this.axes.position.set(0,0,0);
     }else{
@@ -157,8 +173,9 @@ export class StructuralScene {
     const size=this.bounds.getSize(new THREE.Vector3());
     this.maxSize=Math.max(size.x,size.y,size.z,.1);
     this.worldRoot.scale.setScalar(this.targetMeters/this.maxSize);
-    this.grid.scale.setScalar(Math.max(.5,this.targetMeters/5));
+    // The grid now inherits the exact same worldRoot scale as the columns.
     this.grid.visible=this.showAxes&&!this.showSAPOnly&&!this.isXR;
+    this.groundMarkers.visible=this.grid.visible;
   }
   recenterCamera(){
     if(!this.bounds)return;
@@ -190,6 +207,7 @@ export class StructuralScene {
     const deform=hasCases && this.showDeformed;
     this.axes.visible=this.showAxes&&!this.showSAPOnly;
     this.grid.visible=this.showAxes&&!this.isXR&&!this.showSAPOnly;
+    this.groundMarkers.visible=this.grid.visible;
     const visibility=displayModeVisibility({showSAPOnly:this.showSAPOnly,
       hideGround:this.hideGround,showOriginal:this.showOriginal,
       showDeformed:this.showDeformed,hasCases});
@@ -459,7 +477,9 @@ export class StructuralScene {
       this.xrSession=null;this.isXR=false;
       this.stopMobileAR();
       this.xrControls.stop();
-      this.grid.visible=this.showAxes&&!this.showSAPOnly;this.controls.enabled=true;
+      this.grid.visible=this.showAxes&&!this.showSAPOnly;
+      this.groundMarkers.visible=this.grid.visible;
+      this.controls.enabled=true;
       this.onXREnd?.();
     });
     try{
