@@ -245,9 +245,10 @@ export class StructuralXRControls {
       btn('size:+','+',586,645,144,78);
       btn('reset-model','Recentrar estructura',38,769,335,76);
       btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
-      txt(dataPresent?'Resultados importados o de ejemplo activos':'Sin resultados SAP importados',38,889,19);
-      txt('A / X: recuperar menú ante tus ojos',38,920,18);
-      btn('exit','SALIR DE REALIDAD MIXTA',38,960,692,83);
+      txt('CAMBIAR EJEMPLO SIN SALIR DE RM',38,861,18,'#afcdd7');
+      btn('demo-frame','PÓRTICO',38,880,335,67);
+      btn('demo-roof','CUBIERTA CELOSÍA',395,880,335,67,true);
+      btn('exit','SALIR DE REALIDAD MIXTA',38,979,692,77);
     }else if(this.page==='results'){
       btn('back','‹ Volver',38,117,230,66);
       txt('RESULTADOS ESTRUCTURALES',38,225,28,'#e6f6fc');
@@ -321,6 +322,13 @@ export class StructuralXRControls {
     if(id==='back'){this.page='main';}
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='exit'){this.session?.end();return;}
+    else if(id==='demo-frame'||id==='demo-roof'){
+      const button=$((id==='demo-roof')?'roof-demo-btn':'demo-btn');
+      button?.click();
+      this.selected='—';
+      this.notice='Ejemplo sintético cargado. No procede de SAP2000.';
+      this.dirty=true;
+    }
     else if(id==='menu-move'){
       this.moveMenu=!this.moveMenu;
       // The first click only arms placement; the following click pins the panel.
