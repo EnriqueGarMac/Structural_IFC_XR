@@ -162,6 +162,15 @@ function orientedBox(a,b,width,depth){
   geom.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(
     new THREE.Vector3(1,0,0),axis.normalize()));
   geom.translate(...start.clone().add(end).multiplyScalar(.5).toArray());
+  if(Math.min(a[2],b[2])===0){
+    // Float32 rotations/translations can shift the column foot by a few
+    // micrometres. Snap the lower face exactly to engineering level Z=0.
+    const positions=geom.getAttribute('position');
+    for(let i=0;i<positions.count;i++){
+      if(Math.abs(positions.getZ(i))<1e-4)positions.setZ(i,0);
+    }
+    positions.needsUpdate=true;
+  }
   return geom;
 }
 function boxAt(cx,cy,cz,sx,sy,sz){
