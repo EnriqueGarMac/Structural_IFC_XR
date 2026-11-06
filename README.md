@@ -1,3 +1,7 @@
+🌐 **[Abrir Structural IFC XR — aplicación web](https://enriquegarmac.github.io/Structural_IFC_XR/)**
+
+> Acceso directo desde el navegador, también desde Meta Quest 3. Sin instalar nada.
+
 # IMIS Structural XR — IFC + SAP2000 + Meta Quest 3
 
 Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas aplicadas a barras** y **deformadas nodales de SAP2000** en escritorio, webcam y realidad mixta en Meta Quest 3.
