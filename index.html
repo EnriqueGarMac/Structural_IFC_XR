@@ -20,7 +20,16 @@
           <input hidden id="ifc-input" type="file" accept=".ifc,.IFC" />
           <input hidden id="sap-input" type="file" accept=".json,application/json" />
         </div>
-        <button class="demo-btn" id="demo-btn" type="button">▷ Ver ejemplo estructural incluido</button>
+        <div class="section-label demo-section-label">EJEMPLOS INTERACTIVOS</div>
+        <div class="demo-grid" role="group" aria-label="Elegir modelo de demostración">
+          <button class="demo-btn is-current" id="demo-btn" type="button" aria-pressed="true">
+            <span class="demo-icon">▦</span><strong>Pórtico</strong><small>8 × 6 m · hormigón</small>
+          </button>
+          <button class="demo-btn demo-roof" id="roof-demo-btn" type="button" aria-pressed="false">
+            <span class="demo-icon">⌂</span><strong>Cubierta en celosía</strong><small>18 × 24 m · acero</small>
+          </button>
+        </div>
+        <p class="demo-disclaimer">Geometría y resultados de demostración sintéticos. No proceden de SAP2000.</p>
         <div class="file-state" id="model-state">Modelo: —</div>
         <div class="file-state" id="sap-state">Resultados: —</div>
         <div class="separator"></div>
