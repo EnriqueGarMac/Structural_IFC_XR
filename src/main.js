@@ -112,7 +112,70 @@ $('btn-xr').addEventListener('click',async()=>{
   try{if(webcamStream)await setWebcam(false);await app.enterXR();$('btn-xr').textContent='◎ Salir de RM';}
   catch(err){info(`WebXR: ${err.message}`,true);}
 });
-app.onXREnd=()=>{$('btn-xr').textContent='◉ Quest 3 RM';};
+
+app.onXREnd=()=>{
+  $('btn-xr').textContent='◉ Quest 3 RM';
+  $('btn-mobile-ar').textContent='▣ AR móvil';
+};
+$('mobile-ar-overlay').addEventListener('beforexrselect',e=>e.preventDefault());
+$('mobile-ar-place').addEventListener('click',()=>{
+  if(app.mobileARState)app.mobileARState.placeRequested=true;
+});
+$('mobile-ar-redetect').addEventListener('click',()=>app.resetMobilePlacement());
+function adjustMobileSize(delta){
+  app.targetMeters=Math.max(.4,Math.min(5,Math.round((app.targetMeters+delta)*10)/10));
+  $('model-size').value=String(app.targetMeters);
+  $('model-size').dispatchEvent(new Event('input'));
+}
+$('mobile-ar-smaller').addEventListener('click',()=>adjustMobileSize(-.2));
+$('mobile-ar-larger').addEventListener('click',()=>adjustMobileSize(.2));
+$('mobile-ar-amp').addEventListener('input',e=>{
+  $('amp').value=e.target.value;
+  $('amp').dispatchEvent(new Event('input'));
+  $('mobile-ar-amp-value').textContent='×'+app.amp;
+});
+$('mobile-ar-sap-only').addEventListener('click',()=>{
+  $('show-sap-only').checked=!app.showSAPOnly;
+  $('show-sap-only').dispatchEvent(new Event('change'));
+  $('mobile-ar-sap-only').textContent='Solo SAP: '+(app.showSAPOnly?'SÍ':'NO');
+});
+$('mobile-ar-exit').addEventListener('click',()=>app.xrSession?.end());
+$('mobile-ios-close').addEventListener('click',()=>{$('mobile-ios-actions').hidden=true;});
+function isIOSDevice(){
+  return /iPhone|iPad|iPod/.test(navigator.userAgent)||
+    (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+}
+let iosBlobURL=null,iosWorking=false;
+async function prepareQuickLook(){
+  if(iosWorking)return;
+  iosWorking=true;
+  const panel=$('mobile-ios-actions'),status=$('mobile-ios-status'),anchor=$('mobile-ios-open');
+  panel.hidden=false;anchor.hidden=true;
+  status.textContent='Preparando el modelo 3D para AR Quick Look…';
+  try{
+    const {exportStructuralUSDZ}=await import('./mobile-usdz.js');
+    const blob=await exportStructuralUSDZ(app);
+    if(iosBlobURL)URL.revokeObjectURL(iosBlobURL);
+    iosBlobURL=URL.createObjectURL(blob);
+    anchor.href=iosBlobURL;anchor.hidden=false;
+    status.textContent='Modelo preparado. Pulsa «Abrir en AR Quick Look».';
+  }catch(e){status.textContent='No se pudo preparar AR: '+e.message;}
+  finally{iosWorking=false;}
+}
+$('btn-mobile-ar').addEventListener('click',async()=>{
+  if(isIOSDevice())return prepareQuickLook();
+  try{
+    if(!navigator.xr||!await navigator.xr.isSessionSupported('immersive-ar'))
+      throw Error('Este móvil no admite WebXR AR. En Android utiliza Chrome y Servicios de Google Play para RA.');
+    $('mobile-ar-amp').value=String(app.amp);
+    $('mobile-ar-amp-value').textContent='×'+app.amp;
+    $('mobile-ar-sap-only').textContent='Solo SAP: '+(app.showSAPOnly?'SÍ':'NO');
+    if(app.xrSession)await app.xrSession.end();
+    await app.enterXR({mobile:true});
+    $('btn-mobile-ar').textContent='▣ Salir de AR móvil';
+  }catch(e){info('AR móvil: '+e.message,true);}
+});
+
 (async()=>{
   const xrOK=await app.webXRSupported();
   $('xr-status').textContent=xrOK?'Quest RM disponible':'Quest RM: abrir con Quest Browser + HTTPS';
