@@ -36,6 +36,30 @@ export class StructuralScene {
     this.scene.add(new THREE.HemisphereLight(0xd9f3ff,0x304a63,2.2));
     const key=new THREE.DirectionalLight(0xfff7e7,3.4);key.position.set(5,9,6);this.scene.add(key);
     const rim=new THREE.DirectionalLight(0x72cdeb,1.2);rim.position.set(-5,4,-6);this.scene.add(rim);
+    // Mobile passthrough: real-time simulated shadows on a fully transparent
+    // support plane. Does not change the physical lighting of the room.
+    this.mobileShadowLight=new THREE.DirectionalLight(0xffffff,1.65);
+    this.mobileShadowLight.position.set(3,6,4);
+    this.mobileShadowLight.castShadow=true;
+    this.mobileShadowLight.shadow.mapSize.set(1024,1024);
+    this.mobileShadowLight.shadow.camera.left=-8;
+    this.mobileShadowLight.shadow.camera.right=8;
+    this.mobileShadowLight.shadow.camera.top=8;
+    this.mobileShadowLight.shadow.camera.bottom=-8;
+    this.mobileShadowLight.shadow.camera.near=.05;
+    this.mobileShadowLight.shadow.camera.far=40;
+    this.mobileShadowLight.shadow.bias=-.00015;
+    this.mobileShadowLight.shadow.normalBias=.025;
+    this.mobileShadowLight.visible=false;
+    this.scene.add(this.mobileShadowLight,this.mobileShadowLight.target);
+    this.mobileShadowPlane=new THREE.Mesh(
+      new THREE.PlaneGeometry(24,24),
+      new THREE.ShadowMaterial({color:0x091119,opacity:.36,depthWrite:false,side:THREE.DoubleSide})
+    );
+    this.mobileShadowPlane.rotation.x=-Math.PI/2;
+    this.mobileShadowPlane.receiveShadow=true;
+    this.mobileShadowPlane.visible=false;
+    this.scene.add(this.mobileShadowPlane);
     this.worldRoot=new THREE.Group();this.worldRoot.rotation.x=-Math.PI/2;this.scene.add(this.worldRoot);
     this.contentRoot=new THREE.Group();this.worldRoot.add(this.contentRoot);
     this.originalGroup=new THREE.Group();this.deformedGroup=new THREE.Group();
@@ -48,6 +72,7 @@ export class StructuralScene {
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;
     this.mobileAR=false;this.mobileARState=null;
+    this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
     this.renderer.domElement.addEventListener('pointerdown',(evt)=>this.pickStart={x:evt.clientX,y:evt.clientY});
@@ -205,6 +230,7 @@ export class StructuralScene {
       for(const n of displayedNodes){const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),new THREE.MeshBasicMaterial({color:0x82f5d6}));dot.position.copy(vector(n));this.framesGroup.add(dot);}
     }
     this.framesGroup.visible=this.showFrames;
+    if(this.mobileAR)this.enableMobileCastShadows();
     if(!this.showLoads)return;
     const loads=selectedLoads(this.results,this.pattern).filter(l=>l.type==='force_per_length');
     const maxW=Math.max(1,...loads.map(loadMagnitude));
@@ -244,11 +270,40 @@ export class StructuralScene {
     if(hit){const u=hit.object.userData;const id=u.guid?` · GUID ${u.guid}`:'';
       this.onSelection?.(`${u.name}${id}`);}
   }
+  enableMobileCastShadows(){
+    this.worldRoot.traverse(obj=>{
+      if(!obj.isMesh)return;
+      if(!this.mobileCastShadowState.has(obj))
+        this.mobileCastShadowState.set(obj,obj.castShadow);
+      obj.castShadow=true;
+    });
+  }
+  disableMobileCastShadows(){
+    for(const [obj,original] of this.mobileCastShadowState)obj.castShadow=original;
+    this.mobileCastShadowState.clear();
+  }
+  positionMobileShadow(point,normal=[0,1,0]){
+    if(!point)return;
+    this.mobileShadowPlane.position.copy(point).addScaledVector(new THREE.Vector3(...normal),.004);
+    const n=new THREE.Vector3(...normal).normalize();
+    this.mobileShadowPlane.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),n);
+    // PlaneGeometry is XY with +Z normal; align it to the surface normal.
+    this.mobileShadowLight.target.position.copy(point);
+    this.mobileShadowLight.position.copy(point).add(new THREE.Vector3(3.5,7,4));
+    this.mobileShadowLight.target.updateMatrixWorld();
+    this.mobileShadowPlane.visible=true;
+  }
   async startMobileAR(session){
     const st={session,source:null,preview:null,scanning:true,placeRequested:false,placed:false};
     this.mobileARState=st;
     this.xrControls.reticle.visible=false;
     this.xrControls.contact.visible=false;
+    this.mobileOriginalShadowMap=this.renderer.shadowMap.enabled;
+    this.renderer.shadowMap.enabled=true;
+    this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    this.mobileShadowLight.visible=true;
+    this.mobileShadowPlane.visible=false;
+    this.enableMobileCastShadows();
     const status=document.getElementById('mobile-ar-status');
     if(status)status.textContent='Apunta hacia una mesa o al suelo.';
     const capability=typeof session.requestHitTestSource==='function'&&
@@ -280,6 +335,7 @@ export class StructuralScene {
           const normal=[m[4],m[5],m[6]];
           if(normal[1]/(Math.hypot(...normal)||1)<.72)continue;
           st.preview=new THREE.Vector3(m[12],m[13],m[14]);
+          st.previewNormal=normal;
           break;
         }
       }catch{st.preview=null;}
@@ -297,8 +353,8 @@ export class StructuralScene {
         this.worldRoot.position.copy(st.preview).add(new THREE.Vector3(0,.02,0));
         this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
         this.xrControls.reticle.visible=false;
-        this.xrControls.contact.position.copy(st.preview).add(new THREE.Vector3(0,.008,0));
-        this.xrControls.contact.visible=true;
+        this.xrControls.contact.visible=false;
+        this.positionMobileShadow(st.preview,st.previewNormal||[0,1,0]);
         st.scanning=false;st.placed=true;
         const field=document.getElementById('mobile-ar-status');
         if(field)field.textContent='Estructura colocada. Ajusta el tamaño o la deformada.';
@@ -309,10 +365,15 @@ export class StructuralScene {
     const st=this.mobileARState;
     if(st){st.scanning=true;st.placed=false;st.preview=null;}
     this.xrControls.contact.visible=false;
+    this.mobileShadowPlane.visible=false;
   }
   stopMobileAR(){
     this.mobileARState?.source?.cancel();
     this.mobileARState=null;this.mobileAR=false;
+    this.mobileShadowPlane.visible=false;
+    this.mobileShadowLight.visible=false;
+    this.disableMobileCastShadows();
+    this.renderer.shadowMap.enabled=this.mobileOriginalShadowMap;
     document.getElementById('mobile-ar-overlay').hidden=true;
     this.xrControls.reticle.visible=false;this.xrControls.contact.visible=false;
   }
