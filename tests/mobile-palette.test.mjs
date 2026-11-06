@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {DEFORMATION_STOPS,deformationColour,bakeHeatUV} from '../src/mobile-palette.js';
+import {DEFORMATION_STOPS,deformationColour,bakeHeatUV,makeDeformationExportMaterial} from '../src/mobile-palette.js';
 
 test('SAP colour legend is preserved in the USDZ texture gradient',()=>{
   assert.equal(DEFORMATION_STOPS.length,4);
@@ -32,4 +32,30 @@ test('texture mapping safely clamps out-of-range heat values',()=>{
   bakeHeatUV(geometry);
   assert.deepEqual(Array.from(geometry.getAttribute('uv').array),[0,.5,.5,.5,1,.5]);
   geometry.dispose();
+});
+
+test('USDZ export material uses texture instead of vertex colors',()=>{
+  const oldDoc=globalThis.document;
+  globalThis.document={
+    createElement(tag){
+      assert.equal(tag,'canvas');
+      return {width:0,height:0,
+        getContext:()=>({fillRect(){},fillStyle:''})};
+    }
+  };
+  try{
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,1,0,0,0,1,0],3));
+    geometry.setAttribute('heat',new THREE.Float32BufferAttribute([0,.5,1],1));
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute([1,0,0,0,1,0,0,0,1],3));
+    const source=new THREE.MeshStandardMaterial({vertexColors:true,color:0xffffff});
+    const material=makeDeformationExportMaterial(geometry,source);
+    assert.equal(material.vertexColors,false);
+    assert.ok(material.map?.isTexture);
+    assert.equal(material.map.colorSpace,THREE.SRGBColorSpace);
+    assert.ok(geometry.getAttribute('uv'));
+    assert.equal(geometry.getAttribute('color'),undefined);
+    assert.equal(source.vertexColors,true);
+    material.map.dispose();material.dispose();source.dispose();geometry.dispose();
+  }finally{globalThis.document=oldDoc;}
 });
