@@ -135,8 +135,20 @@ export class StructuralScene {
     }
     this.bounds=bbox;
     const c=bbox.getCenter(new THREE.Vector3());
-    this.contentRoot.position.set(-c.x,-c.y,-bbox.min.z);
-    this.axes.position.set(bbox.min.x,bbox.min.y,bbox.min.z);
+    // Demo roof coordinates are already engineering coordinates: the
+    // pillar-foot level is Z=0 and the centre of the plan is X=Y=0.
+    // Do not let bounding-box recentering move that elevation or the origin.
+    // Imported IFC and the legacy frame retain their original auto-centring.
+    const fixedStructuralOrigin=items.length>0&&items.every(
+      piece=>piece.preserveStructuralOrigin===true
+    );
+    if(fixedStructuralOrigin){
+      this.contentRoot.position.set(0,0,0);
+      this.axes.position.set(0,0,0);
+    }else{
+      this.contentRoot.position.set(-c.x,-c.y,-bbox.min.z);
+      this.axes.position.set(bbox.min.x,bbox.min.y,bbox.min.z);
+    }
     this.axes.scale.setScalar(bbox.getSize(new THREE.Vector3()).length()/13);
     this.updateScale();this.recenterCamera();this.updateVisualization();
   }
