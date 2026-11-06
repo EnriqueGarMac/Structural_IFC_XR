@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildStructuralARScene} from '../src/mobile-usdz.js';
 import {demoGeometry,demoResults} from '../src/demo.js';
+import {roofDemoGeometry,roofDemoResults} from '../src/roof-demo.js';
+import {isTerrainElement} from '../src/view-filters.mjs';
 
 function demoApp({sapOnly=false}={}){
   const parts=demoGeometry().map(item=>{
@@ -40,4 +42,42 @@ test('iPhone SAP-only export contains analytical stick models',()=>{
 test('iPhone AR export fails clearly if no IFC is loaded or budget exceeded',()=>{
  assert.throws(()=>buildStructuralARScene({parts:[]}),/IFC/);
  assert.throws(()=>buildStructuralARScene(demoApp(),1),/complejo/);
+});
+
+test('steel lattice-roof demo can be exported as visible geometry to iPhone AR',()=>{
+  const parts=roofDemoGeometry().map(item=>{
+    const material=new THREE.MeshStandardMaterial({color:item.color});
+    const orig=new THREE.Mesh(item.geometry,material);
+    const deformed=new THREE.Mesh(item.geometry.clone(),material.clone());
+    return {orig,deformed,terrain:isTerrainElement(item)};
+  });
+  const originalGroup=new THREE.Group(),deformedGroup=new THREE.Group();
+  for(const part of parts){originalGroup.add(part.orig);deformedGroup.add(part.deformed);}
+  const contentRoot=new THREE.Group();contentRoot.position.set(-9,-12,0);
+  const app={parts,worldRoot:new THREE.Group(),contentRoot,originalGroup,deformedGroup,
+    showSAPOnly:false,hideGround:true,results:roofDemoResults,
+    caseName:roofDemoResults.cases[0].name,offset:[0,0,0],amp:25,
+    showDeformed:false,showOriginal:true,showFrames:true,maxSize:24};
+  const scene=buildStructuralARScene(app);
+  let meshes=0;scene.traverse(o=>{if(o.isMesh)meshes++;});
+  assert.ok(meshes>300);
+  const bbox=new THREE.Box3().setFromObject(scene);
+  assert.ok(Math.abs(bbox.min.y)<1e-4);
+  assert.ok(bbox.max.x-bbox.min.x>18);
+  assert.ok(bbox.max.z-bbox.min.z>5);
+});
+test('the same roof can be exported in SAP-only analytical mode to iPhone',()=>{
+  const geometry=roofDemoGeometry();
+  const parts=geometry.map(item=>({
+    orig:new THREE.Mesh(item.geometry,new THREE.MeshStandardMaterial()),
+    terrain:isTerrainElement(item)
+  }));
+  const app={parts,showSAPOnly:true,hideGround:true,worldRoot:new THREE.Group(),
+    contentRoot:new THREE.Group(),showFrames:true,
+    results:roofDemoResults,caseName:roofDemoResults.cases[0].name,
+    offset:[0,0,0],amp:25,showDeformed:true,maxSize:24};
+  const scene=buildStructuralARScene(app);
+  let bars=0;scene.traverse(o=>{if(o.isMesh)bars++;});
+  assert.ok(bars>roofDemoResults.frames.length);
+  assert.ok(Math.abs(new THREE.Box3().setFromObject(scene).min.y)<1e-4);
 });
