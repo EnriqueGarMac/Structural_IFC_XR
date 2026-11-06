@@ -10,6 +10,17 @@ Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas apli
 
 
 
+## Ejemplos estructurales interactivos
+
+La página inicial ofrece **dos modelos de demostración** que puedes cargar con un clic. Los dos incluyen su geometría tridimensional y datos de análisis compatibles con las vistas originales, deformadas y **Solo SAP**. Los tipos de elementos se etiquetan con semántica IFC dentro del visualizador, pero estos ejemplos se construyen mediante Three.js y **no son archivos IFC exportados**.
+
+- **Pórtico 8 × 6 m:** ejemplo anterior, con vigas, pilares, losa y cimentación.
+- **Cubierta metálica en celosía 18 × 24 m:** nuevo ejemplo a dos aguas con **5 cerchas transversales**, cordones superior e inferior, diagonales y montantes, **correas longitudinales**, pilares perimetrales, cruces de arriostramiento y una muestra de chapa de cubierta en el último tramo. Las zapatas se ocultan por defecto, sin eliminar vigas ni cerchas.
+
+La cubierta incluye tres casos ilustrativos: **G + N (gravedad y nieve)**, **viento transversal** y **nieve asimétrica**. Puedes seleccionar patrones de cargas G, N o V, amplificar las deformadas con el slider, inspeccionar los nudos/barras analíticas SAP y acceder al modelo tanto desde **Meta Quest** como desde **AR móvil**. También es posible cambiar de ejemplo directamente desde el menú de Quest.
+
+**Importante:** todas las cargas y deformadas de estas demos son **datos sintéticos, definidos para fines de visualización**. No se ha realizado un análisis estructural, no representan un diseño verificado y **no proceden de SAP2000**. Para resultados de una estructura real, importa sus propios IFC y JSON de SAP2000.
+
 ## Realidad aumentada desde el móvil (Android e iPhone)
 
 Entra directamente en **[Structural IFC XR](https://enriquegarmac.github.io/Structural_IFC_XR/)** desde tu teléfono y pulsa **«AR móvil»**. Carga primero el IFC y, si necesitas resultados estructurales, el JSON de SAP2000. También puedes probar el pórtico de demostración (datos sintéticos).
@@ -22,7 +33,7 @@ Entra directamente en **[Structural IFC XR](https://enriquegarmac.github.io/Stru
 
 Los datos permanecen en el navegador; no se suben archivos IFC/SAP a un servidor para convertirlos. Estas vías móviles han pasado pruebas automatizadas, pero requieren validación funcional sobre dispositivos reales.
 
-## Realidad mixta interactiva en Meta Quest 3 (XR 0.6)
+## Realidad mixta interactiva en Meta Quest 3 (XR 0.7)
 
 El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de los paneles HTML del navegador. No requiere descargar software. Antes de entrar en **Quest 3 RM**, puedes cargar el IFC y el JSON exportado desde SAP2000, o utilizar el ejemplo incluido. Los resultados del ejemplo son **sintéticos**.
 
