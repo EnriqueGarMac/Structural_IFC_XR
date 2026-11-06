@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {caseNodes,analyticalNodePositions} from './results.mjs';
+import {makeDeformationExportMaterial} from './mobile-palette.js';
 
 // A snapshot exporter for AR Quick Look. The USDZ is created locally on the
 // user's iPhone from the currently loaded IFC/SAP geometry; no server upload.
@@ -14,10 +15,15 @@ export function buildStructuralARScene(app,maximumTriangles=150000){
   let triangles=0;
   const addMesh=(mesh)=>{
     const copy=mesh.clone(false);
-    // Preserve the current per-vertex displaced geometry and colours.
     copy.geometry=mesh.geometry.clone();
-    copy.material=mesh.material.clone();
+    // USDZ Quick Look does not reliably read colour attributes. The displaced
+    // field is exported as a real colour texture, while IFC materials retain
+    // their original per-element colour. Both render correctly in AR Quick Look.
+    copy.material=mesh.material.vertexColors&&copy.geometry.getAttribute('heat')
+      ?makeDeformationExportMaterial(copy.geometry,mesh.material)
+      :mesh.material.clone();
     copy.material.side=THREE.DoubleSide;
+    copy.castShadow=true;
     const count=copy.geometry.index?.count??copy.geometry.getAttribute('position')?.count??0;
     triangles+=count/3;
     if(triangles>maximumTriangles)throw Error('Modelo demasiado complejo para AR móvil. Reduce el IFC o usa un modelo más pequeño.');
@@ -49,6 +55,7 @@ export function buildStructuralARScene(app,maximumTriangles=150000){
         mesh.position.copy(a).add(b).multiplyScalar(.5);
         mesh.quaternion.setFromUnitVectors(up,v.normalize());
         mesh.scale.y=length;
+        mesh.castShadow=true;
         content.add(mesh);triangles+=12;
         if(triangles>maximumTriangles)throw Error('Modelo SAP demasiado grande para exportar.');
       }
@@ -56,7 +63,7 @@ export function buildStructuralARScene(app,maximumTriangles=150000){
         const jointGeometry=new THREE.SphereGeometry(r*1.75,7,5);
         for(const point of points.values()){
           const mesh=new THREE.Mesh(jointGeometry,material);
-          mesh.position.copy(point);content.add(mesh);triangles+=70;
+          mesh.position.copy(point);mesh.castShadow=true;content.add(mesh);triangles+=70;
           if(triangles>maximumTriangles)throw Error('Demasiados nudos para exportar al móvil.');
         }
       }
@@ -87,7 +94,10 @@ export async function exportStructuralUSDZ(app){
       if(o.geometry&&o.parent?.isGroup)o.geometry.dispose();
       // Materials from IFC clones are owned by the export scene.
       if(o.material&&o.parent?.isGroup){
-        (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose?.());
+        (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{
+          m.map?.dispose?.();
+          m.dispose?.();
+        });
       }
     });
   }
