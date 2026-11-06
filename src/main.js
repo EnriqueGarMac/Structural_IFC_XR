@@ -104,6 +104,7 @@ for(const [id,key]of Object.entries(showControls)){
     if(id==='show-axes'){
       app.axes.visible=app.showAxes&&!app.showSAPOnly;
       app.grid.visible=app.showAxes&&!app.isXR&&!app.showSAPOnly;
+      app.groundMarkers.visible=app.grid.visible;
       return;
     }
     app.updateVisualization();
