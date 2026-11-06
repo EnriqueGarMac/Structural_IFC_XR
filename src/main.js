@@ -2,6 +2,7 @@ import './style.css';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults } from './demo.js';
+import {roofDemoGeometry,roofDemoResults,ROOF_DEMO} from './roof-demo.js';
 import { normalizeResults } from './results.mjs';
 const $=(id)=>document.getElementById(id);
 const app=new StructuralScene($('canvas-wrap'));
@@ -26,18 +27,47 @@ function setResults(results,label){
   const rawFrameCount=results.loads.length;
   status(`${results.cases.length} caso(s) · ${rawFrameCount} cargas`);
 }
-function showDemo(){
-  demoActive=true;
-  syntheticResults=true;
-  app.setModel(demoGeometry());
-  setModelLabel('Pórtico de demostración · 8 × 6 m');
-  updateStats(app.parts.length);
-  setResults(demoResults,'sintéticos · ejemplo demostrativo');
-  app.offset=[0,0,0]; for(const c of ['x','y','z'])$(`offset-${c}`).value='0';
+const demos={
+  frame:{
+    title:'Pórtico de demostración · 8 × 6 m',
+    geometry:demoGeometry,results:demoResults,button:'demo-btn'
+  },
+  roof:{
+    title:ROOF_DEMO.name,
+    geometry:roofDemoGeometry,results:roofDemoResults,button:'roof-demo-btn'
+  }
+};
+let activeDemo='frame';
+function showDemo(kind='frame'){
+  const selected=demos[kind];
+  if(!selected)throw Error('Ejemplo de demostración desconocido.');
+  demoActive=true;syntheticResults=true;activeDemo=kind;
+  // Start with legible combined views, without inheriting an empty SAP-only mode.
+  app.showSAPOnly=false;app.showOriginal=true;app.showDeformed=true;
+  app.showFrames=true;app.showLoads=true;app.hideGround=true;
+  for(const [id,checked] of [
+    ['show-sap-only',false],['show-original',true],['show-displaced',true],
+    ['show-frames',true],['show-loads',true],['hide-ground',true]
+  ])$(id).checked=checked;
+  app.setResults(null); // Never interpolate the previous demo's result field.
+  app.offset=[0,0,0];for(const c of ['x','y','z'])$('offset-'+c).value='0';
   $('amp').value='25';app.amp=25;$('amp-value').textContent='×25';
-  app.updateVisualization();status('DEMO · NO SAP2000');
+  app.setModel(selected.geometry());
+  setModelLabel(selected.title);
+  updateStats(app.parts.length);
+  setResults(selected.results,'SINTÉTICOS · NO SAP2000');
+  for(const [name,config] of Object.entries(demos)){
+    const button=$(config.button);
+    button.classList.toggle('is-current',name===kind);
+    button.setAttribute('aria-pressed',String(name===kind));
+  }
+  app.xrControls.selected='—';
+  app.xrControls.dirty=true;
+  app.updateVisualization();
+  status('DEMO SINTÉTICA · NO SAP2000');
 }
-$('demo-btn').addEventListener('click',showDemo);
+$('demo-btn').addEventListener('click',()=>showDemo('frame'));
+$('roof-demo-btn').addEventListener('click',()=>showDemo('roof'));
 $('ifc-input').addEventListener('change',async(e)=>{
   const file=e.target.files?.[0];if(!file)return;
   status('Leyendo IFC…');
@@ -47,6 +77,10 @@ $('ifc-input').addEventListener('change',async(e)=>{
     // Never accidentally apply synthetic example results to a real IFC.
     if(syntheticResults){app.setResults(null);$('sap-state').textContent='Resultados: importa SAP JSON';$('num-nodes').textContent='—';$('num-frames').textContent='—';$('case-select').innerHTML='<option>Sin resultados</option>'; $('pattern-select').innerHTML='<option value="all">Todos</option>';}
     demoActive=false;
+    for(const config of Object.values(demos)){
+      $(config.button).classList.remove('is-current');
+      $(config.button).setAttribute('aria-pressed','false');
+    }
     setModelLabel(file.name);
     updateStats(res.elementCount);
     status('IFC cargado');info(`${res.elementCount} elementos IFC renderizados. Carga el JSON de SAP2000 para superponer los resultados.`);
@@ -181,4 +215,4 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
   const xrOK=await app.webXRSupported();
   $('xr-status').textContent=xrOK?'WebXR disponible · Quest o Android':isIOSDevice()?'iPhone: usa «AR móvil» (Quick Look)':'Quest / Android: WebXR compatible necesario';
 })();
-showDemo();
+showDemo('frame');
