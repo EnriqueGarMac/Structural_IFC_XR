@@ -47,14 +47,17 @@ export class StructuralScene {
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;
+    this.mobileAR=false;this.mobileARState=null;
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
     this.renderer.domElement.addEventListener('pointerdown',(evt)=>this.pickStart={x:evt.clientX,y:evt.clientY});
     this.renderer.domElement.addEventListener('pointerup',(evt)=>this.pickElement(evt));
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
     this.renderer.setAnimationLoop((time,frame)=>{
-      if(this.isXR)this.xrControls.update(time,frame);
-      else this.controls.update();
+      if(this.isXR){
+        if(this.mobileAR)this.updateMobileAR(frame);
+        else this.xrControls.update(time,frame);
+      }else this.controls.update();
       this.renderer.render(this.scene,this.camera);
     });
     this.resize();
@@ -235,29 +238,114 @@ export class StructuralScene {
     if(hit){const u=hit.object.userData;const id=u.guid?` · GUID ${u.guid}`:'';
       this.onSelection?.(`${u.name}${id}`);}
   }
-  async enterXR(){
+  async startMobileAR(session){
+    const st={session,source:null,preview:null,scanning:true,placeRequested:false,placed:false};
+    this.mobileARState=st;
+    this.xrControls.reticle.visible=false;
+    this.xrControls.contact.visible=false;
+    const status=document.getElementById('mobile-ar-status');
+    if(status)status.textContent='Apunta hacia una mesa o al suelo.';
+    const capability=typeof session.requestHitTestSource==='function'&&
+      (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
+    if(!capability){
+      if(status)status.textContent='AR iniciado sin detección de superficies. El modelo aparece delante.';
+      return;
+    }
+    try{
+      const viewer=await session.requestReferenceSpace('viewer');
+      const source=await session.requestHitTestSource({space:viewer});
+      if(this.mobileARState!==st){source.cancel();return;}
+      st.source=source;
+    }catch(e){
+      if(status)status.textContent='No se pudo detectar el suelo: '+e.message;
+    }
+  }
+  updateMobileAR(frame){
+    const st=this.mobileARState;
+    if(!frame||!st||!this.xrSession)return;
+    const ref=this.renderer.xr.getReferenceSpace();
+    if(st.scanning&&st.source&&ref){
+      try{
+        st.preview=null;
+        for(const hit of frame.getHitTestResults(st.source)){
+          const pose=hit.getPose(ref);
+          if(!pose)continue;
+          const m=pose.transform.matrix;
+          const normal=[m[4],m[5],m[6]];
+          if(normal[1]/(Math.hypot(...normal)||1)<.72)continue;
+          st.preview=new THREE.Vector3(m[12],m[13],m[14]);
+          break;
+        }
+      }catch{st.preview=null;}
+      this.xrControls.reticle.visible=Boolean(st.preview);
+      if(st.preview)this.xrControls.reticle.position.copy(st.preview).add(new THREE.Vector3(0,.012,0));
+      const field=document.getElementById('mobile-ar-status');
+      const message=st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
+      if(field&&field.textContent!==message)field.textContent=message;
+    }
+    const place=document.getElementById('mobile-ar-place');
+    if(place)place.disabled=!st.preview;
+    if(st.placeRequested){
+      st.placeRequested=false;
+      if(st.preview){
+        this.worldRoot.position.copy(st.preview).add(new THREE.Vector3(0,.02,0));
+        this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
+        this.xrControls.reticle.visible=false;
+        this.xrControls.contact.position.copy(st.preview).add(new THREE.Vector3(0,.008,0));
+        this.xrControls.contact.visible=true;
+        st.scanning=false;st.placed=true;
+        const field=document.getElementById('mobile-ar-status');
+        if(field)field.textContent='Estructura colocada. Ajusta el tamaño o la deformada.';
+      }
+    }
+  }
+  resetMobilePlacement(){
+    const st=this.mobileARState;
+    if(st){st.scanning=true;st.placed=false;st.preview=null;}
+    this.xrControls.contact.visible=false;
+  }
+  stopMobileAR(){
+    this.mobileARState?.source?.cancel();
+    this.mobileARState=null;this.mobileAR=false;
+    document.getElementById('mobile-ar-overlay').hidden=true;
+    this.xrControls.reticle.visible=false;this.xrControls.contact.visible=false;
+  }
+  async enterXR({mobile=false}={}){
     if(!navigator.xr)throw new Error('Este navegador no dispone de WebXR. Abre la aplicación HTTPS desde el navegador de Quest 3.');
     if(this.xrSession){await this.xrSession.end();return;}
     const ok=await navigator.xr.isSessionSupported('immersive-ar');
     if(!ok)throw new Error('Este dispositivo/navegador no admite sesiones immersive-ar. Prueba Quest Browser en Quest 3.');
     this.renderer.xr.setReferenceSpaceType('local');
-    const session=await navigator.xr.requestSession('immersive-ar',{
-      requiredFeatures:['local'],
-      optionalFeatures:['hit-test','local-floor']
-    });
-    this.xrSession=session;this.isXR=true;
+    const overlay=document.getElementById('mobile-ar-overlay');
+    if(mobile)overlay.hidden=false;
+    let session;
+    try{
+      session=await navigator.xr.requestSession('immersive-ar',mobile?
+        {requiredFeatures:['local','dom-overlay'],
+          optionalFeatures:['hit-test','local-floor'],domOverlay:{root:overlay}}:
+        {requiredFeatures:['local'],optionalFeatures:['hit-test','local-floor']});
+    }catch(e){
+      if(mobile)overlay.hidden=true;
+      throw e;
+    }
+    this.mobileAR=mobile;this.xrSession=session;this.isXR=true;
     this.grid.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
       this.xrSession=null;this.isXR=false;
+      this.stopMobileAR();
       this.xrControls.stop();
-      this.grid.visible=this.showAxes;this.controls.enabled=true;
+      this.grid.visible=this.showAxes&&!this.showSAPOnly;this.controls.enabled=true;
       this.onXREnd?.();
     });
     try{
       await this.renderer.xr.setSession(session);
       session.updateRenderState({depthNear:0.025,depthFar:75});
-      this.xrControls.start(session);
+      if(mobile){
+        this.worldRoot.position.copy(this.xrControls.basePosition);
+        this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
+        await this.startMobileAR(session);
+      }else this.xrControls.start(session);
     }catch(err){
       await session.end().catch(()=>{});
       throw err;
