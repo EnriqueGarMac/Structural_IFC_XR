@@ -182,7 +182,10 @@ export function roofDemoGeometry(){
     pieces.push({name:'Placa base de pilar · '+x+' / '+y,ifcType:'IfcPlate',
       color:0x7f9ba6,geometry:boxAt(cx,cy,.045,.50,.50,.09)});
   }
-  return pieces;
+  // This demonstration uses an engineering coordinate system, not a
+  // bounding-box centred one. Its (0,0,0) is the centre of the footprint
+  // at the column-base elevation. Keep this anchor when the viewer loads it.
+  return pieces.map(piece=>({...piece,preserveStructuralOrigin:true}));
 }
 
 // Summary data is kept in sync with the corresponding synthetic analysis.
