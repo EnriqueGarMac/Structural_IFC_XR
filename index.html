@@ -54,13 +54,38 @@
         <div class="canvas-wrap" id="canvas-wrap"></div>
         <div class="viewer-top"><div class="scene-pill"><i></i><span id="scene-label">MODELO DEMOSTRATIVO</span></div><span class="viewer-chip">IFC / SAP</span></div>
         <div class="legend" id="legend"><strong id="legend-title">DESPLAZAMIENTO |u|</strong><div class="legend-bar"></div><div class="legend-minmax"><span id="legend-min">0 mm</span><span id="legend-max">—</span></div><small id="legend-note">Deformada amplificada para visualización</small></div>
-        <div class="mode-tabs"><button type="button" class="tab active" id="btn-3d">◈ Vista 3D</button><button type="button" class="tab" id="btn-cam">◎ Webcam + 3D</button><button type="button" class="tab accent" id="btn-xr">◉ Quest 3 RM</button></div>
+        <div class="mode-tabs"><button type="button" class="tab active" id="btn-3d">◈ Vista 3D</button><button type="button" class="tab" id="btn-cam">◎ Webcam + 3D</button><button type="button" class="tab accent" id="btn-xr">◉ Quest 3 RM</button><button type="button" class="tab accent" id="btn-mobile-ar">▣ AR móvil</button></div>
         <div class="nav-tools"><button type="button" id="reset-view" title="Centrar cámara">⌖</button></div>
         <div class="help-text" id="help-text">Arrastra para girar · Rueda para acercar · Botón derecho para desplazar</div>
         <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
       </div>
       <footer class="footer-metrics"><div class="metric"><small>ELEMENTOS BIM</small><strong id="num-elements">—</strong></div><div class="metric"><small>NUDOS SAP</small><strong id="num-nodes">—</strong></div><div class="metric"><small>BARRAS SAP</small><strong id="num-frames">—</strong></div><div class="metric"><small>|u| MÁXIMO</small><strong id="max-u">—</strong></div><div class="metric highlight"><small>ESTADO</small><strong id="status-summary">Inicializando…</strong></div></footer>
     </section>
+  </div>
+  <div id="mobile-ar-overlay" class="mobile-ar-overlay" hidden>
+    <div class="mobile-ar-crosshair" aria-hidden="true">＋</div>
+    <div class="mobile-ar-toolbar">
+      <strong>IMIS Structural · AR móvil</strong>
+      <span id="mobile-ar-status" aria-live="polite">Busca una mesa o el suelo con la cámara.</span>
+      <div class="mobile-ar-actions">
+        <button type="button" id="mobile-ar-place">Colocar aquí</button>
+        <button type="button" id="mobile-ar-redetect">Buscar plano</button>
+        <button type="button" id="mobile-ar-smaller">− Tamaño</button>
+        <button type="button" id="mobile-ar-larger">+ Tamaño</button>
+        <label class="mobile-ar-range">Deformada: <output id="mobile-ar-amp-value">×25</output>
+          <input type="range" min="0" max="150" step="1" value="25" id="mobile-ar-amp" />
+        </label>
+        <button type="button" id="mobile-ar-sap-only">Solo SAP: NO</button>
+        <button type="button" id="mobile-ar-exit">Salir de AR</button>
+      </div>
+    </div>
+  </div>
+  <div id="mobile-ios-actions" class="mobile-ios-actions" hidden>
+    <strong>Ver estructura en AR · iPhone / iPad</strong>
+    <p>Se creará una copia 3D del IFC o de la vista SAP actual. Abre AR Quick Look para colocarla en tu entorno y ajustar su escala con los dedos.</p>
+    <a id="mobile-ios-open" rel="ar" hidden><img alt="Abrir estructura en realidad aumentada" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='330' height='64'%3E%3Crect width='330' height='64' rx='12' fill='%23146c72'/%3E%3Ctext x='165' y='40' font-size='20' text-anchor='middle' fill='white'%3EAbrir en AR Quick Look%3C/text%3E%3C/svg%3E" /></a>
+    <p id="mobile-ios-status" role="status"></p>
+    <button type="button" id="mobile-ios-close">Cerrar</button>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
