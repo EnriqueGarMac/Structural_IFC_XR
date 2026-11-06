@@ -37,15 +37,21 @@ test('roof geometry spans 18 m by 24 m and rises to a pitched ridge',()=>{
   assert.ok(roof.some(x=>x.name.includes('Diagonal')));
   assert.ok(roof.some(x=>x.name.includes('Correa')));
   assert.ok(roof.some(x=>x.name.includes('Arriostramiento')));
+  // Plan centred at the origin, and steel pillar bases at Z = 0.
+  assert.ok(Math.abs((boxes.min.x+boxes.max.x)/2)<1e-6);
+  assert.ok(Math.abs((boxes.min.y+boxes.max.y)/2)<1e-6);
+  assert.equal(roof.some(x=>x.ifcType==='IfcCovering'),false);
+  assert.equal(roof.some(x=>/chapa|panel cubierta/i.test(x.name)),false);
   for(const part of roof)part.geometry.dispose();
 });
 
-test('hidden foundations do not remove roof sheets, braces or structural columns',()=>{
+test('hidden foundations do not remove trusses, braces or structural columns',()=>{
   const pieces=roofDemoGeometry();
   const foundations=pieces.filter(x=>isTerrainElement(x));
   const structural=pieces.filter(x=>!isTerrainElement(x));
   assert.equal(foundations.length,10);
-  assert.ok(structural.some(x=>x.ifcType==='IfcCovering'));
+  assert.ok(!pieces.some(x=>x.ifcType==='IfcCovering'));
+  assert.ok(!structural.some(x=>/chapa|cubrici[oó]n/i.test(x.name)));
   assert.ok(structural.some(x=>x.ifcType==='IfcColumn'));
   assert.ok(structural.some(x=>x.ifcType==='IfcBeam'));
   assert.ok(structural.some(x=>x.ifcType==='IfcMember'));
@@ -82,7 +88,7 @@ test('gravity/snow case gives support-zero deflection and higher ridge sag',()=>
   const supports=nodes.filter(n=>n.z===0);
   assert.ok(supports.length>=10);
   assert.ok(supports.every(n=>n.uz===0));
-  const ridge=nodes.filter(n=>n.x===9&&n.z>8);
+  const ridge=nodes.filter(n=>n.x===0&&n.z>8);
   assert.ok(ridge.length>=5);
   assert.ok(ridge.every(n=>n.uz<-.015));
   assert.ok(maxDisplacement(nodes)>.02&&maxDisplacement(nodes)<.05);
@@ -97,4 +103,29 @@ test('wind case gives predominantly horizontal sway of the steel roof',()=>{
   assert.ok(nodes.some(n=>n.z>8&&n.ux>.015));
   assert.ok(nodes.filter(n=>n.z===0).every(n=>n.ux===0));
   assert.ok(maxDisplacement(nodes)<.05);
+});
+
+test('structural supports and analytical nodes share an origin-centred coordinate system',()=>{
+  const results=roofDemoResults;
+  const coordinates=results.nodes;
+  assert.ok(coordinates.length>100);
+  const xs=coordinates.map(n=>n.x),ys=coordinates.map(n=>n.y);
+  assert.equal(Math.min(...xs),-9);
+  assert.equal(Math.max(...xs),9);
+  assert.equal(Math.min(...ys),-12);
+  assert.equal(Math.max(...ys),12);
+  const supports=coordinates.filter(n=>n.z===0);
+  assert.ok(supports.some(n=>n.x===-9&&n.y===-12));
+  assert.ok(supports.some(n=>n.x===9&&n.y===12));
+  assert.ok(supports.every(n=>Math.abs(n.x)<=9&&Math.abs(n.y)<=12));
+  const geometry=roofDemoGeometry();
+  const columnFootprint=new THREE.Box3();
+  for(const part of geometry){
+    if(part.ifcType!=='IfcColumn')continue;
+    part.geometry.computeBoundingBox();
+    columnFootprint.union(part.geometry.boundingBox);
+  }
+  assert.ok(Math.abs((columnFootprint.min.x+columnFootprint.max.x)/2)<1e-6);
+  assert.ok(Math.abs((columnFootprint.min.y+columnFootprint.max.y)/2)<1e-6);
+  for(const part of geometry)part.geometry.dispose();
 });
