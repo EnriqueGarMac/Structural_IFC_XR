@@ -65,6 +65,9 @@ export class StructuralScene {
     this.originalGroup=new THREE.Group();this.deformedGroup=new THREE.Group();
     this.loadsGroup=new THREE.Group();this.framesGroup=new THREE.Group();
     this.contentRoot.add(this.originalGroup,this.deformedGroup,this.loadsGroup,this.framesGroup);
+    this.mobileSAPShadowGroup=new THREE.Group();
+    this.mobileSAPShadowGroup.visible=false;
+    this.contentRoot.add(this.mobileSAPShadowGroup);
     this.grid=new THREE.GridHelper(11,22,0x557b89,0x244453);
     this.grid.material.opacity=.35;this.grid.material.transparent=true;this.scene.add(this.grid);
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
@@ -230,7 +233,10 @@ export class StructuralScene {
       for(const n of displayedNodes){const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),new THREE.MeshBasicMaterial({color:0x82f5d6}));dot.position.copy(vector(n));this.framesGroup.add(dot);}
     }
     this.framesGroup.visible=this.showFrames;
-    if(this.mobileAR)this.enableMobileCastShadows();
+    if(this.mobileAR){
+      this.enableMobileCastShadows();
+      this.updateMobileSAPShadowCasters();
+    }
     if(!this.showLoads)return;
     const loads=selectedLoads(this.results,this.pattern).filter(l=>l.type==='force_per_length');
     const maxW=Math.max(1,...loads.map(loadMagnitude));
@@ -270,6 +276,36 @@ export class StructuralScene {
     if(hit){const u=hit.object.userData;const id=u.guid?` · GUID ${u.guid}`:'';
       this.onSelection?.(`${u.name}${id}`);}
   }
+  updateMobileSAPShadowCasters(){
+    // SAP analytical elements are Three.js lines (which cannot cast mesh
+    // shadows). Add invisible cylinder surrogates only to the shadow pass.
+    const group=this.mobileSAPShadowGroup;
+    this.clearGroup(group);
+    group.visible=Boolean(this.mobileAR&&this.showSAPOnly&&this.showFrames&&this.results?.frames?.length);
+    if(!group.visible)return;
+    const original=caseNodes(this.results,this.caseName,this.offset);
+    const nodes=analyticalNodePositions(original,this.amp,
+      this.showDeformed&&Boolean(this.results.cases?.length));
+    const pointMap=new Map(nodes.map(n=>[n.id,new THREE.Vector3(n.x,n.y,n.z)]));
+    const material=new THREE.MeshBasicMaterial({color:0xffffff,colorWrite:false,depthWrite:false});
+    const geometry=new THREE.CylinderGeometry(Math.max(.005,(this.maxSize||8)*.004),
+      Math.max(.005,(this.maxSize||8)*.004),1,8);
+    const axis=new THREE.Vector3(0,1,0);
+    for(const bar of this.results.frames){
+      const a=pointMap.get(bar.i),b=pointMap.get(bar.j);
+      if(!a||!b)continue;
+      const displacement=b.clone().sub(a);
+      const length=displacement.length();
+      if(length<.00001)continue;
+      const mesh=new THREE.Mesh(geometry,material);
+      mesh.position.copy(a).add(b).multiplyScalar(.5);
+      mesh.quaternion.setFromUnitVectors(axis,displacement.normalize());
+      mesh.scale.y=length;
+      mesh.castShadow=true;
+      group.add(mesh);
+    }
+    // Geometries and materials are shared by these shadow surrogates.
+  }
   enableMobileCastShadows(){
     this.worldRoot.traverse(obj=>{
       if(!obj.isMesh)return;
@@ -304,6 +340,7 @@ export class StructuralScene {
     this.mobileShadowLight.visible=true;
     this.mobileShadowPlane.visible=false;
     this.enableMobileCastShadows();
+    this.updateMobileSAPShadowCasters();
     const status=document.getElementById('mobile-ar-status');
     if(status)status.textContent='Apunta hacia una mesa o al suelo.';
     const capability=typeof session.requestHitTestSource==='function'&&
@@ -373,6 +410,8 @@ export class StructuralScene {
     this.mobileShadowPlane.visible=false;
     this.mobileShadowLight.visible=false;
     this.disableMobileCastShadows();
+    this.clearGroup(this.mobileSAPShadowGroup);
+    this.mobileSAPShadowGroup.visible=false;
     this.renderer.shadowMap.enabled=this.mobileOriginalShadowMap;
     document.getElementById('mobile-ar-overlay').hidden=true;
     this.xrControls.reticle.visible=false;this.xrControls.contact.visible=false;
