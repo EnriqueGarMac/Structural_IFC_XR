@@ -178,6 +178,6 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
 
 (async()=>{
   const xrOK=await app.webXRSupported();
-  $('xr-status').textContent=xrOK?'Quest RM disponible':'Quest RM: abrir con Quest Browser + HTTPS';
+  $('xr-status').textContent=xrOK?'WebXR disponible · Quest o Android':isIOSDevice()?'iPhone: usa «AR móvil» (Quick Look)':'Quest / Android: WebXR compatible necesario';
 })();
 showDemo();
