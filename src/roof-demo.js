@@ -128,6 +128,19 @@ function buildDefinition(){
         uz:-.033*sx*(1-.58*n.x/18)*h};
     })}
   ];
+  // Translate *both* the geometry and the synthetic SAP coordinates so that
+  // (0, 0, 0) is at the centre of the building footprint, on the support level.
+  // Displacement values above were defined before this rigid translation and
+  // therefore remain unchanged, as required for consistent demo alignment.
+  const centerX=ROOF_DEMO.span/2,centerY=ROOF_DEMO.length/2;
+  for(const n of nodes){
+    n.x=+(n.x-centerX).toFixed(4);
+    n.y=+(n.y-centerY).toFixed(4);
+  }
+  for(const m of members){
+    m.a=[m.a[0]-centerX,m.a[1]-centerY,m.a[2]];
+    m.b=[m.b[0]-centerX,m.b[1]-centerY,m.b[2]];
+  }
   return {nodes,frames,members,loads,cases};
 }
 const definition=buildDefinition();
@@ -160,30 +173,21 @@ export function roofDemoGeometry(){
   const pieces=definition.members.map(({name,a,b,width,depth,color,ifcType})=>({
     name,color,ifcType,geometry:orientedBox(a,b,width,depth)
   }));
-  // Visible roof cladding covers the back bay only. The other bays remain
-  // open to show both pitched chords and the full internal steel web.
-  for(const side of [0,1]){
-    const a=side===0?[0,19.1,topZ(0)+.10]:[9,19.1,topZ(9)+.10];
-    const b=side===0?[9,19.1,topZ(9)+.10]:[18,19.1,topZ(18)+.10];
-    // Reuse the member transform: local Y runs in the longitudinal direction.
-    pieces.push({name:'Chapa grecada · faldón '+(side===0?'oeste':'este')+' (muestra)',
-      ifcType:'IfcCovering',color:0x567589,
-      geometry:orientedBox(a,b,7.8,.065)});
-  }
   // Foundations are individually classified as IfcFooting and hidden by the
   // existing terrain/cimentación toggle, while columns and trusses remain.
   for(const y of TRUSS_Y)for(const x of [0,18]){
+    const cx=x-ROOF_DEMO.span/2,cy=y-ROOF_DEMO.length/2;
     pieces.push({name:'Zapata · '+x+' / '+y,ifcType:'IfcFooting',
-      color:0x526875,geometry:boxAt(x,y,-.16,1.10,1.10,.32)});
+      color:0x526875,geometry:boxAt(cx,cy,-.16,1.10,1.10,.32)});
     pieces.push({name:'Placa base de pilar · '+x+' / '+y,ifcType:'IfcPlate',
-      color:0x7f9ba6,geometry:boxAt(x,y,.045,.50,.50,.09)});
+      color:0x7f9ba6,geometry:boxAt(cx,cy,.045,.50,.50,.09)});
   }
   return pieces;
 }
 
 // Summary data is kept in sync with the corresponding synthetic analysis.
 export function roofDemoStats(){
-  return {pieces:definition.members.length+2+TRUSS_Y.length*4,
+  return {pieces:definition.members.length+TRUSS_Y.length*4,
     nodes:roofDemoResults.nodes.length,frames:roofDemoResults.frames.length,
     loads:roofDemoResults.loads.length,cases:roofDemoResults.cases.length};
 }
