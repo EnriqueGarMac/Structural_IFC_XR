@@ -92,6 +92,9 @@ export class StructuralScene {
       const colors=new Float32Array(pos.count*3);
       for(let j=0;j<pos.count;j++){colors[3*j]=.35;colors[3*j+1]=.72;colors[3*j+2]=.85;}
       copiedGeom.setAttribute('color',new THREE.BufferAttribute(colors,3));
+      // Normalized displacement amplitudes are also used as UVs for USDZ,
+      // because Quick Look may discard THREE's per-vertex colours.
+      copiedGeom.setAttribute('heat',new THREE.Float32BufferAttribute(new Float32Array(pos.count),1));
       this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
     if(allBounds.isEmpty())throw new Error('No se ha recibido geometría 3D.');
@@ -159,6 +162,7 @@ export class StructuralScene {
       if(!deform)continue;
       const attrs=part.deformed.geometry.getAttribute('position');
       const cs=part.deformed.geometry.getAttribute('color');
+      const hs=part.deformed.geometry.getAttribute('heat');
       const src=part.base;
       for(let i=0;i<attrs.count;i++){
         const j=3*i;
@@ -166,10 +170,12 @@ export class StructuralScene {
         attrs.array[j]=src[j]+this.amp*ux;
         attrs.array[j+1]=src[j+1]+this.amp*uy;
         attrs.array[j+2]=src[j+2]+this.amp*uz;
-        const c=colorMap(this.maxU>0?mag/this.maxU:0);
+        const intensity=this.maxU>0?mag/this.maxU:0;
+        const c=colorMap(intensity);
         cs.array[j]=c.r;cs.array[j+1]=c.g;cs.array[j+2]=c.b;
+        hs.array[i]=intensity;
       }
-      attrs.needsUpdate=true;cs.needsUpdate=true;
+      attrs.needsUpdate=true;cs.needsUpdate=true;hs.needsUpdate=true;
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
