@@ -15,7 +15,7 @@ Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas apli
 La página inicial ofrece **dos modelos de demostración** que puedes cargar con un clic. Los dos incluyen su geometría tridimensional y datos de análisis compatibles con las vistas originales, deformadas y **Solo SAP**. Los tipos de elementos se etiquetan con semántica IFC dentro del visualizador, pero estos ejemplos se construyen mediante Three.js y **no son archivos IFC exportados**.
 
 - **Pórtico 8 × 6 m:** ejemplo anterior, con vigas, pilares, losa y cimentación.
-- **Cubierta metálica en celosía 18 × 24 m:** ejemplo a dos aguas con **5 cerchas transversales**, cordones superior e inferior, diagonales y montantes, **correas longitudinales**, pilares perimetrales y cruces de arriostramiento. **Sin paneles de chapa**, para ver toda la celosía. El origen estructural **(X,Y,Z) = (0,0,0)** está en el centro de la planta, a nivel de los apoyos. El modelo ocupa X = −9…9 m e Y = −12…12 m. Tanto la geometría como los nudos y resultados SAP sintéticos utilizan estas coordenadas. Las zapatas permanecen ocultas por defecto.
+- **Cubierta metálica en celosía 18 × 24 m:** ejemplo a dos aguas con **5 cerchas transversales**, cordones superior e inferior, diagonales y montantes, **correas longitudinales**, pilares perimetrales y cruces de arriostramiento. **Sin paneles de chapa**, para ver toda la celosía. El origen estructural **(X,Y,Z) = (0,0,0)** está en el centro de la planta, **exactamente a la cota de arranque de los pilares (Z = 0 m)**. La posición del modelo y de los ejes se mantiene fija al origen estructural, sin aplicar un ajuste de altura basado en la caja envolvente. El modelo ocupa X = −9…9 m e Y = −12…12 m. Tanto la geometría como los nudos y resultados SAP sintéticos utilizan estas coordenadas. Las zapatas permanecen ocultas por defecto.
 
 La cubierta incluye tres casos ilustrativos: **G + N (gravedad y nieve)**, **viento transversal** y **nieve asimétrica**. Puedes seleccionar patrones de cargas G, N o V, amplificar las deformadas con el slider, inspeccionar los nudos/barras analíticas SAP y acceder al modelo tanto desde **Meta Quest** como desde **AR móvil**. También es posible cambiar de ejemplo directamente desde el menú de Quest.
 
@@ -33,7 +33,7 @@ Entra directamente en **[Structural IFC XR](https://enriquegarmac.github.io/Stru
 
 Los datos permanecen en el navegador; no se suben archivos IFC/SAP a un servidor para convertirlos. Estas vías móviles han pasado pruebas automatizadas, pero requieren validación funcional sobre dispositivos reales.
 
-## Realidad mixta interactiva en Meta Quest 3 (XR 0.8)
+## Realidad mixta interactiva en Meta Quest 3 (XR 0.9)
 
 El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de los paneles HTML del navegador. No requiere descargar software. Antes de entrar en **Quest 3 RM**, puedes cargar el IFC y el JSON exportado desde SAP2000, o utilizar el ejemplo incluido. Los resultados del ejemplo son **sintéticos**.
 
