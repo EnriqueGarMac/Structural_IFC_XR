@@ -53,7 +53,7 @@ test('steel lattice-roof demo can be exported as visible geometry to iPhone AR',
   });
   const originalGroup=new THREE.Group(),deformedGroup=new THREE.Group();
   for(const part of parts){originalGroup.add(part.orig);deformedGroup.add(part.deformed);}
-  const contentRoot=new THREE.Group();contentRoot.position.set(-9,-12,0);
+  const contentRoot=new THREE.Group(); // Roof coordinates are now already centred at (0,0,0).
   const app={parts,worldRoot:new THREE.Group(),contentRoot,originalGroup,deformedGroup,
     showSAPOnly:false,hideGround:true,results:roofDemoResults,
     caseName:roofDemoResults.cases[0].name,offset:[0,0,0],amp:25,
