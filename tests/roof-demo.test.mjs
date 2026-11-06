@@ -129,3 +129,32 @@ test('structural supports and analytical nodes share an origin-centred coordinat
   assert.ok(Math.abs((columnFootprint.min.y+columnFootprint.max.y)/2)<1e-6);
   for(const part of geometry)part.geometry.dispose();
 });
+
+
+test('all visible column feet lie at elevation Z=0 and keep the model origin fixed',()=>{
+  const pieces=roofDemoGeometry();
+  assert.ok(pieces.length>280);
+  assert.ok(pieces.every(p=>p.preserveStructuralOrigin===true));
+  const columns=pieces.filter(p=>p.ifcType==='IfcColumn');
+  assert.equal(columns.length,10);
+  for(const column of columns){
+    column.geometry.computeBoundingBox();
+    assert.ok(Math.abs(column.geometry.boundingBox.min.z)<1e-8,
+      column.name+' should start at Z=0');
+  }
+  // Any hidden footings may extend below zero; they do not redefine the
+  // origin or the visible column-base elevation.
+  const visible=pieces.filter(p=>!isTerrainElement(p));
+  const visibleBounds=new THREE.Box3();
+  for(const piece of visible){
+    piece.geometry.computeBoundingBox();
+    visibleBounds.union(piece.geometry.boundingBox);
+  }
+  assert.ok(Math.abs(visibleBounds.min.z)<1e-8);
+  assert.ok(Math.abs((visibleBounds.min.x+visibleBounds.max.x)/2)<1e-8);
+  assert.ok(Math.abs((visibleBounds.min.y+visibleBounds.max.y)/2)<1e-8);
+  const supports=roofDemoResults.nodes.filter(n=>n.z===0);
+  assert.equal(supports.length,10);
+  assert.ok(supports.every(n=>Math.abs(n.x)===9));
+  for(const piece of pieces)piece.geometry.dispose();
+});
