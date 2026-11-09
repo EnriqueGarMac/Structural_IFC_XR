@@ -1,3 +1,28 @@
+## Visualización y consulta de resultados
+
+- **Encuadre al cargar:** la cámara centra y encuadra automáticamente el
+  modelo visible completo. Si el terreno se muestra, se incluye en el encuadre;
+  si está oculto, se adapta al edificio o nave. El botón de restablecer la vista
+  recupera ese encuadre. La orientación y los datos de ingeniería no cambian.
+- **Cristales IFC:** las ventanas comienzan con una opacidad de aproximadamente
+  **60 %** (40 % de transparencia), incluso si el resto del IFC es opaco.
+  El control general de transparencia permite reducirla todavía más.
+- **Desplazamientos nodales:** en la vista Deformada, apunta a un nodo con el
+  ratón o el mando de Quest para consultar Ux, Uy, Uz y la magnitud resultante,
+  siempre en mm **sin amplificación**. Pulsa sobre el nodo para señalarlo.
+- **Sección de esfuerzos:** apuntar a un diagrama muestra una línea sobre
+  la sección exacta analizada. Al pulsar, queda marcada; los valores y la
+  posición de la sección proceden de la consulta al diagrama.
+- **Colores:** en Visualización se puede elegir un color para el modelo 3D
+  y una paleta de dos colores para diagramas positivos y negativos; en Quest
+  ambas opciones están disponibles en el menú Colores.
+- **Deformada:** el valor máximo se ha duplicado respecto a la revisión
+  anterior, hasta una deformación ilustrativa del **12 % de la dimensión
+  estructural**. La deformada inicial se mantiene en torno al 1,3 %.
+  Ninguno de estos factores modifica los desplazamientos FEM reales.
+
+---
+
 ## Interfaz definitiva
 
 Los controles muestran «Nodos», «Barras», «Cargar resultados» y
@@ -21,7 +46,7 @@ al desplazamiento nodal en el centro de un vano.
 La deformada inicial es ahora aproximadamente **tres veces más visible**
 que en la versión anterior: su máxima separación gráfica es cercana al
 **1,3 % de la dimensión estructural**. Al llegar al extremo del deslizador,
-la representación se limita aproximadamente al **6 % de esa dimensión**,
+la representación se limita aproximadamente al **12 % de esa dimensión**,
 salvo situaciones excepcionales asociadas a un rango mínimo.
 No se modifican esfuerzos, reacciones, desplazamientos físicos ni factores
 en el archivo JSON. Se aplica igual en escritorio, Quest y AR móvil.
