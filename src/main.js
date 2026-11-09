@@ -93,7 +93,7 @@ function showDemo(kind='frame'){
   app.showFrames=true;app.showLoads=true;app.hideGround=true;
   for(const [id,checked] of [
     ['show-sap-only',false],['show-original',true],['show-displaced',true],
-    ['show-frames',true],['show-loads',true],['hide-ground',true]
+    ['show-frames',true],['show-supports',true],['show-loads',true],['hide-ground',true]
   ])$(id).checked=checked;
   app.setResults(null); // Never interpolate the previous demo's result field.
   app.offset=[0,0,0];for(const c of ['x','y','z'])$('offset-'+c).value='0';
@@ -200,7 +200,7 @@ $('modal-amplitude').addEventListener('input',e=>{
 });
 $('case-select').addEventListener('change',e=>app.setCase(e.target.value));
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
-const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-axes':'showAxes' };
+const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-supports':'showSupports','show-axes':'showAxes' };
 for(const [id,key]of Object.entries(showControls)){
   $(id).addEventListener('change',e=>{app[key]=e.target.checked;app.axes.visible=app.showAxes;
     if(id==='show-axes'){
