@@ -248,7 +248,7 @@ export class StructuralScene {
       const structuralDeformation=part.structural!==false&&part.analysisIncluded!==false&&(deform||isModal);
       const alpha=ifcElementOpacity({
         opacity:this.ifcOpacity,scope:this.ifcOpacityScope,
-        ifcType:part.ifcType,structuralDeformation
+        ifcType:part.ifcType,elementName:part.name,structuralDeformation
       });
       const mat=part.orig.material;
       const transparent=alpha<.999;
@@ -259,7 +259,7 @@ export class StructuralScene {
       // External IFC results may also contain wall meshes in the displaced
       // layer. Fade these too, otherwise they would conceal the interior.
       const displacedAlpha=ifcElementOpacity({
-        opacity:this.ifcOpacity,scope:this.ifcOpacityScope,ifcType:part.ifcType
+        opacity:this.ifcOpacity,scope:this.ifcOpacityScope,ifcType:part.ifcType,elementName:part.name
       });
       const dmat=part.deformed.material;
       const displacedTransparent=displacedAlpha<.999;
