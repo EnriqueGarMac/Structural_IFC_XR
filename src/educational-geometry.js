@@ -4,6 +4,7 @@ import * as THREE from 'three';
 // definitions. IFC representations are generated from these exact dimensions.
 export function geometryFromParts(parts){
   return parts.filter(p=>p.type!=='space').map(part=>{
+    const inMatrix=part.structural===true&&/^(Pilar de HA |Viga porticada de HA |Acero )/.test(part.name);
     let geometry;
     if(part.type==='member'){
       const a=new THREE.Vector3(...part.a),b=new THREE.Vector3(...part.b);
@@ -18,6 +19,6 @@ export function geometryFromParts(parts){
     }
     return {name:part.name,ifcType:part.ifcType,color:part.color,
       geometry,preserveStructuralOrigin:true,structural:part.structural===true,
-      storey:part.storey??null};
+      storey:part.storey??null,analysisIncluded:inMatrix};
   });
 }
