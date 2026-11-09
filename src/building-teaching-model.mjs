@@ -1,4 +1,5 @@
 import {solveFramePlane} from './matrix-frame-2d.mjs';
+import {addApartmentDetails} from './building-apartment-detail.mjs';
 
 // Teaching apartment building: three occupied levels at z=0,3.2,6.4 m;
 // structural roof at z=9.6 m. Three independent XZ reinforced-concrete frames
@@ -177,6 +178,8 @@ function define(){
     box('Ducha baño · '+level,'IfcSanitaryTerminal',[-5.15,.83,z+.04],[.85,.85,.08],0x9bc5cc,false,level);
     box('Cama doble dormitorio · '+level,'IfcFurnishingElement',[3.65,2.4,z+.25],[2.1,1.65,.48],0xd7c0ae,false,level);
     box('Armario dormitorio · '+level,'IfcFurnishingElement',[5.6,1.5,z+1],[.45,1.45,2],C.wood,false,level);
+    // Individual IFC furnishings are non-resistant and never enter the FEM.
+    addApartmentDetails({level,floorZ:zs[level],box});
     // Flight within the 2 × 2 m stair shaft.
     for(let step=0;step<12;step++){
       const y=.98+step*.17;

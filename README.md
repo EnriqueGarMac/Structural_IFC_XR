@@ -1,3 +1,32 @@
+## Transparencia del IFC y mobiliario docente
+
+En **04 / VISUALIZACIÓN**, utiliza **Transparencia del IFC** (0–100 %) para
+inspeccionar el interior. El selector **Aplicar transparencia a** ofrece:
+
+- **Cerramientos, cubierta y forjados**: hace transparentes muros, ventanas,
+  puertas, cubiertas, revestimientos y losas, pero mantiene sólidos los pilares,
+  vigas, muebles y aparatos sanitarios. Es la opción preferente para explicar
+  a los alumnos la diferencia entre estructura, envolvente y elementos de uso.
+- **Todo el IFC**: aplica la misma opacidad a todos los sólidos del IFC,
+  incluidos estructura, terreno y mobiliario.
+
+Los controles de transparencia son de visualización. No cambian los archivos
+IFC descargados, el análisis matricial, las cargas ni los resultados de SAP2000.
+En **Quest VR / RM**, el menú **Capas / visualización** permite alternar el
+ámbito y recorrer cinco niveles de opacidad apuntando con el mando.
+
+El ejemplo **Edificio de 3 plantas** incluye piezas BIM independientes para
+armarios y módulos de cocina, horno, placa de inducción, lavavajillas, grifos,
+mesa y sillas, sofás, televisor, estanterías, inodoro, ducha y mampara,
+lavabo, espejos, camas, mesillas, escritorios, luminarias y otros detalles.
+Son geometrías docentes simplificadas, no bibliotecas comerciales ni un
+proyecto de interiorismo. Se exportan como IFC4 con categorías de mobiliario
+y aparatos sanitarios cuando corresponde. **No participan en la matriz de
+rigidez**; los resultados estructurales siguen siendo los de los pórticos
+planos del ejemplo.
+
+---
+
 ## Reacciones en apoyos (SAP2000 → XR)
 
 Al importar un JSON SAP2000 con `jointReactions`, selecciona **Reacciones en apoyos** en **Vista de resultados**. El visor muestra las reacciones del caso activo directamente sobre los nudos, sin recalcular el equilibrio:

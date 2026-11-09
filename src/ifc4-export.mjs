@@ -79,7 +79,7 @@ function newWriter(){
 const IFC_TYPES=new Set([
   'IFCBEAM','IFCCOLUMN','IFCMEMBER','IFCPLATE','IFCFOOTING','IFCSLAB',
   'IFCWALL','IFCROOF','IFCCOVERING','IFCWINDOW','IFCDOOR','IFCSTAIRFLIGHT',
-  'IFCRAMP','IFCFURNISHINGELEMENT','IFCSANITARYTERMINAL','IFCGEOGRAPHICELEMENT',
+  'IFCRAMP','IFCFURNISHINGELEMENT','IFCSANITARYTERMINAL','IFCLIGHTFIXTURE','IFCGEOGRAPHICELEMENT',
   'IFCBUILDINGELEMENTPROXY','IFCPIPESEGMENT','IFCTRANSPORTELEMENT'
 ]);
 function entityArgs(type,globalId,owner,name,placement,representation){
@@ -93,7 +93,7 @@ function entityArgs(type,globalId,owner,name,placement,representation){
   // Tag plus optional PredefinedType at end.
   if(type==='IFCFURNISHINGELEMENT'||type==='IFCSANITARYTERMINAL'||
       type==='IFCPIPESEGMENT')return [...core,'$','.NOTDEFINED.'];
-  if(type==='IFCBUILDINGELEMENTPROXY')return [...core,'$','.NOTDEFINED.'];
+  if(type==='IFCBUILDINGELEMENTPROXY'||type==='IFCLIGHTFIXTURE')return [...core,String.fromCharCode(36),'.NOTDEFINED.'];
   return [...core,'$','$'];
 }
 export function exportEducationalIFC({

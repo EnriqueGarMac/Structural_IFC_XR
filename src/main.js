@@ -244,6 +244,16 @@ $('modal-amplitude').addEventListener('input',e=>{
 });
 $('case-select').addEventListener('change',e=>app.setCase(e.target.value));
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
+$('ifc-transparency').addEventListener('input',e=>{
+  const transparency=Number(e.target.value);
+  app.setIFCOpacity(1-transparency/100);
+  $('ifc-transparency-value').textContent=transparency+' %';
+  if(app.xrControls)app.xrControls.dirty=true;
+});
+$('ifc-opacity-scope').addEventListener('change',e=>{
+  app.setIFCOpacityScope(e.target.value);
+  if(app.xrControls)app.xrControls.dirty=true;
+});
 $('show-resistance-only').addEventListener('change',e=>{
   app.showStructureOnly=e.target.checked;
   app.updateVisualization();

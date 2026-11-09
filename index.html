@@ -92,6 +92,17 @@
         <div class="section-label">04 / VISUALIZACIÓN</div>
         <label class="checkrow compact"><input id="show-axes" type="checkbox" checked><span>Ejes y cuadrícula</span></label>
         <label class="checkrow compact"><input id="show-frames" type="checkbox" checked><span>Barras analíticas SAP2000</span></label>
+        <div class="ifc-opacity-controls">
+          <div class="range-head"><label for="ifc-transparency">Transparencia del IFC</label><output id="ifc-transparency-value">0 %</output></div>
+          <input id="ifc-transparency" type="range" min="0" max="100" step="5" value="0"
+            aria-label="Transparencia del IFC: 0 opaco, 100 transparente" />
+          <label for="ifc-opacity-scope">Aplicar transparencia a</label>
+          <select id="ifc-opacity-scope">
+            <option value="envelope">Cerramientos, cubierta y forjados (interior visible)</option>
+            <option value="all">Todo el IFC (incluida la estructura y el mobiliario)</option>
+          </select>
+          <p class="field-help">La transparencia es solo visual. Las cargas, reacciones y deformadas no cambian.</p>
+        </div>
         <label class="checkrow compact"><input id="show-resistance-only" type="checkbox"><span>Solo estructura resistente <small>Oculta fachadas, tabiques, puertas, ventanas y mobiliario de los ejemplos</small></span></label>
         <label class="checkrow compact"><input id="show-supports" type="checkbox" checked><span>Condiciones de borde 3D <small>Empotramientos, articulaciones y apoyos móviles</small></span></label>
         <label class="checkrow compact"><input id="show-sap-only" type="checkbox"><span>Solo elementos SAP2000 (barras, nudos y cargas)</span></label>
