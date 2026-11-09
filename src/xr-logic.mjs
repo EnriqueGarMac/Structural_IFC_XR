@@ -31,7 +31,8 @@ export function nextUniquePattern(loads,current,delta){
 
 export function amplificationFromSliderX(x,left=163,right=604,max=150) {
   const ratio=clamp((x-left)/(right-left),0,1);
-  return Math.round(ratio*max);
+  const step=max<1?.01:max<20?.1:1;
+  return Number((Math.round(ratio*max/step)*step).toFixed(2));
 }
 export function sliderXFromAmplification(value,left=163,right=604,max=150) {
   return left+clamp(value/max,0,1)*(right-left);
