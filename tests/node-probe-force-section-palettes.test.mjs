@@ -74,5 +74,5 @@ test('node probe reads true unscaled displacement even when the geometry is ampl
   assert.equal(probe.pinnedId,'B');
   probe.hideXRHover();
   assert.equal(probe.highlight.visible,true);
-  app.caseName='OTHER';probe.refresh();assert.equal(probe.pickers.length,0);
+  app.sapVisuals.view='forces';probe.refresh();assert.equal(probe.pickers.length,0);
 });
