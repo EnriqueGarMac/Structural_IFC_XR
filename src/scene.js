@@ -138,6 +138,7 @@ export class StructuralScene {
       copiedGeom.setAttribute('heat',new THREE.Float32BufferAttribute(new Float32Array(pos.count),1));
       this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),
         structural:piece.structural??null,
+        analysisIncluded:piece.analysisIncluded??null,
         base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
     if(allBounds.isEmpty())throw new Error('No se ha recibido geometría 3D.');
@@ -234,8 +235,8 @@ export class StructuralScene {
       // A partition, glazed façade or piece of furniture does not acquire
       // an invented FEM displacement field: only the analysed frame meshes
       // deform in the educational examples. Imported IFC stays compatible.
-      part.deformed.visible=visible&&part.structural!==false;
-      const structuralDeformation=part.structural!==false&&(deform||isModal);
+      part.deformed.visible=visible&&part.structural!==false&&part.analysisIncluded!==false;
+      const structuralDeformation=part.structural!==false&&part.analysisIncluded!==false&&(deform||isModal);
       part.orig.material.opacity=structuralDeformation?0.16:1;
       part.orig.material.depthWrite=!structuralDeformation;
       if(isModal){
