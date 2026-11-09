@@ -82,3 +82,23 @@
   color:#bdd4da;margin:9px 0 6px}
 .ifc-opacity-controls select{width:100%;font-size:11px}
 .ifc-opacity-controls .field-help{margin:9px 0 0}
+
+
+/* IMIS Structural XR brand: compact structural frame + vibration mark. */
+.brand-logo{
+  flex:0 0 43px;
+  width:43px;
+  height:43px;
+  padding:0;
+  background:transparent;
+  border-radius:12px;
+  letter-spacing:normal;
+  overflow:hidden;
+  box-shadow:0 0 0 1px #57949b30,0 4px 14px #0003;
+}
+.brand-logo img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
