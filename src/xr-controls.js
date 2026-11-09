@@ -343,9 +343,10 @@ export class StructuralXRControls {
       btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,551,692,74);
       btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,640,692,74);
       btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,729,692,74);
-      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,818,692,74);
+      btn('supports','Apoyos 3D: '+(app.showSupports?'visibles':'ocultos'),38,818,692,74);
+      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,906,692,65);
       txt(textFit(this.notice||'Se conservan los forjados estructurales.',63),
-        38,948,19,'#92e9d9');
+        38,995,18,'#92e9d9');
       txt('SAP puro: barras analíticas, nudos y cargas; sin IFC.',38,998,18);
       txt(textFit(this.selected,40),38,1050,18,'#83e9da');
     }else if(this.page==='placement' && app.xrMode==='vr'){
@@ -468,7 +469,7 @@ export class StructuralXRControls {
     }
     else if(['loads','deformed','original','frames','axes'].includes(id)){
       const dict={loads:['showLoads','show-loads'],deformed:['showDeformed','show-displaced'],
-        original:['showOriginal','show-original'],frames:['showFrames','show-frames'],axes:['showAxes','show-axes']};
+        original:['showOriginal','show-original'],frames:['showFrames','show-frames'],supports:['showSupports','show-supports'],axes:['showAxes','show-axes']};
       const [prop,domId]=dict[id];
       this.syncControl(domId,!app[prop]);
     }
