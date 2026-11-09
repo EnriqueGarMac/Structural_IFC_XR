@@ -2,6 +2,12 @@
 // Keeps legacy JSON compatibility; coordinates use global SAP XYZ, Z up.
 export function unpackRichSAP(input) {
   if (!input || input.schema !== 'imis.sap2000.xr/1') return input;
+  // Two valid versions share this schema identifier:
+  // - flat, with arrays nodes/frames/loads/cases and richer forces/modes;
+  // - nested, with geometry/loads/results objects.
+  // Preserve the flat variant rather than misreading loads as an object.
+  if (Array.isArray(input.nodes) && Array.isArray(input.frames) &&
+      Array.isArray(input.loads) && Array.isArray(input.cases)) return input;
   const g=input.geometry, r=input.results, l=input.loads;
   if (!g?.joints || !g?.frames || !r) throw Error('SAP XR incompleto: faltan geometry o results.');
   const vec=(v,label)=>{
