@@ -460,12 +460,11 @@ export class StructuralScene {
     this.xrControls.reticle.visible=false;
     this.xrControls.contact.visible=false;
     this.mobileOriginalShadowMap=this.renderer.shadowMap.enabled;
-    this.renderer.shadowMap.enabled=true;
-    this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    this.mobileShadowLight.visible=true;
+    // Do not inject virtual contact shadows into immersive AR.
+    this.renderer.shadowMap.enabled=false;
+    this.mobileShadowLight.visible=false;
     this.mobileShadowPlane.visible=false;
-    this.enableMobileCastShadows();
-    this.updateMobileSAPShadowCasters();
+    this.webSun.update();
     const status=document.getElementById('mobile-ar-status');
     if(status)status.textContent='Apunta hacia una mesa o al suelo.';
     const capability=typeof session.requestHitTestSource==='function'&&
@@ -512,14 +511,23 @@ export class StructuralScene {
     if(st.placeRequested){
       st.placeRequested=false;
       if(st.preview){
-        this.worldRoot.position.copy(st.preview).add(new THREE.Vector3(0,.02,0));
         this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
+        if(st.previewPlane){
+          const fitted=tableFitSize(this,st.previewPlane);
+          if(fitted){
+            this.targetMeters=fitted;this.updateScale();
+            const slider=$('model-size');
+            if(slider)slider.value=String(fitted);
+            const output=$('size-value');
+            if(output)output.textContent=fitted.toFixed(2)+' m';
+          }
+        }
+        placeModelOnSurface(this,st.preview);
         this.xrControls.reticle.visible=false;
         this.xrControls.contact.visible=false;
-        this.positionMobileShadow(st.preview,st.previewNormal||[0,1,0]);
         st.scanning=false;st.placed=true;
         const field=document.getElementById('mobile-ar-status');
-        if(field)field.textContent='Estructura colocada. Ajusta el tamaño o la deformada.';
+        if(field)field.textContent=st.previewPlane?'Modelo apoyado y ajustado a la mesa.':'Modelo apoyado. Puedes modificar el tamaño.';
       }
     }
   }
@@ -565,6 +573,8 @@ export class StructuralScene {
     this.mobileAR=mobile;
     this.xrSession=session;
     this.isXR=true;
+    this.renderer.shadowMap.enabled=false;
+    this.webSun.update();
     this.vrEnvironment.visible=mode==='vr';
     this.grid.visible=false;
     this.groundMarkers.visible=false;
@@ -577,6 +587,8 @@ export class StructuralScene {
       this.grid.visible=this.showAxes&&!this.showSAPOnly;
       this.groundMarkers.visible=this.grid.visible;
       this.controls.enabled=true;
+      this.renderer.shadowMap.enabled=true;
+      this.webSun.update();
       this.onXREnd?.();
     });
     try{
