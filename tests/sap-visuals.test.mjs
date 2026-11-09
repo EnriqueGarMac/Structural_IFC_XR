@@ -71,3 +71,24 @@ test('characteristic labels option can be toggled independently of force compone
   visuals.setCharacteristics(false);
   assert.equal(visuals.showCharacteristics,false);
 });
+
+test('hover and click draw the exact force-section cut without changing values',()=>{
+  const app=makeApp(),visuals=new SAPVisuals(app);
+  visuals.view='forces';visuals.drawForces(results);
+  const ray=new THREE.Raycaster(new THREE.Vector3(3,-2,.15),
+    new THREE.Vector3(0,1,0));
+  const data=visuals.pickForce(ray);
+  assert.ok(data,'Expected force diagram hit');
+  visuals.setHoverSection(data);
+  assert.equal(visuals.hoverMarker.visible,true);
+  const coords=visuals.hoverMarker.geometry.getAttribute('position').array;
+  assert.ok(coords.every(Number.isFinite));
+  assert.ok(Math.abs(coords[0]-data.station)<1e-5);
+  visuals.pinSection(data);
+  visuals.setHoverSection(null);
+  assert.equal(visuals.pinnedMarker.visible,true);
+  assert.equal(visuals.hoverMarker.visible,false);
+  visuals.clearPinnedSection();
+  assert.equal(visuals.pinnedMarker.visible,false);
+  visuals.clear();
+});
