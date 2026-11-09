@@ -52,6 +52,9 @@ function setResults(results,label){
   if(!results.modes?.length)modalSelect.add(new Option('Sin modos', ''));
   $('analysis-view').value='deformation';
   app.sapVisuals.view='deformation';app.sapVisuals.refresh();
+  $('force-values-controls').hidden=true;
+  $('legend').classList.remove('force-legend');
+  $('force-readout').hidden=true;
   if(!syntheticResults){
     const factor=app.maxU>0?Math.min(MAX_AMP,Math.max(25,Math.round(.10*app.maxSize/app.maxU))):25;
     app.amp=factor;showAmplitude();app.updateVisualization();
@@ -165,8 +168,18 @@ $('analysis-view').addEventListener('change',e=>{
   $('show-displaced').checked=app.showDeformed;
   $('show-loads').checked=app.showLoads;
   app.sapVisuals.setView(kind);
+  $('legend').classList.toggle('force-legend',kind==='forces');
+  $('force-values-controls').hidden=kind!=='forces';
+  $('force-readout').hidden=true;
 });
 $('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
+$('toggle-force-values').addEventListener('click',()=>{
+  const enabled=!app.sapVisuals.showCharacteristics;
+  app.sapVisuals.setCharacteristics(enabled);
+  $('toggle-force-values').setAttribute('aria-pressed',String(enabled));
+  $('toggle-force-values').textContent=enabled?
+    'Ocultar valores característicos':'Mostrar valores característicos';
+});
 $('mode-select').addEventListener('change',e=>app.sapVisuals.setMode(e.target.value));
 $('modal-amplitude').addEventListener('input',e=>{
   app.sapVisuals.setAmplitude(e.target.value);
@@ -212,6 +225,30 @@ $('apply-offset').addEventListener('click',()=>{
   if(off.some(v=>!Number.isFinite(v))){info('Los offsets deben ser numéricos.',true);return;}
   app.setOffset(off);info('Alineación actualizada. Verifica visualmente si las barras SAP coinciden con los elementos IFC.');
 });
+
+const forceReadout=$('force-readout');
+app.renderer.domElement.addEventListener('pointermove',event=>{
+  if(app.isXR||app.sapVisuals.view!=='forces'){
+    forceReadout.hidden=true;return;
+  }
+  const rect=app.renderer.domElement.getBoundingClientRect();
+  if(rect.width<1||rect.height<1)return;
+  app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
+    -(event.clientY-rect.top)/rect.height*2+1);
+  app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+  const measured=app.sapVisuals.pickForce(app.pickRaycaster);
+  if(!measured){forceReadout.hidden=true;return;}
+  const sign=measured.value>0?'+':'';
+  forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
+    '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
+    '\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
+    '\nInterpolado entre estaciones SAP2000';
+  const stage=$('stage').getBoundingClientRect();
+  forceReadout.style.left=Math.max(10,Math.min(stage.width-280,event.clientX-stage.left+20))+'px';
+  forceReadout.style.top=Math.max(10,Math.min(stage.height-115,event.clientY-stage.top+16))+'px';
+  forceReadout.hidden=false;
+});
+app.renderer.domElement.addEventListener('pointerleave',()=>{forceReadout.hidden=true;});
 $('reset-view').addEventListener('click',()=>app.recenterCamera());
 app.onSelection=(name)=>info(`Elemento seleccionado: ${name}`);
 async function setWebcam(enable){

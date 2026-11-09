@@ -50,6 +50,7 @@
             <option value="M2">M2 · Momento local 2 (kN·m)</option>
             <option value="M3" selected>M3 · Momento local 3 (kN·m)</option>
           </select></div>
+        <div id="force-values-controls" class="force-values-controls" hidden><button id="toggle-force-values" type="button" class="secondary-btn force-values-btn" aria-pressed="false">Mostrar valores característicos</button><p class="field-help">Extremos registrados e inicio/fin de cada barra · esfuerzos locales SAP2000.</p></div>
         <div class="control"><label for="mode-select">Modo propio</label><select id="mode-select"><option value="">Sin modos</option></select></div>
         <div class="range-control"><div class="range-head"><label for="modal-amplitude">Amplitud modal ilustrativa</label><output id="modal-amplitude-value">0.30 m (visual)</output></div>
           <input id="modal-amplitude" type="range" min="0" max="1" value="0.30" step="0.02" />
@@ -95,6 +96,7 @@
         <div class="canvas-wrap" id="canvas-wrap"></div>
         <div class="viewer-top"><div class="scene-pill"><i></i><span id="scene-label">MODELO DEMOSTRATIVO</span></div><span class="viewer-chip">IFC / SAP</span></div>
         <div class="legend" id="legend"><strong id="legend-title">DESPLAZAMIENTO |u|</strong><div class="legend-bar"></div><div class="legend-minmax"><span id="legend-min">0 mm</span><span id="legend-max">—</span></div><small id="legend-note">Deformada amplificada para visualización</small></div>
+        <div class="force-readout" id="force-readout" hidden></div>
         <div class="mode-tabs"><button type="button" class="tab active" id="btn-3d">◈ Vista 3D</button><button type="button" class="tab" id="btn-cam">◎ Webcam + 3D</button><button type="button" class="tab accent" id="btn-xr">◉ Quest 3 RM</button><button type="button" class="tab accent" id="btn-mobile-ar">▣ AR móvil</button></div>
         <div class="nav-tools"><button type="button" id="reset-view" title="Centrar cámara">⌖</button></div>
         <div class="help-text" id="help-text">Arrastra para girar · Rueda para acercar · Botón derecho para desplazar</div>

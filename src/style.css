@@ -47,3 +47,15 @@
 .demo-grid .demo-btn:hover,.demo-grid .demo-btn:focus-visible{border-color:#a6f4e4;background:#204659;outline:0}
 .demo-grid .demo-btn.is-current{border-color:#80e7cf;background:linear-gradient(150deg,#235963,#153745);box-shadow:0 0 0 1px #4ba89555 inset}
 .demo-disclaimer{font-size:10px;color:#82a4af;line-height:1.55;margin:4px 0 8px}
+
+/* Signed SAP2000 resultants and section probe readout. */
+.force-value-option{border:1px solid #355b66;border-radius:9px;
+  background:#102b37;padding:10px 12px;margin-top:-3px}
+.force-value-option input{flex:0 0 15px}
+.force-legend .legend-bar{background:linear-gradient(90deg,#48bbd8,#708894 48%,#f5b364) }
+.force-readout[hidden]{display:none!important}
+.force-readout{position:absolute;z-index:40;pointer-events:none;white-space:pre-line;
+  max-width:265px;min-width:190px;border:1px solid #6bb7c4;
+  border-radius:10px;padding:12px 14px;background:rgba(9,29,42,.96);
+  box-shadow:0 10px 25px #0009;color:#f0fdff;font:600 12px/1.65 system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;}
