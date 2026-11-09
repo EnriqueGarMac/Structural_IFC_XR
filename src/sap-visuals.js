@@ -21,7 +21,7 @@ export function makeSAPGeometry(results){
     geometry.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize()));
     const midpoint=a.clone().add(b).multiplyScalar(.5);
     geometry.translate(midpoint.x,midpoint.y,midpoint.z);
-    pieces.push({geometry,name:'SAP barra '+f.id,color:0x9ac8d1,ifcType:'SapFrame'});
+    pieces.push({geometry,name:'Barra '+f.id,color:0x9ac8d1,ifcType:'SapFrame'});
   }
   return pieces;
 }
