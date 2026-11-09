@@ -34,7 +34,7 @@ export function maxCaseDeflection(results,caseName){
   return max;
 }
 export function deformationScale(results,caseName,{
-  targetFraction=.004, maximumFraction=.025, absoluteMaximum=25000
+  targetFraction=.013, maximumFraction=.06, absoluteMaximum=25000
 }={}){
   const span=structuralSpan(results);
   const displacement=maxCaseDeflection(results,caseName);

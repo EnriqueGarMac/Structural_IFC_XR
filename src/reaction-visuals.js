@@ -14,7 +14,7 @@ export class ReactionVisuals{
   constructor(app){
     this.app=app;
     this.group=new THREE.Group();
-    this.group.name='Reacciones SAP2000 en apoyos';
+    this.group.name='Reacciones en apoyos';
     app.contentRoot.add(this.group);
     this.showValues=false;this.pickers=[];this.labels=[];
     this.xrTooltip=null;this.xrTooltipText='';
