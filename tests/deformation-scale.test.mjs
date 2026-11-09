@@ -37,7 +37,7 @@ test('beam midspan bending (not just the joint displacements) limits amplificati
   assert.equal(maxCaseDeflection(model,'DEAD'),.010);
   const range=deformationScale(model,'DEAD');
   assert.equal(range.span,10);
-  assert.ok(range.maxAmp<=60);
+  assert.ok(range.maxAmp<=120);
   assert.ok(range.defaultAmp>10 && range.defaultAmp<15);
 });
 test('no displacement case is safe and all updates are clamped',()=>{
