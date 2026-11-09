@@ -58,10 +58,23 @@
         <label class="checkrow"><input id="show-loads" type="checkbox" checked><span>Distribución de cargas <small>Flechas + intensidad de color</small></span></label>
         <label class="checkrow"><input id="show-displaced" type="checkbox" checked><span>Deformada amplificada <small>Interpolada entre nudos SAP</small></span></label>
         <label class="checkrow"><input id="show-original" type="checkbox" checked><span>Geometría indeformada <small>Referencia transparente</small></span></label>
-        <div class="range-control"><div class="range-head"><label for="amp">Factor de amplificación</label><output id="amp-value">×25</output></div><input id="amp" type="range" min="0" max="150" value="25" step="1" /></div>
+        <div class="range-control"><div class="range-head"><label for="amp">Factor de amplificación</label><output id="amp-value">×25</output></div><input id="amp" type="range" min="0" max="25000" value="25" step="1" /></div>
         <div class="range-control"><div class="range-head"><label for="model-size">Tamaño del modelo (lado mayor)</label><output id="size-value">2.5 m</output></div><input id="model-size" type="range" min="0.5" max="5" value="2.5" step="0.1" /></div>
         <div class="separator"></div>
         <div class="section-label">03 / ALINEACIÓN IFC ↔ SAP</div>
+        <div class="control"><label for="ifc-rotation">Orientación IFC → SAP (global Z vertical)</label>
+        <select id="ifc-rotation">
+          <option value="auto">Detectar automáticamente (24 rotaciones)</option>
+          <option value="identity">Sin rotación</option>
+          <option value="x90">Rotar X +90°</option>
+          <option value="x_90">Rotar X −90°</option>
+          <option value="y90">Rotar Y +90°</option>
+          <option value="y_90">Rotar Y −90°</option>
+          <option value="z90">Rotar Z +90°</option>
+          <option value="z_90">Rotar Z −90°</option>
+        </select></div>
+        <button type="button" id="fit-ifc" class="secondary-btn">Alinear IFC sobre SAP2000</button>
+        <p class="field-help" id="alignment-status">Importa un IFC y un JSON para alinear.</p>
         <p class="field-help">Offset de las coordenadas SAP respecto al IFC (metros). En el caso ideal: 0, 0, 0.</p>
         <div class="offset-inputs"><label>ΔX<input type="number" id="offset-x" step="0.1" value="0"></label><label>ΔY<input type="number" id="offset-y" step="0.1" value="0"></label><label>ΔZ<input type="number" id="offset-z" step="0.1" value="0"></label></div>
         <button type="button" id="apply-offset" class="secondary-btn">Aplicar alineación</button>
@@ -101,7 +114,7 @@
         <button type="button" id="mobile-ar-smaller">− Tamaño</button>
         <button type="button" id="mobile-ar-larger">+ Tamaño</button>
         <label class="mobile-ar-range">Deformada: <output id="mobile-ar-amp-value">×25</output>
-          <input type="range" min="0" max="150" step="1" value="25" id="mobile-ar-amp" />
+          <input type="range" min="0" max="25000" step="1" value="25" id="mobile-ar-amp" />
         </label>
         <button type="button" id="mobile-ar-sap-only">Solo SAP: NO</button>
         <button type="button" id="mobile-ar-exit">Salir de AR</button>
