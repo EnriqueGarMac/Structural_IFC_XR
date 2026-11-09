@@ -256,6 +256,18 @@ export class StructuralScene {
       mat.opacity=alpha;
       // An invisible wall must never write to the depth buffer.
       mat.depthWrite=!transparent;
+      // External IFC results may also contain wall meshes in the displaced
+      // layer. Fade these too, otherwise they would conceal the interior.
+      const displacedAlpha=ifcElementOpacity({
+        opacity:this.ifcOpacity,scope:this.ifcOpacityScope,ifcType:part.ifcType
+      });
+      const dmat=part.deformed.material;
+      const displacedTransparent=displacedAlpha<.999;
+      if(dmat.transparent!==displacedTransparent){
+        dmat.transparent=displacedTransparent;dmat.needsUpdate=true;
+      }
+      dmat.opacity=displacedAlpha;
+      dmat.depthWrite=!displacedTransparent;
       if(isModal){
         const attrs=part.deformed.geometry.getAttribute('position');
         attrs.array.set(part.base);attrs.needsUpdate=true;
