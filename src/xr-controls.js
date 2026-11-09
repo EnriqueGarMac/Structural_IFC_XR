@@ -159,6 +159,7 @@ export class StructuralXRControls {
             if(label)label.textContent=fitted.toFixed(2)+' m';
           }
         }
+        this.app.arAnchorPoint=plane.point.clone();
         placeModelOnSurface(this.app,plane.point);
         this.placeMode=false;this.reticle.visible=false;
         this.hasPlacedSurface=true;this.contact.visible=false;
@@ -431,7 +432,7 @@ export class StructuralXRControls {
     else if(id==='reset-model'){
       app.worldRoot.position.copy(app.xrMode==='vr'?this.vrPosition:this.basePosition);
       app.worldRoot.quaternion.copy(this.baseQuat);
-      this.contact.visible=false;this.hasPlacedSurface=false;
+      this.contact.visible=false;this.hasPlacedSurface=false;app.arAnchorPoint=null;
     }
     else if(id==='sap-only'){
       const desired=!app.showSAPOnly;
@@ -472,7 +473,7 @@ export class StructuralXRControls {
       app.targetMeters=snapModelSize(app.targetMeters,id==='size:+'?.2:-.2);
       app.updateScale();
       const input=$('model-size');if(input)input.value=String(app.targetMeters);
-      const label=$('size-value');if(label)label.textContent=app.targetMeters.toFixed(1)+' m';
+      const label=$('size-value');if(label)label.textContent=app.targetMeters.toFixed(2)+' m';
     }
     else if(id==='case:+'||id==='case:-'){
       const cases=app.results?.cases||[];
@@ -637,7 +638,7 @@ export class StructuralXRControls {
       }else if(source.handedness==='right'&&Math.abs(y)>.16){
         // Continuous scaling: rounding on every frame would swallow small
         // joystick increments, so quantize the label, not the actual size.
-        const newSize=clamp(this.app.targetMeters-y*dt*1.3,0.4,5);
+        const newSize=clamp(this.app.targetMeters-y*dt*1.3,0.12,5);
         if(Math.abs(newSize-this.app.targetMeters)>1e-6){
           this.app.targetMeters=newSize;this.app.updateScale();this.dirty=true;
           $('model-size').value=String(newSize);
