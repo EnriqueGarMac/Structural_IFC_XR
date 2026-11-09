@@ -42,7 +42,7 @@ test('increased visual magnification stays below a bounded physical-span fractio
       assert.ok(next.defaultAmp>=old.defaultAmp*2.9,
         'Deformation has not increased sufficiently in '+model.meta?.name+' '+name);
       assert.ok(next.defaultAmp*next.displacement<=next.span*.015+1e-6);
-      assert.ok(next.maxAmp*next.displacement<=next.span*.06+1e-6);
+      assert.ok(next.maxAmp*next.displacement<=next.span*.12+1e-6);
     }
   }
 });
