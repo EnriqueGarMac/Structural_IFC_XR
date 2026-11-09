@@ -5,7 +5,7 @@ import {exportEducationalIFC} from '../src/ifc4-export.mjs';
 
 test('open generated IFC4 file using the same web-ifc engine as the XR viewer',async()=>{
   const ifc=new WebIFC.IfcAPI();
-  ifc.SetWasmPath(new URL('../node_modules/web-ifc/',import.meta.url).pathname);
+
   await ifc.Init();
   const content=exportEducationalIFC({name:'Test model IFC4',parts:[{
     type:'box',name:'Test column',ifcType:'IfcColumn',
