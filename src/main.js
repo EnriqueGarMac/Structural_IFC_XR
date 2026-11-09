@@ -52,6 +52,9 @@ function setResults(results,label){
   if(!results.modes?.length)modalSelect.add(new Option('Sin modos', ''));
   $('analysis-view').value='deformation';
   app.sapVisuals.view='deformation';app.sapVisuals.refresh();
+  $('force-values-controls').hidden=true;
+  $('legend').classList.remove('force-legend');
+  $('force-readout').hidden=true;
   if(!syntheticResults){
     const factor=app.maxU>0?Math.min(MAX_AMP,Math.max(25,Math.round(.10*app.maxSize/app.maxU))):25;
     app.amp=factor;showAmplitude();app.updateVisualization();
@@ -166,11 +169,16 @@ $('analysis-view').addEventListener('change',e=>{
   $('show-loads').checked=app.showLoads;
   app.sapVisuals.setView(kind);
   $('legend').classList.toggle('force-legend',kind==='forces');
+  $('force-values-controls').hidden=kind!=='forces';
   $('force-readout').hidden=true;
 });
 $('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
-$('show-force-values').addEventListener('change',e=>{
-  app.sapVisuals.setCharacteristics(e.target.checked);
+$('toggle-force-values').addEventListener('click',()=>{
+  const enabled=!app.sapVisuals.showCharacteristics;
+  app.sapVisuals.setCharacteristics(enabled);
+  $('toggle-force-values').setAttribute('aria-pressed',String(enabled));
+  $('toggle-force-values').textContent=enabled?
+    'Ocultar valores característicos':'Mostrar valores característicos';
 });
 $('mode-select').addEventListener('change',e=>app.sapVisuals.setMode(e.target.value));
 $('modal-amplitude').addEventListener('input',e=>{
