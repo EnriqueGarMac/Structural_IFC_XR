@@ -59,3 +59,12 @@
   border-radius:10px;padding:12px 14px;background:rgba(9,29,42,.96);
   box-shadow:0 10px 25px #0009;color:#f0fdff;font:600 12px/1.65 system-ui,sans-serif;
   font-variant-numeric:tabular-nums;}
+
+/* Quest VR entry sits beside passthrough RM, not inside the mobile AR controls. */
+.mode-tabs{flex-wrap:wrap;max-width:calc(100% - 95px)}
+#btn-vr{color:#bcd6ff}
+#btn-vr:hover,#btn-vr:focus-visible{background:#284a69;color:#ffffff}
+@media(max-width:700px){
+  .mode-tabs{max-width:calc(100% - 65px)}
+  #btn-vr{font-size:9px}
+}
