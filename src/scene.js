@@ -85,7 +85,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showSupports=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
+    this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -136,7 +136,9 @@ export class StructuralScene {
       // Normalized displacement amplitudes are also used as UVs for USDZ,
       // because Quick Look may discard THREE's per-vertex colours.
       copiedGeom.setAttribute('heat',new THREE.Float32BufferAttribute(new Float32Array(pos.count),1));
-      this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
+      this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),
+        structural:piece.structural??null,
+        base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
     if(allBounds.isEmpty())throw new Error('No se ha recibido geometría 3D.');
     if(bbox.isEmpty()){
@@ -226,9 +228,16 @@ export class StructuralScene {
     this.originalGroup.visible=visibility.original;
     this.deformedGroup.visible=isModal&&!this.showSAPOnly?this.showDeformed:visibility.deformed;
     for(const part of this.parts){
-      part.orig.visible=part.deformed.visible=!(this.hideGround&&part.terrain);
-      part.orig.material.opacity=(deform||isModal) ? 0.16 : 1;
-      part.orig.material.depthWrite=!(deform||isModal);
+      const visible=!(this.hideGround&&part.terrain)&&
+        (!this.showStructureOnly||part.structural!==false);
+      part.orig.visible=visible;
+      // A partition, glazed façade or piece of furniture does not acquire
+      // an invented FEM displacement field: only the analysed frame meshes
+      // deform in the educational examples. Imported IFC stays compatible.
+      part.deformed.visible=visible&&part.structural!==false;
+      const structuralDeformation=part.structural!==false&&(deform||isModal);
+      part.orig.material.opacity=structuralDeformation?0.16:1;
+      part.orig.material.depthWrite=!structuralDeformation;
       if(isModal){
         const attrs=part.deformed.geometry.getAttribute('position');
         attrs.array.set(part.base);attrs.needsUpdate=true;
