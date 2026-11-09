@@ -54,6 +54,7 @@ test('the three storeys contain genuinely classified furniture and sanitary fixt
   assert.ok(ifc.stats.products>350);
   assert.ok((ifc.content.match(/=IFCFURNISHINGELEMENT\(/g)||[]).length>=100);
   assert.ok((ifc.content.match(/=IFCSANITARYTERMINAL\(/g)||[]).length>=20);
+  assert.ok((ifc.content.match(/=IFCLIGHTFIXTURE\\(/g)||[]).length>=10);
   assert.ok(ifc.content.includes('Mampara de ducha'));
   assert.ok(ifc.content.includes('Almohada dormitorio'));
 });
