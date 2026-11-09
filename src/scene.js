@@ -5,6 +5,8 @@ import { StructuralXRControls } from './xr-controls.js';
 import {isTerrainElement,displayModeVisibility} from './view-filters.mjs';
 import {makeStructuralGroundGrid,makeColumnFootMarkers} from './ground-reference.js';
 import {makeBeamFieldSampler} from './beam-field.mjs';
+import {sessionOptions} from './xr-session-config.mjs';
+import {createVREnvironment} from './vr-environment.js';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -62,6 +64,8 @@ export class StructuralScene {
     this.mobileShadowPlane.receiveShadow=true;
     this.mobileShadowPlane.visible=false;
     this.scene.add(this.mobileShadowPlane);
+    this.vrEnvironment=createVREnvironment();
+    this.scene.add(this.vrEnvironment);
     this.worldRoot=new THREE.Group();this.worldRoot.rotation.x=-Math.PI/2;this.scene.add(this.worldRoot);
     this.contentRoot=new THREE.Group();this.worldRoot.add(this.contentRoot);
     this.originalGroup=new THREE.Group();this.deformedGroup=new THREE.Group();
@@ -80,7 +84,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;
+    this.showFrames=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -465,29 +469,37 @@ export class StructuralScene {
     document.getElementById('mobile-ar-overlay').hidden=true;
     this.xrControls.reticle.visible=false;this.xrControls.contact.visible=false;
   }
-  async enterXR({mobile=false}={}){
-    if(!navigator.xr)throw new Error('Este navegador no dispone de WebXR. Abre la aplicación HTTPS desde el navegador de Quest 3.');
+  async enterXR({mobile=false,mode='ar'}={}){
+    if(!navigator.xr)throw new Error(
+      'Este navegador no dispone de WebXR. Para la realidad virtual abre HTTPS con Quest Browser.');
     if(this.xrSession){await this.xrSession.end();return;}
-    const ok=await navigator.xr.isSessionSupported('immersive-ar');
-    if(!ok)throw new Error('Este dispositivo/navegador no admite sesiones immersive-ar. Prueba Quest Browser en Quest 3.');
-    this.renderer.xr.setReferenceSpaceType('local');
+    const config=sessionOptions({mobile,mode});
+    const supported=await navigator.xr.isSessionSupported(config.sessionType);
+    if(!supported)throw new Error(mode==='vr'?
+      'Este dispositivo no admite immersive-vr. Abre la aplicación en el navegador de Meta Quest.':
+      'Este dispositivo/navegador no admite immersive-ar. Prueba Quest Browser en Quest.');
+    this.renderer.xr.setReferenceSpaceType(config.referenceSpace);
     const overlay=document.getElementById('mobile-ar-overlay');
     if(mobile)overlay.hidden=false;
     let session;
     try{
-      session=await navigator.xr.requestSession('immersive-ar',mobile?
-        {requiredFeatures:['local','dom-overlay'],
-          optionalFeatures:['hit-test','local-floor'],domOverlay:{root:overlay}}:
-        {requiredFeatures:['local'],optionalFeatures:['hit-test','local-floor']});
+      session=await navigator.xr.requestSession(config.sessionType,mobile?
+        {...config.init,domOverlay:{root:overlay}}:config.init);
     }catch(e){
       if(mobile)overlay.hidden=true;
       throw e;
     }
-    this.mobileAR=mobile;this.xrSession=session;this.isXR=true;
+    this.xrMode=mode;
+    this.mobileAR=mobile;
+    this.xrSession=session;
+    this.isXR=true;
+    this.vrEnvironment.visible=mode==='vr';
     this.grid.visible=false;
+    this.groundMarkers.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
-      this.xrSession=null;this.isXR=false;
+      this.xrSession=null;this.isXR=false;this.xrMode=null;
+      this.vrEnvironment.visible=false;
       this.stopMobileAR();
       this.xrControls.stop();
       this.grid.visible=this.showAxes&&!this.showSAPOnly;
@@ -508,5 +520,9 @@ export class StructuralScene {
       throw err;
     }
   }
-  async webXRSupported(){try{return Boolean(await navigator.xr?.isSessionSupported('immersive-ar'));}catch{return false;}}
+  async webXRSupported(mode='ar'){
+    try{return Boolean(await navigator.xr?.isSessionSupported(
+      mode==='vr'?'immersive-vr':'immersive-ar'
+    ));}catch{return false;}
+  }
 }

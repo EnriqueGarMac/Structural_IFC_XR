@@ -265,13 +265,29 @@ async function setWebcam(enable){
 }
 $('btn-cam').addEventListener('click',()=>setWebcam(!webcamStream));
 $('btn-3d').addEventListener('click',()=>setWebcam(false));
-$('btn-xr').addEventListener('click',async()=>{
-  try{if(webcamStream)await setWebcam(false);await app.enterXR();$('btn-xr').textContent='◎ Salir de RM';}
-  catch(err){info(`WebXR: ${err.message}`,true);}
-});
+// WebXR requires a real click to enter an immersive session. Switching mode
+// while a different session is active asks the user to leave that session first.
+async function startQuestXR(mode){
+  const name=mode==='vr'?'VR':'RM';
+  try{
+    if(webcamStream)await setWebcam(false);
+    if(app.xrSession&&app.xrMode!==mode){
+      info('Sal del modo inmersivo actual antes de entrar en '+name+'.');
+      return;
+    }
+    await app.enterXR({mode});
+    if(app.xrMode===mode){
+      $('btn-xr').textContent=mode==='ar'?'◎ Salir de RM':'◉ Quest 3 RM';
+      $('btn-vr').textContent=mode==='vr'?'◎ Salir de VR':'◉ Quest 3 VR';
+    }
+  }catch(err){info('WebXR '+name+': '+err.message,true);}
+}
+$('btn-xr').addEventListener('click',()=>startQuestXR('ar'));
+$('btn-vr').addEventListener('click',()=>startQuestXR('vr'));
 
 app.onXREnd=()=>{
   $('btn-xr').textContent='◉ Quest 3 RM';
+  $('btn-vr').textContent='◉ Quest 3 VR';
   $('btn-mobile-ar').textContent='▣ AR móvil';
 };
 $('mobile-ar-overlay').addEventListener('beforexrselect',e=>e.preventDefault());
@@ -335,7 +351,14 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
 });
 
 (async()=>{
-  const xrOK=await app.webXRSupported();
-  $('xr-status').textContent=xrOK?'WebXR disponible · Quest o Android':isIOSDevice()?'iPhone: usa «AR móvil» (Quick Look)':'Quest / Android: WebXR compatible necesario';
+  const [mrOK,vrOK]=await Promise.all([
+    app.webXRSupported('ar'),app.webXRSupported('vr')
+  ]);
+  $('xr-status').textContent=mrOK&&vrOK?
+    'Quest · Realidad mixta y virtual disponibles':
+    vrOK?'WebXR VR disponible · entorno virtual inmersivo':
+    mrOK?'WebXR RM disponible · passthrough':
+    isIOSDevice()?'iPhone: usa «AR móvil» (Quick Look)':
+    'Para VR/RM abre esta página HTTPS con Quest Browser';
 })();
 showDemo('frame');

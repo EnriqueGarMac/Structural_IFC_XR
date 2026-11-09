@@ -65,16 +65,19 @@ export class StructuralXRControls {
     this.contact.renderOrder=-1;app.scene.add(this.contact);
     this.baseQuat=app.worldRoot.quaternion.clone();
     this.basePosition=new THREE.Vector3(0,-.85,-1.55);
+    this.vrPosition=new THREE.Vector3(0,.72,-2.4);
     this.lastFrameTime=0;
   }
   start(session){
     this.session=session;
     this.initializedPose=false;this.panel.visible=true;
     this.page='main';this.dirty=true;this.placeMode=false;this.moveMenu=false;
-    this.hitAvailable=typeof session.requestHitTestSource==='function' &&
+    this.hitAvailable=this.app.xrMode!=='vr' &&
+      typeof session.requestHitTestSource==='function' &&
       (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
     this.app.worldRoot.quaternion.copy(this.baseQuat);
-    this.app.worldRoot.position.copy(this.basePosition);
+    this.app.worldRoot.position.copy(this.app.xrMode==='vr'?
+      this.vrPosition:this.basePosition);
     this.contact.visible=false;this.hasPlacedSurface=false;
   }
   stop(){
@@ -249,7 +252,8 @@ export class StructuralXRControls {
       txt('Seleccionado: '+textFit(this.selected,34),38,193,20,'#b5d8df');
       btn('results','ANÁLISIS Y DEFORMADAS',38,245,692,91,true);
       btn('layers','CAPAS Y ELEMENTOS',38,357,692,91);
-      btn('placement','COLOCACIÓN EN LA SALA',38,469,692,91);
+      btn('placement',app.xrMode==='vr'?'MOVER MODELO EN VR':'COLOCACIÓN EN LA SALA',
+        38,469,692,91);
       txt('Tamaño del modelo en realidad mixta',38,614,21);
       btn('size:-','−',38,645,144,78);
       txt(app.targetMeters.toFixed(1)+' m',385,684,29,'#f3ffff','center');
@@ -322,6 +326,17 @@ export class StructuralXRControls {
         38,948,19,'#92e9d9');
       txt('SAP puro: barras analíticas, nudos y cargas; sin IFC.',38,998,18);
       txt(textFit(this.selected,40),38,1050,18,'#83e9da');
+    }else if(this.page==='placement' && app.xrMode==='vr'){
+      btn('back','‹ Volver',38,117,230,66);
+      txt('ESTUDIO VIRTUAL · VR',38,219,29,'#e4f8ff');
+      txt('Gatillo sobre estructura: selecciona y gira',38,294,22,'#a0e1e9');
+      txt('Grip: desplaza el modelo en el espacio',38,354,22,'#a0e1e9');
+      txt('Joystick izquierdo: rota la estructura',38,414,22,'#a0e1e9');
+      txt('Joystick derecho: ajusta tamaño',38,474,22,'#a0e1e9');
+      btn('reset-model','Recentrar modelo enfrente de ti',38,575,692,90,true);
+      btn('results','Consultar cargas, esfuerzos y modos',38,709,692,90);
+      txt('Sala virtual sin passthrough: no se graba tu entorno.',38,893,20);
+      btn('exit','SALIR DE REALIDAD VIRTUAL',38,978,692,78);
     }else if(this.page==='placement'){
       btn('back','‹ Volver',38,117,230,66);
       txt('COLOCACIÓN EN EL ENTORNO',38,220,28,'#e4f8ff');
@@ -361,7 +376,7 @@ export class StructuralXRControls {
       // The first click only arms placement; the following click pins the panel.
     }
     else if(id==='reset-model'){
-      app.worldRoot.position.copy(this.basePosition);
+      app.worldRoot.position.copy(app.xrMode==='vr'?this.vrPosition:this.basePosition);
       app.worldRoot.quaternion.copy(this.baseQuat);
       this.contact.visible=false;this.hasPlacedSurface=false;
     }
