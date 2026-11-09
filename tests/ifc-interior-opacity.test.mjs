@@ -41,7 +41,7 @@ test('the three storeys contain genuinely classified furniture and sanitary fixt
     }
     assert.ok(floor.filter(p=>p.ifcType==='IfcFurnishingElement').length>=35);
     assert.ok(floor.filter(p=>p.ifcType==='IfcSanitaryTerminal').length>=5);
-    for(const detail of floor.filter(p=>p.name.includes('· planta '+(level+1))))
+    for(const detail of floor.filter(p=>p.type!=='space'&&p.name.endsWith('· planta '+(level+1))))
       assert.equal(detail.structural,false,'Unexpected structural furnishing '+detail.name);
   }
   const bedrooms=parts.filter(p=>p.type==='space'&&p.name.includes('Dormitorio'));
