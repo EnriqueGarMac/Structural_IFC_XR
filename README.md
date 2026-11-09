@@ -1,3 +1,43 @@
+## Realidad virtual inmersiva en Meta Quest (modo VR)
+
+El visor dispone de dos experiencias independientes para Meta Quest:
+
+- **Quest 3 RM:** realidad mixta mediante `immersive-ar`, con el entorno real
+  visible a través del passthrough. Conserva la detección de superficies cuando
+  el navegador la ofrece.
+- **Quest 3 VR:** realidad virtual mediante `immersive-vr`, sin passthrough.
+  La estructura se muestra en un estudio virtual oscuro, con suelo y cuadrícula
+  de referencia, utilizando un espacio de seguimiento `local-floor`.
+
+### Uso en Meta Quest
+
+1. Abre la aplicación HTTPS desde **Quest Browser** y, antes de entrar en VR,
+   carga un IFC y su JSON SAP2000, o escoge una demostración.
+2. Pulsa **Quest 3 VR** y acepta entrar en realidad virtual.
+3. Utiliza el menú flotante **Análisis y deformadas** para elegir caso,
+   cargas, diagramas de esfuerzos y formas modales.
+4. Apunta al modelo con el gatillo para girarlo, usa el botón lateral para
+   desplazarlo, el joystick izquierdo para rotarlo y el derecho para ajustar
+   el tamaño. En **Mover modelo en VR** puedes recentrarlo delante de ti.
+5. En **Esfuerzos internos**, apunta el mando a las superficies sombreadas
+   para leer barra, estación y valor. Activa las etiquetas características
+   si lo deseas.
+6. Sal con **SALIR DE REALIDAD VIRTUAL** en el menú inmersivo o mediante el
+   control de salida de Quest. Para alternar VR/RM, termina una sesión antes
+   de iniciar la otra.
+
+El entorno virtual **no reproduce una habitación real** y no requiere
+captura de la cámara. La escala inicial es una maqueta ajustable, no una
+garantía de escala 1:1. Los modos de vibración tienen amplitudes ilustrativas
+y sus frecuencias reales siguen mostrándose como resultados de SAP2000.
+
+**Compatibilidad:** requiere navegador compatible con `immersive-vr`
+y seguimiento `local-floor` (por ejemplo Quest Browser). La vista 3D
+de escritorio permanece disponible sin visor. El código puede verificarse
+automáticamente, pero la experiencia física requiere pruebas en las gafas.
+
+---
+
 ## Importar directamente un JSON de SAP2000 (nuevo esquema IMIS)
 
 La aplicación admite tanto los archivos clásicos `{nodes, frames, loads, cases}` como
