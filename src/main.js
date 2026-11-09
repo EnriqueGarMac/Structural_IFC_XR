@@ -253,7 +253,7 @@ $('toggle-reaction-values').addEventListener('click',()=>{
 $('mode-select').addEventListener('change',e=>app.sapVisuals.setMode(e.target.value));
 $('modal-amplitude').addEventListener('input',e=>{
   app.sapVisuals.setAmplitude(e.target.value);
-  $('modal-amplitude-value').textContent=Number(e.target.value).toFixed(2)+' m (visual)';
+  $('modal-amplitude-value').textContent=Number(e.target.value).toFixed(2)+' m · visualización';
 });
 $('case-select').addEventListener('change',e=>{app.setCase(e.target.value);setSafeDeformationScale();});
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
