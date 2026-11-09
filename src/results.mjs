@@ -13,7 +13,9 @@ export function normalizeResults(input) {
   const seen = new Set();
   for (const n of nodes) { if (seen.has(n.id)) throw new Error('Identificador de nudo duplicado: '+n.id); seen.add(n.id); }
   const frames = (input.frames || []).map(f=>({
-    id: String(f.id ?? f.name), i: String(f.i), j: String(f.j)
+    id: String(f.id ?? f.name), i: String(f.i), j: String(f.j),
+    section: f.section??null,material:f.material??null,
+    local_axes:f.local_axes??null,length_m:f.length_m??null
   })).filter(f=> f.i !== 'undefined' && f.j !== 'undefined');
   const loads = (input.loads || []).map(l=>({
     frame: String(l.frame), pattern: String(l.pattern ?? 'SIN_PATRON'),
