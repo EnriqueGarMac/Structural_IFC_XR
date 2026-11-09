@@ -31,12 +31,19 @@ export class SAPVisuals{
   constructor(app){
     this.app=app;this.view='deformation';this.component='M3';this.modeIndex=0;
     this.modalAmplitude=.3;this.frequency=0;this.visualHz=.65;this.dynamic=[];this.modalParts=[];this.frameNumber=0;
-    this.showCharacteristics=false;this.forceMeshes=[];this.forceMin=0;this.forceMax=0;
+    this.showCharacteristics=false;this.characteristicSprites=[];this.forceMeshes=[];this.forceMin=0;this.forceMax=0;
     this.xrTooltip=null;this.xrTooltipText='';
     this.group=new THREE.Group();app.contentRoot.add(this.group);
   }
   clear(){
-    this.group.traverse(obj=>{if(obj.material?.map?.isTexture)obj.material.map.dispose();});
+    // Three.js Sprite uses a shared geometry; remove texture labels before the
+    // application's generic geometry-disposal traversal runs.
+    for(const sprite of this.characteristicSprites){
+      this.group.remove(sprite);
+      sprite.material.map?.dispose();
+      sprite.material.dispose();
+    }
+    this.characteristicSprites=[];
     this.app.clearGroup(this.group);
     this.dynamic=[];this.modalParts=[];this.forceMeshes=[];
     this.hideXRHover();
@@ -153,7 +160,7 @@ export class SAPVisuals{
         for(const p of characteristicStations(stations,3)){
           const value=Math.abs(p.value)<1e-9?0:p.value;
           const sign=value>0?'+':'';
-          const line='B'+f.id+' · '+sign+value.toFixed(2)+' '+unit;
+          const line='B'+f.id+' '+p.role+' · '+sign+value.toFixed(2)+' '+unit;
           const tag=this.makeLabel(line,value>=0?'#f9c786':'#77d5eb');
           const point=a.clone().addScaledVector(axis,p.station)
             .addScaledVector(normal,value*amplitude);
@@ -163,7 +170,7 @@ export class SAPVisuals{
           const size=(this.app.maxSize||1);
           tag.scale.set(size*.23,size*.061,1);
           tag.renderOrder=90;
-          this.group.add(tag);
+          this.group.add(tag);this.characteristicSprites.push(tag);
         }
       }
     }
@@ -221,7 +228,7 @@ export class SAPVisuals{
         this.xrTooltip.material.map?.dispose();
         this.xrTooltip.material.map=sprite.material.map;
         sprite.material.map=null;
-        sprite.material.dispose();sprite.geometry?.dispose();
+        sprite.material.dispose();
         this.xrTooltip.material.needsUpdate=true;
         this.xrTooltipText=line;
       }
