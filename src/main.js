@@ -425,7 +425,7 @@ async function prepareQuickLook(){
   status.textContent='Preparando el modelo 3D para AR Quick Look…';
   try{
     const {exportStructuralUSDZ}=await import('./mobile-usdz.js');
-    const blob=await exportStructuralUSDZ(app,{includeShadow:$('mobile-ios-shadow').checked});
+    const blob=await exportStructuralUSDZ(app);
     if(iosBlobURL)URL.revokeObjectURL(iosBlobURL);
     iosBlobURL=URL.createObjectURL(blob);
     anchor.href=iosBlobURL;anchor.hidden=false;
@@ -433,7 +433,6 @@ async function prepareQuickLook(){
   }catch(e){status.textContent='No se pudo preparar AR: '+e.message;}
   finally{iosWorking=false;}
 }
-$('mobile-ios-shadow').addEventListener('change',()=>{if(!$('mobile-ios-actions').hidden)prepareQuickLook();});
 $('btn-mobile-ar').addEventListener('click',async()=>{
   if(isIOSDevice())return prepareQuickLook();
   try{
