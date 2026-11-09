@@ -93,7 +93,7 @@ function entityArgs(type,globalId,owner,name,placement,representation){
   // Tag plus optional PredefinedType at end.
   if(type==='IFCFURNISHINGELEMENT'||type==='IFCSANITARYTERMINAL'||
       type==='IFCPIPESEGMENT')return [...core,'$','.NOTDEFINED.'];
-  if(type==='IFCBUILDINGELEMENTPROXY'||type==='IFCLIGHTFIXTURE')return [...core,'
+  if(type==='IFCBUILDINGELEMENTPROXY'||type==='IFCLIGHTFIXTURE')return [...core,String.fromCharCode(36),'.NOTDEFINED.'];
   return [...core,'$','$'];
 }
 export function exportEducationalIFC({
