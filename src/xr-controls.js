@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniquePattern,
   amplificationFromSliderX,sliderXFromAmplification} from './xr-logic.mjs';
 import {nextXRIFCOpacity} from './ifc-opacity.mjs';
+import {formatAmplification} from './deformation-scale.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
@@ -264,16 +265,16 @@ export class StructuralXRControls {
       btn('layers','CAPAS Y ELEMENTOS',38,357,692,91);
       btn('placement',app.xrMode==='vr'?'MOVER MODELO EN VR':'COLOCACIÓN EN LA SALA',
         38,469,692,91);
-      txt('Tamaño del modelo en realidad mixta',38,614,21);
+      txt('Tamaño del modelo en '+(app.xrMode==='vr'?'VR':'realidad mixta'),38,614,21);
       btn('size:-','−',38,645,144,78);
       txt(app.targetMeters.toFixed(1)+' m',385,684,29,'#f3ffff','center');
       btn('size:+','+',586,645,144,78);
       btn('reset-model','Recentrar estructura',38,769,335,76);
       btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
-      txt('CAMBIAR EJEMPLO SIN SALIR DE RM',38,861,18,'#afcdd7');
-      btn('demo-frame','PÓRTICO',38,880,335,67);
-      btn('demo-roof','CUBIERTA CELOSÍA',395,880,335,67,true);
-      btn('exit','SALIR DE REALIDAD MIXTA',38,979,692,77);
+      txt('CAMBIAR MODELO DE EJEMPLO',38,861,18,'#afcdd7');
+      btn('demo-frame','EDIFICIO · 3 PLANTAS',38,880,335,67);
+      btn('demo-roof','NAVE INDUSTRIAL',395,880,335,67,true);
+      btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,979,692,77);
     }else if(this.page==='results'){
       btn('back','‹ Volver',38,117,230,66);
       txt('RESULTADOS ESTRUCTURALES',38,225,28,'#e6f6fc');
@@ -286,7 +287,7 @@ export class StructuralXRControls {
       txt(textFit(app.pattern==='all'?'Todos':app.pattern,28),385,506,23,'#edffff','center');
       btn('pattern:+','›',606,473,124,68);
       txt('AMPLIFICACIÓN DE LA DEFORMADA',38,584,21);
-      txt('×'+app.amp,712,584,29,'#8bf6df','right');
+      txt(formatAmplification(app.amp),712,584,29,'#8bf6df','right');
       const left=163,right=604,y=660;
       rounded(c,left-7,y-8,right-left+14,16,8,'#254859');
       const x=sliderXFromAmplification(app.amp,163,604,app.ampMax??150);
@@ -297,7 +298,7 @@ export class StructuralXRControls {
       btn('amp:-','−',38,622,102,75);
       btn('amp:+','+',629,622,101,75);
       txt('×0',157,713,18,'#a2c6d1');
-      txt('×'+Math.round(app.ampMax??150).toLocaleString('es-ES'),613,713,18,'#a2c6d1','right');
+      txt(formatAmplification(app.ampMax??150),613,713,18,'#a2c6d1','right');
       const view=app.sapVisuals?.view||'deformation';
       const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',
         reactions:'Reacciones en apoyos',modes:'Modos de vibración'};
@@ -309,13 +310,13 @@ export class StructuralXRControls {
       if(view==='reactions'){
         const summary=app.reactionVisuals?.lastSummary;
         const z=summary?.force?.[2];
-        txt('Suma reacciones Z: '+(Number.isFinite(z)?z.toFixed(3)+' kN':'—'),
+        txt('Reacción vertical total: '+(Number.isFinite(z)?z.toFixed(3)+' kN':'—'),
           385,881,23,'#a6eeea','center');
         btn('reaction-values','VALORES: '+(app.reactionVisuals?.showValues?'SÍ':'NO'),
           38,932,334,77,true);
         btn('sap-only',app.showSAPOnly?'IFC: OCULTO':'IFC: VISIBLE',
           394,932,336,77);
-        txt('Apunta al nudo del apoyo: fuerzas y momentos en ejes globales XYZ.',
+        txt('Apunta a un apoyo para consultar sus fuerzas y momentos.',
           38,1052,17,'#9ce6d9');
       }else{
         btn('detail:-','‹',38,847,126,69);
@@ -326,10 +327,10 @@ export class StructuralXRControls {
           38,932,334,77,true);
         btn('sap-only',app.showSAPOnly?'IFC: OCULTO':'IFC: VISIBLE',
           394,932,336,77);
-        txt('Apunta al área sombreada con el mando para consultar s y el esfuerzo.',
+        txt('Apunta al diagrama para consultar el esfuerzo en esa sección.',
           38,1052,17,'#9ce6d9');
       }else{
-        btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'VER SOLO ELEMENTOS SAP',
+        btn('sap-only',app.showSAPOnly?'MOSTRAR MODELO BIM':'VER SOLO ESTRUCTURA',
           38,932,692,77,true);
         txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
       }
@@ -337,13 +338,13 @@ export class StructuralXRControls {
     }else if(this.page==='layers'){
       btn('back','‹ Volver',38,117,230,66);
       txt('CAPAS / VISUALIZACIÓN',38,224,28,'#e1f7fc');
-      btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'Solo elementos SAP2000',
+      btn('sap-only',app.showSAPOnly?'Mostrar modelo BIM':'Solo modelo de cálculo',
         38,277,692,66,true);
       btn('terrain',app.hideGround?'Terreno: OCULTO':'Terreno: VISIBLE',38,349,692,66);
       btn('original','IFC: '+(app.showOriginal?'VISIBLE':'OCULTO'),38,421,692,66);
       btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,493,692,66);
       btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,565,692,66);
-      btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,637,692,66);
+      btn('frames','Barras: '+(app.showFrames?'visibles':'ocultas'),38,637,692,66);
       btn('supports','Apoyos 3D: '+(app.showSupports?'visibles':'ocultos'),38,709,692,66);
       btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,781,692,66);
       btn('ifc-opacity-scope','Transparencia: '+
@@ -361,23 +362,23 @@ export class StructuralXRControls {
       txt('Joystick derecho: ajusta tamaño',38,474,22,'#a0e1e9');
       btn('reset-model','Recentrar modelo enfrente de ti',38,575,692,90,true);
       btn('results','Consultar cargas, esfuerzos y modos',38,709,692,90);
-      txt('Sala virtual sin passthrough: no se graba tu entorno.',38,893,20);
+      txt('Explora el modelo en una sala virtual inmersiva.',38,893,20);
       btn('exit','SALIR DE REALIDAD VIRTUAL',38,978,692,78);
     }else if(this.page==='placement'){
       btn('back','‹ Volver',38,117,230,66);
       txt('COLOCACIÓN EN EL ENTORNO',38,220,28,'#e4f8ff');
       btn('place',this.placeMode?'Cancelar detección':'Detectar mesa / suelo',
         38,306,692,92,true);
-      txt(this.hitAvailable?'Detección horizontal WebXR disponible':
-        'Este navegador no proporciona WebXR hit-test',38,442,20,
+      txt(this.hitAvailable?'Detección de superficies disponible':
+        'Detección de superficies no disponible',38,442,20,
         this.hitAvailable?'#86f7d9':'#ffb7a5');
       txt(this.latestHit&&this.placeMode?'Anillo verde visible: gatillo para colocar':
         'Apunta al plano y confirma con el gatillo.',38,497,20);
       btn('reset-model','Recentrar modelo',38,590,692,82);
       btn('shadow','Sombra de contacto: '+(this.shadow?'ON':'OFF'),38,703,692,82);
       txt('La sombra es virtual y aproximada.',38,854,21);
-      txt('No reconstruye ni almacena mallas de la sala.',38,903,21);
-      txt('La importación de IFC/SAP se hace antes de entrar.',38,977,19);
+      txt('Ajusta la posición y el tamaño con los mandos.',38,903,21);
+      txt('Carga los modelos desde el navegador antes de entrar.',38,977,19);
     }
     this.texture.needsUpdate=true;this.dirty=false;
   }
@@ -410,8 +411,8 @@ export class StructuralXRControls {
       const desired=!app.showSAPOnly;
       this.syncControl('show-sap-only',desired);
       this.notice=app.showSAPOnly===desired?
-        (desired?'Modo analítico SAP2000 activo.':'Vista IFC + SAP restaurada.') :
-        'Importa SAP2000 y un IFC antes de activar este modo.';
+        (desired?'Solo estructura visible.':'Modelo BIM visible.') :
+        'Carga un modelo con sus resultados antes de activar esta vista.';
     }
     else if(id==='ifc-opacity-scope'){
       const next=app.ifcOpacityScope==='envelope'?'all':'envelope';
