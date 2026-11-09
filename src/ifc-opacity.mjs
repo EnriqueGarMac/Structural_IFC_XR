@@ -10,9 +10,13 @@ export function normalizedScope(scope){
 export function isEnvelopeElement(type){
   return ENVELOPE_TYPES.has(String(type??'').replace(/[^a-zA-Z]/g,'').toUpperCase());
 }
-export function ifcElementOpacity({opacity=1,scope='envelope',ifcType,structuralDeformation=false}={}){
+export function ifcElementOpacity({opacity=1,scope='envelope',ifcType,elementName='',structuralDeformation=false}={}){
   const alpha=Math.max(0,Math.min(1,Number.isFinite(Number(opacity))?Number(opacity):1));
-  const affected=normalizedScope(scope)==='all'||isEnvelopeElement(ifcType);
+  // Flooring should remain legible when making the envelope see-through.
+  // Only the explicit "all" scope fades interior pavement finishes.
+  const interiorFloor=/^Pavimento interior /i.test(elementName);
+  const affected=normalizedScope(scope)==='all'||
+    (!interiorFloor&&isEnvelopeElement(ifcType));
   const applied=affected?alpha:1;
   // Give window glazing a modest default transparency even if the general
   // IFC slider is at 0 % transparency. User-selected stronger transparency

@@ -133,6 +133,28 @@ function define(){
       axis==='x'?[at+w*.31,constCoord-.08,z0+1]:
       [constCoord-.08,at+w*.31,z0+1],[.06,.06,.12],C.metal,false,storey);
   }
+  // Physical floor finishes above the structural slabs. These opaque
+  // IfcCovering products provide a visible walking surface underneath all
+  // furniture without contributing fictitious stiffness to the frame FEM.
+  // The staircase shaft remains open on the upper two occupied floors.
+  const floorFinishes=[
+    {name:'Cocina · gres porcelánico',cx:-4.0,cy:-1.97,w:3.76,d:3.81,color:0xd7d7d0},
+    {name:'Salón comedor · tarima de madera',cx:1.97,cy:-1.97,w:7.81,d:3.81,color:0xc5a27c},
+    {name:'Baño · pavimento cerámico',cx:-4.0,cy:1.97,w:3.76,d:3.81,color:0xbfd4d5},
+    {name:'Dormitorio · tarima lado oeste',cx:-.94,cy:1.97,w:1.98,d:3.81,color:0xbda484},
+    {name:'Dormitorio · tarima lado este',cx:3.915,cy:1.97,w:3.93,d:3.81,color:0xbda484},
+    {name:'Dormitorio · tarima acceso',cx:1.0,cy:.46,w:1.90,d:.78,color:0xbda484},
+    {name:'Dormitorio · tarima fondo',cx:1.0,cy:3.52,w:1.90,d:.72,color:0xbda484}
+  ];
+  for(let level=0;level<3;level++){
+    // 14 cm build-up: top at z+0.12, covering the exposed underside beams
+    // and connecting visually with chair legs, beds and sanitary fixtures.
+    const z=zs[level]+.05;
+    for(const finish of floorFinishes)
+      box('Pavimento interior '+finish.name+' · planta '+(level+1),
+        'IfcCovering',[finish.cx,finish.cy,z],
+        [finish.w,finish.d,.14],finish.color,false,level);
+  }
   for(let level=0;level<3;level++){
     const z0=zs[level]+.07,z1=zs[level+1]-.12;
     const frontOpenings=level===0?[

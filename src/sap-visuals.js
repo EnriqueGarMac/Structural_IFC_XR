@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {makeBeamFieldSampler} from './beam-field.mjs';
 import {FORCE_COMPONENTS,readForceStations,forceSegments,characteristicStations,
   makeForcePatchCoordinates,forceReadoutFromPoint} from './force-diagrams.mjs';
-import {forcePalette,forceSignColour,FORCE_PALETTES,cssForceGradient} from './visual-palettes.mjs';
+import {forcePalette,forceSignColour,FORCE_PALETTES,cssForceGradient,resultColourHex,cssResultGradient} from './visual-palettes.mjs';
 import {forceSectionMarker} from './force-section-marker.mjs';
 
 // Fallback geometry: analytical frame rods, not exact section extrusions.
@@ -55,8 +55,9 @@ export class SAPVisuals{
   }
   setPalette(id){
     this.palette=Object.hasOwn(FORCE_PALETTES,id)?id:'classic';
-    if(this.view==='forces')this.refresh();
-    this.updateLegend();
+    // Refresh all active result colours, including scalar deformation
+    // vertices, force patches, load arrows and modal shapes. IFC stays intact.
+    this.app.updateVisualization();
     if(this.app.xrControls)this.app.xrControls.dirty=true;
   }
   setCharacteristics(enabled){
@@ -91,7 +92,7 @@ export class SAPVisuals{
       if(bar)bar.style.background=cssForceGradient(this.palette);
     }else if(this.view==='modes'){
       const bar=document.querySelector('#legend .legend-bar');
-      if(bar)bar.style.background='';
+      if(bar)bar.style.background=cssResultGradient(this.palette);
       const m=r.modes?.[this.modeIndex];
       if(title)title.textContent=m?'MODO '+m.number:'SIN MODOS';
       if(lo)lo.textContent='Forma relativa';
@@ -320,7 +321,7 @@ export class SAPVisuals{
       const shape=displacements.map(d=>new THREE.Vector3(...d));
       const mesh=new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(base),
-        new THREE.LineBasicMaterial({color:0xffc16b,depthTest:false})
+        new THREE.LineBasicMaterial({color:resultColourHex(.8,this.palette),depthTest:false})
       );
       this.group.add(mesh);this.dynamic.push({mesh,base,shape});
     }
@@ -339,13 +340,12 @@ export class SAPVisuals{
       }
       this.modalParts.push({part,shape});
     }
-    const cold=new THREE.Color(0x51b4d9),hot=new THREE.Color(0xf2b766);
     for(const {part,shape} of this.modalParts){
       const attr=part.deformed.geometry.getAttribute('color');
       const heat=part.deformed.geometry.getAttribute('heat');
       for(let i=0;i<shape.length;i+=3){
         const mag=Math.hypot(shape[i],shape[i+1],shape[i+2])/(max||1);
-        const c=cold.clone().lerp(hot,mag);
+        const c=new THREE.Color(resultColourHex(mag,this.palette));
         attr.setXYZ(i/3,c.r,c.g,c.b);
         heat.setX(i/3,mag);
       }

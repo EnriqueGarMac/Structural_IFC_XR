@@ -36,3 +36,32 @@ export function cssForceGradient(key='classic'){
   const hex=n=>'#'+n.toString(16).padStart(6,'0');
   return `linear-gradient(90deg,${hex(p.negative)} 0%,${hex(p.negative)} 45%,${hex(p.zero)} 50%,${hex(p.positive)} 55%,${hex(p.positive)} 100%)`;
 }
+
+export const RESULT_COLOUR_STOPS={
+  classic:[[0,0x3a9fcf],[.35,0x65d8b1],[.68,0xf0cb66],[1,0xe96153]],
+  contrast:[[0,0x265bc4],[.48,0xb3e7f7],[.52,0xffe8db],[1,0xec5344]],
+  nature:[[0,0x127c70],[.4,0x69cfaa],[.72,0xf4d16e],[1,0xf0863c]],
+  violet:[[0,0x4756b3],[.36,0x9e88d9],[.7,0xe7b4bb],[1,0xffce65]]
+};
+export function resultColourStops(key='classic'){
+  return RESULT_COLOUR_STOPS[key]??RESULT_COLOUR_STOPS.classic;
+}
+export function resultColourHex(value,key='classic'){
+  const t=Math.max(0,Math.min(1,Number(value)||0));
+  const stops=resultColourStops(key);
+  for(let i=1;i<stops.length;i++){
+    if(t<=stops[i][0]){
+      const a=stops[i-1],b=stops[i],f=(t-a[0])/(b[0]-a[0]);
+      const component=shift=>Math.round(
+        ((a[1]>>shift)&255)*(1-f)+((b[1]>>shift)&255)*f
+      );
+      return (component(16)<<16)|(component(8)<<8)|component(0);
+    }
+  }
+  return stops.at(-1)[1];
+}
+export function cssResultGradient(key='classic'){
+  const hex=n=>'#'+n.toString(16).padStart(6,'0');
+  return 'linear-gradient(90deg,'+resultColourStops(key).map(([t,c])=>
+    hex(c)+' '+(t*100)+'%').join(',')+')';
+}

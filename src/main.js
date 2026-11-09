@@ -235,6 +235,8 @@ $('analysis-view').addEventListener('change',e=>{
   $('force-values-controls').hidden=kind!=='forces';
   $('reaction-values-controls').hidden=kind!=='reactions';
   $('legend').classList.toggle('reaction-legend',kind==='reactions');
+  paletteToggle.disabled=kind==='reactions';
+  closePalettePicker();
   $('force-readout').hidden=true;
   app.nodeProbe?.hideXRHover();
   app.sapVisuals?.hideXRHover();
@@ -267,11 +269,25 @@ $('ifc-transparency').addEventListener('input',e=>{
   $('ifc-transparency-value').textContent=transparency+' %';
   if(app.xrControls)app.xrControls.dirty=true;
 });
-$('structure-palette').addEventListener('change',e=>{
-  app.setStructurePalette(e.target.value);
+// The palette is controlled exclusively from the active result legend.
+const paletteToggle=$('legend-palette-toggle');
+const palettePicker=$('legend-palette-picker');
+function closePalettePicker(){
+  palettePicker.hidden=true;
+  paletteToggle.setAttribute('aria-expanded','false');
+}
+paletteToggle.addEventListener('click',()=>{
+  if(paletteToggle.disabled)return;
+  const shouldOpen=palettePicker.hidden;
+  palettePicker.hidden=!shouldOpen;
+  paletteToggle.setAttribute('aria-expanded',String(shouldOpen));
 });
-$('force-palette').addEventListener('change',e=>{
+$('result-palette').addEventListener('change',e=>{
   app.sapVisuals.setPalette(e.target.value);
+  closePalettePicker();
+});
+document.addEventListener('pointerdown',e=>{
+  if(!$('legend').contains(e.target))closePalettePicker();
 });
 $('ifc-opacity-scope').addEventListener('change',e=>{
   app.setIFCOpacityScope(e.target.value);

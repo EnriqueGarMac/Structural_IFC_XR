@@ -13,9 +13,19 @@
 - **Sección de esfuerzos:** apuntar a un diagrama muestra una línea sobre
   la sección exacta analizada. Al pulsar, queda marcada; los valores y la
   posición de la sección proceden de la consulta al diagrama.
-- **Colores:** en Visualización se puede elegir un color para el modelo 3D
-  y una paleta de dos colores para diagramas positivos y negativos; en Quest
-  ambas opciones están disponibles en el menú Colores.
+- **Escala de colores de resultados:** haz clic directamente sobre la
+  **leyenda** para elegir entre cuatro escalas. Una sola selección modifica
+  desplazamientos, cargas, formas modales o diagramas del resultado activo.
+  **Los materiales y colores IFC no cambian.** En Meta Quest se utiliza el
+  botón «Escala de resultados» del menú Capas. Las reacciones mantienen su
+  identificación por eje X/Y/Z, no una escala escalar de resultados.
+- **Pavimentos del edificio:** las tres plantas incluyen superficies de
+  acabado interior como entidades IFC4 `IfcCovering`, con gres en cocina
+  y baño y tarima en salón y dormitorios. Permanecen opacos al transparentar
+  la envolvente y dejan libre el hueco de la escalera.
+- **Barra de navegación:** las instrucciones de ratón están situadas a la
+  derecha de los botones Vista 3D / Cámara / Quest, sin flotar encima del
+  modelo. En pantallas estrechas se ocultan.
 - **Deformada:** el valor máximo se ha duplicado respecto a la revisión
   anterior, hasta una deformación ilustrativa del **12 % de la dimensión
   estructural**. La deformada inicial se mantiene en torno al 1,3 %.
