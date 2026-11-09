@@ -10,6 +10,7 @@ import { ReactionVisuals } from './reaction-visuals.js';
 import { reactionText } from './reactions.mjs';
 import * as THREE from 'three';
 import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
+import {deformationScale,clampAmplification,formatAmplification} from './deformation-scale.mjs';
 const $=(id)=>document.getElementById(id);
 const app=new StructuralScene($('canvas-wrap'));
 app.sapVisuals=new SAPVisuals(app);
@@ -18,8 +19,26 @@ let sapGeometryActive=false;
 let originalIFC=null;
 let importedIFCName='';
 let ifcElementCount=0;
-const MAX_AMP=25000;
-function showAmplitude(){ $('amp').value=String(app.amp); $('amp-value').textContent='×'+app.amp.toLocaleString('es-ES'); }
+app.ampMax=150;app.ampStep=1;
+function showAmplitude(){
+  for(const id of ['amp','mobile-ar-amp']){
+    const input=$(id);
+    input.max=String(app.ampMax);
+    input.step=String(app.ampStep);
+    input.value=String(app.amp);
+  }
+  $('amp-value').textContent=formatAmplification(app.amp);
+  $('mobile-ar-amp-value').textContent=formatAmplification(app.amp);
+  app.xrControls && (app.xrControls.dirty=true);
+}
+function setSafeDeformationScale(){
+  const range=deformationScale(app.results,app.caseName);
+  app.ampMax=range.maxAmp;
+  app.ampStep=range.step;
+  app.amp=clampAmplification(range.defaultAmp,range.maxAmp);
+  showAmplitude();
+  app.updateVisualization();
+}
 function alignIFC(results,notify=true){
   if(!originalIFC?.length||!results?.frames?.length)return null;
   const mode=$('ifc-rotation').value;
@@ -72,10 +91,7 @@ function setResults(results,label){
   $('reaction-values-controls').hidden=true;
   $('legend').classList.remove('force-legend','reaction-legend');
   $('force-readout').hidden=true;
-  if(!syntheticResults){
-    const factor=app.maxU>0?Math.min(MAX_AMP,Math.max(25,Math.round(.10*app.maxSize/app.maxU))):25;
-    app.amp=factor;showAmplitude();app.updateVisualization();
-  }
+  setSafeDeformationScale();
   const cases=$('case-select');cases.innerHTML='';
   if(!results.cases.length)cases.add(new Option('Sin deformadas', ''));
   results.cases.forEach(c=>cases.add(new Option(c.name,c.name)));
@@ -112,13 +128,12 @@ function showDemo(kind='frame'){
   ])$(id).checked=checked;
   app.setResults(null); // Never interpolate the previous demo's result field.
   app.offset=[0,0,0];for(const c of ['x','y','z'])$('offset-'+c).value='0';
-  $('amp').value='25';app.amp=25;$('amp-value').textContent='×25';
+  app.amp=1;showAmplitude();
   app.setModel(selected.geometry());
   setModelLabel(selected.title);
   updateStats(app.parts.length);
   setResults(selected.results,'MATRIZ DE RIGIDEZ · DOCENTE (2D)');
-  const factor=app.maxU>0?Math.min(25000,Math.max(25,Math.round(.08*app.maxSize/app.maxU))):25;
-  app.amp=factor;showAmplitude();app.updateVisualization();
+  setSafeDeformationScale();
   for(const [name,config] of Object.entries(demos)){
     const button=$(config.button);
     button.classList.toggle('is-current',name===kind);
@@ -241,7 +256,7 @@ $('modal-amplitude').addEventListener('input',e=>{
   app.sapVisuals.setAmplitude(e.target.value);
   $('modal-amplitude-value').textContent=Number(e.target.value).toFixed(2)+' m (visual)';
 });
-$('case-select').addEventListener('change',e=>app.setCase(e.target.value));
+$('case-select').addEventListener('change',e=>{app.setCase(e.target.value);setSafeDeformationScale();});
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
 $('ifc-transparency').addEventListener('input',e=>{
   const transparency=Number(e.target.value);
@@ -280,7 +295,11 @@ $('show-sap-only').addEventListener('change',e=>{
   info(app.showSAPOnly?'Vista analítica SAP2000 activa: IFC oculto.':'Vista combinada IFC + SAP2000 activa.');
 });
 $('hide-ground').addEventListener('change',e=>app.setHideGround(e.target.checked));
-$('amp').addEventListener('input',e=>{app.amp=Number(e.target.value);$('amp-value').textContent=`×${app.amp}`;app.updateVisualization(app.showSAPOnly);});
+$('amp').addEventListener('input',e=>{
+  app.amp=clampAmplification(e.target.value,app.ampMax);
+  showAmplitude();
+  app.updateVisualization(app.showSAPOnly);
+});
 $('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(1)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
 $('ifc-rotation').addEventListener('change',()=>{
   if(originalIFC?.length&&app.results?.frames?.length){const current=app.caseName;
@@ -384,7 +403,7 @@ $('mobile-ar-larger').addEventListener('click',()=>adjustMobileSize(.2));
 $('mobile-ar-amp').addEventListener('input',e=>{
   $('amp').value=e.target.value;
   $('amp').dispatchEvent(new Event('input'));
-  $('mobile-ar-amp-value').textContent='×'+app.amp;
+  $('mobile-ar-amp-value').textContent=formatAmplification(app.amp);
 });
 $('mobile-ar-sap-only').addEventListener('click',()=>{
   $('show-sap-only').checked=!app.showSAPOnly;
@@ -421,7 +440,7 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
     if(!navigator.xr||!await navigator.xr.isSessionSupported('immersive-ar'))
       throw Error('Este móvil no admite WebXR AR. En Android utiliza Chrome y Servicios de Google Play para RA.');
     $('mobile-ar-amp').value=String(app.amp);
-    $('mobile-ar-amp-value').textContent='×'+app.amp;
+    $('mobile-ar-amp-value').textContent=formatAmplification(app.amp);
     $('mobile-ar-sap-only').textContent='Solo SAP: '+(app.showSAPOnly?'SÍ':'NO');
     if(app.xrSession)await app.xrSession.end();
     await app.enterXR({mobile:true});
