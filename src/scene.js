@@ -253,7 +253,7 @@ export class StructuralScene {
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
-    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();}
+    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();this.reactionVisuals?.refresh();}
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
@@ -262,6 +262,7 @@ export class StructuralScene {
     $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
     this.sapVisuals?.updateLegend();
+    this.reactionVisuals?.updateLegend();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
