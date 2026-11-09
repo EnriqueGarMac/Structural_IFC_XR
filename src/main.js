@@ -106,10 +106,10 @@ function showDemo(kind='frame'){
   $('alignment-status').textContent='Importa un IFC y un JSON para alinear.';
   // Start with legible combined views, without inheriting an empty SAP-only mode.
   app.showSAPOnly=false;app.showOriginal=true;app.showDeformed=true;
-  app.showFrames=true;app.showSupports=true;app.showLoads=true;app.hideGround=true;app.showStructureOnly=false;
+  app.showFrames=true;app.showSupports=true;app.showLoads=true;app.hideGround=false;app.showStructureOnly=false;
   for(const [id,checked] of [
     ['show-sap-only',false],['show-original',true],['show-displaced',true],
-    ['show-frames',true],['show-supports',true],['show-resistance-only',false],['show-loads',true],['hide-ground',true]
+    ['show-frames',true],['show-supports',true],['show-resistance-only',false],['show-loads',true],['hide-ground',false]
   ])$(id).checked=checked;
   app.setResults(null); // Never interpolate the previous demo's result field.
   app.offset=[0,0,0];for(const c of ['x','y','z'])$('offset-'+c).value='0';
