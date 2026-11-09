@@ -79,6 +79,7 @@ export class StructuralXRControls {
   }
   stop(){
     this.session=null;this.panel.visible=false;this.reticle.visible=false;
+    this.app.sapVisuals?.hideXRHover();
     this.contact.visible=false;this.hasPlacedSurface=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
     for(const h of this.hitSources.values())h.source?.cancel();
     this.hitSources.clear();this.hitByInput.clear();this.buttonLatches.clear();
@@ -160,6 +161,16 @@ export class StructuralXRControls {
       }
       if(menuHit.item)this.command(menuHit.item.id);
       return;
+    }
+    // A force-diagram click queries a section instead of rotating the structure.
+    // The live hover also works without pressing the trigger.
+    if(this.app.sapVisuals?.view==='forces'){
+      const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
+      if(selected){
+        this.selected='Barra '+selected.frameId+' · '+selected.component+
+          ' '+selected.value.toFixed(2)+' '+selected.unit;
+        this.dirty=true;return;
+      }
     }
     // Trigger directly on structural geometry: select element and rotate
     // the entire IFC/SAP overlay according to the controller orientation.
@@ -283,9 +294,18 @@ export class StructuralXRControls {
       btn('detail:-','‹',38,847,126,69);
       txt(textFit(detail,37),385,881,23,'#edffff','center');
       btn('detail:+','›',606,847,124,69);
-      btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'VER SOLO ELEMENTOS SAP',
-        38,932,692,77,true);
-      txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
+      if(view==='forces'){
+        btn('force-values','ETIQUETAS: '+(app.sapVisuals?.showCharacteristics?'SÍ':'NO'),
+          38,932,334,77,true);
+        btn('sap-only',app.showSAPOnly?'IFC: OCULTO':'IFC: VISIBLE',
+          394,932,336,77);
+        txt('Apunta al área sombreada con el mando para consultar s y el esfuerzo.',
+          38,1052,17,'#9ce6d9');
+      }else{
+        btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'VER SOLO ELEMENTOS SAP',
+          38,932,692,77,true);
+        txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
+      }
     }else if(this.page==='layers'){
       btn('back','‹ Volver',38,117,230,66);
       txt('CAPAS / VISUALIZACIÓN',38,224,28,'#e1f7fc');
@@ -393,6 +413,12 @@ export class StructuralXRControls {
         app.setPattern(p);$('pattern-select').value=p;
       }
     }
+    else if(id==='force-values'){
+      this.syncControl('show-force-values',!app.sapVisuals?.showCharacteristics);
+      this.notice=app.sapVisuals?.showCharacteristics?
+        'Valores característicos activados. Apunta con el mando para inspeccionar las secciones.':
+        'Valores característicos ocultos. Puedes seguir apuntando para leer esfuerzos.';
+    }
     else if(id==='pattern:+'||id==='pattern:-'){
       const p=nextUniquePattern(app.results?.loads,app.pattern,id==='pattern:+'?1:-1);
       app.setPattern(p);$('pattern-select').value=p;
@@ -474,10 +500,16 @@ export class StructuralXRControls {
     const dt=Math.min(.05,Math.max(0,(time-(this.lastFrameTime||time))/1000));
     this.lastFrameTime=time;
     let hovered=null;
+    let forceHovered=false;
     for(const {controller,rayLine} of this.controllers){
       if(!controller.userData.xrInput)continue;
       const hit=this._menuHit(controller);
       hovered??=hit?.item?.id??null;
+      if(!hit&&!this.drag&&!this.placeMode&&!forceHovered&&
+        this.app.sapVisuals?.view==='forces'){
+        const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
+        if(selected)forceHovered=true;
+      }
       rayLine.scale.z=hit?.intersection?.distance||2.8;
       const source=controller.userData.xrInput;
       const resetPressed=!!source.gamepad?.buttons?.[4]?.pressed;
@@ -507,6 +539,7 @@ export class StructuralXRControls {
         }
       }
     }
+    if(!forceHovered)this.app.sapVisuals?.hideXRHover();
     if(hovered!==this.hoverId){this.hoverId=hovered;this.dirty=true;}
     if(this.moveMenu&&!this.drag){
       const ctrl=this.controllers.find(x=>x.controller.userData.xrInput)?.controller;
