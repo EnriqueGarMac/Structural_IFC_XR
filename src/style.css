@@ -72,3 +72,13 @@
 /* SAP2000 support reactions: distinct axes and unit-aware reading. */
 .reaction-legend .legend-bar{background:linear-gradient(90deg,#ffb26c 0%,#ffb26c 30%,#86e0a8 35%,#86e0a8 64%,#5dc7f2 70%,#5dc7f2 100%)}
 .reaction-values-controls .secondary-btn{margin-bottom:5px}
+
+/* IFC architectural transparency: accessible in desktop, Quest Browser and XR. */
+.ifc-opacity-controls{border:1px solid #335664;background:#102a35;border-radius:10px;
+  margin:15px 0;padding:13px 12px 10px}
+.ifc-opacity-controls .range-head{margin-bottom:8px}
+.ifc-opacity-controls input[type=range]{width:100%;accent-color:#78d5d2;cursor:pointer}
+.ifc-opacity-controls>label{display:block;font-size:11px;font-weight:650;
+  color:#bdd4da;margin:9px 0 6px}
+.ifc-opacity-controls select{width:100%;font-size:11px}
+.ifc-opacity-controls .field-help{margin:9px 0 0}
