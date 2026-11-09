@@ -352,10 +352,7 @@ export class StructuralScene {
       }
     }
     this.framesGroup.visible=this.showFrames&&this.sapVisuals?.view!=='modes';
-    if(this.mobileAR){
-      this.enableMobileCastShadows();
-      this.updateMobileSAPShadowCasters();
-    }
+    // Immersive scenes do not inject virtual shadow casters.
     if(!this.showLoads)return;
     const loads=selectedLoads(this.results,this.pattern).filter(l=>l.type==='force_per_length');
     const maxW=Math.max(1,...loads.map(loadMagnitude));
