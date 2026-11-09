@@ -96,24 +96,72 @@ un cálculo FEM ni transforma esfuerzos locales a globales.
 
 Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas aplicadas a barras** y **deformadas nodales de SAP2000** en escritorio, webcam y realidad mixta en Meta Quest 3.
 
-**Estado:** prototipo 0.1.0, no es una herramienta de cálculo ni de verificación estructural. La demo contiene **resultados sintéticos**, no extraídos de SAP2000. La conexión COM con SAP2000 requiere verificarse en tu instalación.
+**Estado:** prototipo docente. Incluye un calculador matricial 2D para ejemplos y un visor de resultados externos SAP2000; no está destinado a dimensionamiento normativo. La conexión COM con SAP2000 sigue siendo una vía independiente.
 
 
 
-## Ejemplos estructurales interactivos
+## Modelos docentes: BIM arquitectónico y pórticos calculados
 
-La página inicial ofrece **dos modelos de demostración** que puedes cargar con un clic. Los dos incluyen su geometría tridimensional y datos de análisis compatibles con las vistas originales, deformadas y **Solo SAP**. Los tipos de elementos se etiquetan con semántica IFC dentro del visualizador, pero estos ejemplos se construyen mediante Three.js y **no son archivos IFC exportados**.
+Los dos ejemplos incluidos en el visor tienen geometría visible, entidades
+IFC4 exportables y resultados obtenidos mediante **matriz de rigidez**.
+A diferencia de las demostraciones anteriores, los desplazamientos no
+son funciones ilustrativas dibujadas a mano.
 
-- **Pórtico 8 × 6 m:** ejemplo anterior, con vigas, pilares, losa y cimentación.
-- **Cubierta metálica en celosía 18 × 24 m:** ejemplo a dos aguas con **5 cerchas transversales**, cordones superior e inferior, diagonales y montantes, **correas longitudinales**, pilares perimetrales y cruces de arriostramiento. **Sin paneles de chapa**, para ver toda la celosía. El origen estructural **(X,Y,Z) = (0,0,0)** está en el centro de la planta, **exactamente a la cota de arranque de los pilares (Z = 0 m)**. La posición del modelo y de los ejes se mantiene fija al origen estructural, sin aplicar un ajuste de altura basado en la caja envolvente. **La cuadrícula de referencia se construye en el plano estructural Z = 0 y hereda exactamente la transformación del modelo (incluida la escala).** Se dibujan diez pequeñas marcas en las bases de los pilares para comprobar visualmente su contacto con la cuadrícula. No se añade ninguna losa ni suelo sólido. El modelo ocupa X = −9…9 m e Y = −12…12 m. Tanto la geometría como los nudos y resultados SAP sintéticos utilizan estas coordenadas. Las zapatas permanecen ocultas por defecto.
+### 1. Edificio residencial de tres plantas (12 × 8 m)
 
-La cubierta incluye tres casos ilustrativos: **G + N (gravedad y nieve)**, **viento transversal** y **nieve asimétrica**. Puedes seleccionar patrones de cargas G, N o V, amplificar las deformadas con el slider, inspeccionar los nudos/barras analíticas SAP y acceder al modelo tanto desde **Meta Quest** como desde **AR móvil**. También es posible cambiar de ejemplo directamente desde el menú de Quest.
+- Tres alturas de 3,20 m, 3 pórticos independientes XZ de hormigón,
+  vigas, pilares y forjados.
+- Fachadas con huecos, ventanas y puertas, dormitorios, cocina, baño,
+  salón, tabiques, escalera, instalaciones sanitarias, mobiliario y
+  exteriores con acceso y aparcamiento.
+- El visor permite **Solo estructura resistente** y distingue en el IFC
+  `StructuralElement` de `IncludedIn2DMatrixModel`.
+- Casos `DEAD`: peso propio y cargas permanentes repartidas por anchura
+  tributaria. `WIND_X`: viento horizontal equivalente sobre el pórtico.
 
-**Importante:** todas las cargas y deformadas de estas demos son **datos sintéticos, definidos para fines de visualización**. No se ha realizado un análisis estructural, no representan un diseño verificado y **no proceden de SAP2000**. Para resultados de una estructura real, importa sus propios IFC y JSON de SAP2000.
+### 2. Nave industrial metálica (18 × 24 m)
+
+- Cinco pórticos/cerchas transversales independientes, cordones, montantes,
+  diagonales, pilares empotrados y correas longitudinales.
+- Cerramientos de chapa sándwich, ventanas laterales en huecos reales,
+  cubierta inclinada, acceso de camiones, estanterías, mercancías, solera,
+  marquesina y terreno exterior.
+- Casos `DEAD` y `WIND_X`, con esfuerzos `P`, `V2`, `M3`,
+  desplazamientos a lo largo de la barra y reacciones en apoyos.
+
+### Exportar cada ejemplo
+
+1. Selecciona **Edificio de 3 plantas** o **Nave industrial**.
+2. Pulsa **Descargar IFC4 del ejemplo**: genera un modelo IFC4 STEP con
+   productos `IfcBeam`, `IfcColumn`, `IfcWall`, `IfcWindow`,
+   `IfcDoor`, `IfcSpace`, jerarquía `IfcProject`–`IfcSite`–
+   `IfcBuilding`–`IfcBuildingStorey`, mallas BRep cerradas y estilos.
+3. Pulsa **Descargar resultados FEM (JSON)** para guardar los resultados
+   calculados en las mismas coordenadas globales, en m/kN/kN·m.
+4. Puedes importarlos en aplicaciones BIM o volver a cargar ambos archivos
+   en Structural IFC XR.
+
+### Alcance mecánico y límites
+
+Se implementa **rigidez matricial lineal 2D** de barras de
+Euler–Bernoulli en el plano XZ, con deformaciones pequeñas, materiales
+elásticos y uniones idealizadas. Los casos resuelven desplazamientos
+nodales, esfuerzos internos y reacciones, e interpolan desplazamientos
+dentro de las barras con funciones de forma y el efecto de cargas
+distribuidas. No equivale a un modelo tridimensional completo.
+Los forjados, cerramientos, correas y arriostramientos
+fuera de los pórticos analizados se representan como BIM, pero **no
+aportan rigidez al sistema matricial**. Su deformación no se inventa.
+No se incluyen pandeo, flexibilidad de uniones, interacción suelo-cimentación,
+diafragmas de losas ni estabilidad fuera del plano.
+La herramienta es para docencia, **no para dimensionamiento ni
+comprobación normativa**.
+
+---
 
 ## Realidad aumentada desde el móvil (Android e iPhone)
 
-Entra directamente en **[Structural IFC XR](https://enriquegarmac.github.io/Structural_IFC_XR/)** desde tu teléfono y pulsa **«AR móvil»**. Carga primero el IFC y, si necesitas resultados estructurales, el JSON de SAP2000. También puedes probar el pórtico de demostración (datos sintéticos).
+Entra directamente en **[Structural IFC XR](https://enriquegarmac.github.io/Structural_IFC_XR/)** desde tu teléfono y pulsa **«AR móvil»**. Carga primero el IFC y, si necesitas resultados estructurales, el JSON de SAP2000. También puedes probar el edificio de tres plantas o la nave industrial con resultados de rigidez matricial.
 
 - **Android con Chrome + WebXR/ARCore:** se inicia una sesión de realidad aumentada con cámara. Apunta a una mesa o al suelo y usa **Colocar aquí** para anclar visualmente el modelo. La barra táctil permite cambiar el tamaño, ajustar el factor de deformada ×0–×150 y alternar Solo SAP. Puedes buscar otra superficie y salir. La disponibilidad depende de ARCore, permisos y compatibilidad WebXR/detección de superficies del dispositivo.
 - **iPhone/iPad con Safari:** se genera **en el propio teléfono** una copia USDZ de la **vista actual**. Pulsa **Abrir en AR Quick Look** después de preparar el archivo. Allí puedes colocar, trasladar y escalar el modelo con los dedos. La exportación respeta las capas IFC visibles y el estado actual de la deformada. En modo **Solo SAP**, convierte las barras y nudos analíticos en cilindros/esferas para su visualización AR. Es una **instantánea**, no un visor interactivo SAP dentro de Quick Look: para cambiar el caso de carga o el factor, vuelve a la web y regenera el archivo.
@@ -125,7 +173,7 @@ Los datos permanecen en el navegador; no se suben archivos IFC/SAP a un servidor
 
 ## Realidad mixta interactiva en Meta Quest 3 (XR 0.10)
 
-El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de los paneles HTML del navegador. No requiere descargar software. Antes de entrar en **Quest 3 RM**, puedes cargar el IFC y el JSON exportado desde SAP2000, o utilizar el ejemplo incluido. Los resultados del ejemplo son **sintéticos**.
+El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de los paneles HTML del navegador. No requiere descargar software. Antes de entrar en **Quest 3 RM**, puedes cargar el IFC y el JSON exportado desde SAP2000, o utilizar el ejemplo incluido. Los resultados de los ejemplos se obtienen mediante rigidez matricial lineal de pórticos planos.
 
 - **Gatillo sobre los botones del menú**: navegar por **Análisis y deformadas**, **Capas y elementos** y **Colocación en la sala**.
 - **Gatillo sobre un elemento estructural**: seleccionarlo y mostrar su nombre/identificador. Mantener pulsado y girar el mando para **rotar el modelo IFC y las superposiciones SAP conjuntamente**.
@@ -162,7 +210,7 @@ Esta distribución incluye `.github/workflows/ci.yml` para verificar la compilac
    ```
 
 4. Abre **http://localhost:5173** en Chrome/Edge.
-5. La demo de un pórtico de 8 × 6 m aparece automáticamente. Selecciona «G + Q (demostración)» y cambia el factor de amplificación.
+5. El edificio residencial de tres plantas aparece automáticamente. Selecciona «DEAD» o «WIND_X», visualiza esfuerzos y cambia el factor de amplificación.
 6. Pulsa **Webcam + 3D**, acepta los permisos de cámara y verás el 3D superpuesto a la imagen real de la webcam.
 
 **La webcam no hace seguimiento de posición ni anclaje espacial**. Para visión a través de Quest 3, se utiliza WebXR con passthrough; no es necesario disponer de Unity.
