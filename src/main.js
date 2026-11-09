@@ -60,11 +60,11 @@ function alignIFC(results,notify=true){
   app.setModel(transformed);
   app.setResults(results);
   sapGeometryActive=false;
-  const label=educationalPair?'XYZ directo · IFC/JSON docentes':mode==='auto'?('Automática ('+fit.rotation.key+')'):(mode+' ('+fit.rotation.key+')');
+  const label=educationalPair?'Coordenadas coincidentes':mode==='auto'?('Automática ('+fit.rotation.key+')'):(mode+' ('+fit.rotation.key+')');
   const confidence=fit.confidence!==null&&fit.confidence<.02?' · orientación ambigua':'';
-  const message='Alineación: '+label+' · RMS aprox. '+fit.rms_m.toFixed(3)+' m'+confidence;
+  const message='Alineación: '+label+' · Desajuste '+fit.rms_m.toFixed(3)+' m'+confidence;
   $('alignment-status').textContent=message;
-  setModelLabel('IFC alineado + SAP2000');
+  setModelLabel('IFC + resultados');
   updateStats(ifcElementCount);
   if(notify)info(message);
   return fit;
@@ -98,7 +98,7 @@ function setResults(results,label){
   const patterns=$('pattern-select');patterns.innerHTML='';patterns.add(new Option('Todos los patrones','all'));
   for(const pattern of [...new Set(results.loads.map(l=>l.pattern))].sort())patterns.add(new Option(pattern,pattern));
   const rawFrameCount=results.loads.length;
-  status(`${results.cases.length} caso(s) · ${rawFrameCount} cargas`);
+  status(`${results.cases.length} caso(s) de cálculo disponibles`);
 }
 const demos={
   frame:{
@@ -142,7 +142,7 @@ function showDemo(kind='frame'){
   app.xrControls.selected='—';
   app.xrControls.dirty=true;
   app.updateVisualization();
-  status('DEMO DOCENTE · ANÁLISIS MATRICIAL');
+  status('MODELO DOCENTE');
 }
 function downloadLocalFile(content,name,mime){
   const objectURL=URL.createObjectURL(new Blob([content],{type:mime}));
@@ -167,7 +167,7 @@ $('download-demo-json').addEventListener('click',()=>{
   const current=demos[activeDemo];
   downloadLocalFile(JSON.stringify(current.results),
     current.filename+'_FEM.json','application/json');
-  info('Resultados FEM exportados para los casos DEAD y WIND_X.');
+  info('Resultados descargados: peso propio y viento.');
 });
 $('demo-btn').addEventListener('click',()=>showDemo('frame'));
 $('roof-demo-btn').addEventListener('click',()=>showDemo('roof'));
@@ -181,7 +181,7 @@ $('ifc-input').addEventListener('change',async(e)=>{
     ifcElementCount=res.elementCount;
     app.setModel(res.items);
     // Never accidentally apply synthetic example results to a real IFC.
-    if(syntheticResults){app.setResults(null);$('sap-state').textContent='Resultados: importa SAP JSON';$('num-nodes').textContent='—';$('num-frames').textContent='—';$('case-select').innerHTML='<option>Sin resultados</option>'; $('pattern-select').innerHTML='<option value="all">Todos</option>';}
+    if(syntheticResults){app.setResults(null);$('sap-state').textContent='Resultados: carga un archivo JSON';$('num-nodes').textContent='—';$('num-frames').textContent='—';$('case-select').innerHTML='<option>Sin resultados</option>'; $('pattern-select').innerHTML='<option value="all">Todos</option>';}
     demoActive=false;sapGeometryActive=false;
     if(!syntheticResults&&app.results?.frames?.length)alignIFC(app.results,false);
     for(const config of Object.values(demos)){
@@ -190,7 +190,7 @@ $('ifc-input').addEventListener('change',async(e)=>{
     }
     setModelLabel(file.name);
     updateStats(res.elementCount);
-    status('IFC cargado');info(`${res.elementCount} elementos IFC renderizados. Carga el JSON de SAP2000 para superponer los resultados.`);
+    status('MODELO CARGADO');info(`${res.elementCount} elementos cargados. Puedes añadir un archivo de resultados para analizar la estructura.`);
   }catch(err){console.error(err);status('Error IFC');info(`Error importando IFC: ${err.message}`,true);}
   e.target.value='';
 });
@@ -212,15 +212,14 @@ $('sap-input').addEventListener('change',async(e)=>{
         $(config.button).classList.remove('is-current');
         $(config.button).setAttribute('aria-pressed','false');
       }
-      setModelLabel(f.name+' · barras SAP');
+      setModelLabel('Modelo de barras · '+f.name);
       updateStats(0);
     }
     syntheticResults=false;
     if(originalIFC?.length)alignIFC(data,false);
     setResults(data,f.name);
-    info('Modelo SAP2000 cargado: '+data.nodes.length+' nudos, '+data.frames.length+
-      ' barras. Vista analítica generada; secciones simplificadas.');
-  }catch(err){console.error(err);info(`No se pudo leer SAP JSON: ${err.message}`,true);}
+    info('Resultados cargados: '+data.nodes.length+' nodos y '+data.frames.length+' barras.');
+  }catch(err){console.error(err);info(`No se pudo leer el archivo de resultados: ${err.message}`,true);}
   e.target.value='';
 });
 $('analysis-view').addEventListener('change',e=>{
@@ -288,11 +287,11 @@ for(const [id,key]of Object.entries(showControls)){
 $('show-sap-only').addEventListener('change',e=>{
   if(!app.setSAPOnly(e.target.checked)){
     e.target.checked=app.showSAPOnly;
-    info('Para mostrar solo SAP2000, importa un JSON con barras analíticas y carga un modelo IFC.',true);
+    info('Carga un modelo con barras y sus resultados para activar esta vista.',true);
     return;
   }
   $('show-frames').checked=app.showFrames;
-  info(app.showSAPOnly?'Vista analítica SAP2000 activa: IFC oculto.':'Vista combinada IFC + SAP2000 activa.');
+  info(app.showSAPOnly?'Solo estructura visible.':'Modelo BIM y resultados visibles.');
 });
 $('hide-ground').addEventListener('change',e=>app.setHideGround(e.target.checked));
 $('amp').addEventListener('input',e=>{
@@ -307,13 +306,13 @@ $('ifc-rotation').addEventListener('change',()=>{
   }
 });
 $('fit-ifc').addEventListener('click',()=>{
-  if(!originalIFC?.length||!app.results?.frames?.length){info('Carga primero un IFC real y un JSON de SAP2000.',true);return;}
+  if(!originalIFC?.length||!app.results?.frames?.length){info('Carga primero un modelo IFC y su archivo de resultados.',true);return;}
   alignIFC(app.results);
 });
 $('apply-offset').addEventListener('click',()=>{
   const off=['x','y','z'].map(c=>Number($(`offset-${c}`).value));
   if(off.some(v=>!Number.isFinite(v))){info('Los offsets deben ser numéricos.',true);return;}
-  app.setOffset(off);info('Alineación actualizada. Verifica visualmente si las barras SAP coinciden con los elementos IFC.');
+  app.setOffset(off);info('Alineación actualizada. Comprueba que las barras coincidan con la estructura.');
 });
 
 const forceReadout=$('force-readout');
@@ -338,12 +337,11 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
     const sign=measured.value>0?'+':'';
     forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
       '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
-      '\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
-      '\nInterpolado entre estaciones SAP2000';
+      '\nSección: '+measured.station.toFixed(3)+' m · '+measured.caseName;
   }
   const stage=$('stage').getBoundingClientRect();
   forceReadout.style.left=Math.max(10,Math.min(stage.width-280,event.clientX-stage.left+20))+'px';
-  forceReadout.style.top=Math.max(10,Math.min(stage.height-115,event.clientY-stage.top+16))+'px';
+  forceReadout.style.top=Math.max(10,Math.min(stage.height-100,event.clientY-stage.top+16))+'px';
   forceReadout.hidden=false;
 });
 app.renderer.domElement.addEventListener('pointerleave',()=>{forceReadout.hidden=true;});
@@ -358,7 +356,7 @@ async function setWebcam(enable){
     webcamStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}});
     el.srcObject=webcamStream;await el.play();
     $('stage').classList.add('cam-active');$('btn-cam').classList.add('active');$('btn-3d').classList.remove('active');
-    info('Webcam activada. Se trata de una superposición 3D, sin seguimiento espacial ni calibración de cámara.');
+    info('Cámara activada. La vista 3D se superpone a la imagen sin seguimiento espacial.');
   }catch(err){await setWebcam(false);info(`No se pudo activar la cámara: ${err.message}`,true);}
 }
 $('btn-cam').addEventListener('click',()=>setWebcam(!webcamStream));
@@ -408,7 +406,7 @@ $('mobile-ar-amp').addEventListener('input',e=>{
 $('mobile-ar-sap-only').addEventListener('click',()=>{
   $('show-sap-only').checked=!app.showSAPOnly;
   $('show-sap-only').dispatchEvent(new Event('change'));
-  $('mobile-ar-sap-only').textContent='Solo SAP: '+(app.showSAPOnly?'SÍ':'NO');
+  $('mobile-ar-sap-only').textContent='Solo estructura: '+(app.showSAPOnly?'SÍ':'NO');
 });
 $('mobile-ar-exit').addEventListener('click',()=>app.xrSession?.end());
 $('mobile-ios-close').addEventListener('click',()=>{$('mobile-ios-actions').hidden=true;});
@@ -440,7 +438,7 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
       throw Error('Este móvil no admite WebXR AR. En Android utiliza Chrome y Servicios de Google Play para RA.');
     $('mobile-ar-amp').value=String(app.amp);
     $('mobile-ar-amp-value').textContent=formatAmplification(app.amp);
-    $('mobile-ar-sap-only').textContent='Solo SAP: '+(app.showSAPOnly?'SÍ':'NO');
+    $('mobile-ar-sap-only').textContent='Solo estructura: '+(app.showSAPOnly?'SÍ':'NO');
     if(app.xrSession)await app.xrSession.end();
     await app.enterXR({mobile:true});
     $('btn-mobile-ar').textContent='▣ Salir de AR móvil';
@@ -453,9 +451,9 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
   ]);
   $('xr-status').textContent=mrOK&&vrOK?
     'Quest · Realidad mixta y virtual disponibles':
-    vrOK?'WebXR VR disponible · entorno virtual inmersivo':
-    mrOK?'WebXR RM disponible · passthrough':
+    vrOK?'Realidad virtual disponible':
+    mrOK?'Realidad mixta disponible':
     isIOSDevice()?'iPhone: usa «AR móvil» (Quick Look)':
-    'Para VR/RM abre esta página HTTPS con Quest Browser';
+    'Para usar realidad virtual o mixta, abre la aplicación en Quest Browser';
 })();
 showDemo('frame');
