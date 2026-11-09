@@ -10,18 +10,10 @@ import {createVREnvironment} from './vr-environment.js';
 import {ifcElementOpacity,normalizedScope} from './ifc-opacity.mjs';
 import {buildSupportSymbols} from './support-symbols.js';
 import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
-import {structuralColour,STRUCTURE_COLOURS} from './visual-palettes.mjs';
+import {resultColourHex,cssResultGradient} from './visual-palettes.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
-const colorMap=(t)=> {
-  const stops=[ [0,0x3a9fcf],[.35,0x65d8b1],[.68,0xf0cb66],[1,0xe96153] ];
-  t=THREE.MathUtils.clamp(t,0,1);
-  for(let i=1;i<stops.length;i++) if(t<=stops[i][0]) {
-    const a=stops[i-1], b=stops[i];
-    return new THREE.Color(a[1]).lerp(new THREE.Color(b[1]),(t-a[0])/(b[0]-a[0]));
-  }
-  return new THREE.Color(stops.at(-1)[1]);
-};
+const colorMap=(t,palette)=>new THREE.Color(resultColourHex(t,palette));
 const $=(id)=>document.getElementById(id);
 export class StructuralScene {
   constructor(container){
@@ -88,7 +80,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showSupports=true;this.structurePalette='original';this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
+    this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -124,7 +116,7 @@ export class StructuralScene {
     for(const piece of items){
       const originalGeom=piece.geometry;
       const copiedGeom=originalGeom.clone();
-      const origMat=new THREE.MeshStandardMaterial({color:structuralColour(this.structurePalette,piece.color??0xb2c7d1),side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
+      const origMat=new THREE.MeshStandardMaterial({color:piece.color??0xb2c7d1,side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
       const displacedMat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,side:THREE.DoubleSide,roughness:.54,metalness:.04});
       const a=new THREE.Mesh(originalGeom,origMat),b=new THREE.Mesh(copiedGeom,displacedMat);
       a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType};
@@ -217,15 +209,7 @@ export class StructuralScene {
   setHideGround(enabled){this.hideGround=!!enabled;this.updateVisualization();}
   setIFCOpacity(opacity){this.ifcOpacity=Math.max(0,Math.min(1,Number(opacity)||0));this.updateVisualization(false);}
   setIFCOpacityScope(scope){this.ifcOpacityScope=normalizedScope(scope);this.updateVisualization(false);}
-  setStructurePalette(name){
-    this.structurePalette=Object.hasOwn(STRUCTURE_COLOURS,name)?name:'original';
-    for(const part of this.parts){
-      part.orig.material.color.setHex(
-        structuralColour(this.structurePalette,part.baseColor));
-    }
-    this.updateVisualization(false);
-    if(this.xrControls)this.xrControls.dirty=true;
-  }
+
   setSAPOnly(enabled){
     // Avoid showing an empty environment if SAP geometry has not been imported.
     if(enabled&&(!this.results?.frames?.length||!this.parts.length))return false;
@@ -301,7 +285,7 @@ export class StructuralScene {
         attrs.array[j+1]=src[j+1]+this.amp*uy;
         attrs.array[j+2]=src[j+2]+this.amp*uz;
         const intensity=this.maxU>0?mag/this.maxU:0;
-        const c=colorMap(intensity);
+        const c=colorMap(intensity,this.sapVisuals?.palette);
         cs.array[j]=c.r;cs.array[j+1]=c.g;cs.array[j+2]=c.b;
         hs.array[i]=intensity;
       }
@@ -316,6 +300,10 @@ export class StructuralScene {
     const maxLoad=Math.max(0,...visibleLoads.map(loadMagnitude));
     $('legend-max').textContent=deform?`${(this.maxU*1000).toFixed(2)} mm`:`${maxLoad.toFixed(2)} kN/m`;
     $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
+    if(view==='deformation'){
+      const bar=document.querySelector('#legend .legend-bar');
+      if(bar)bar.style.background=cssResultGradient(this.sapVisuals?.palette);
+    }
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
     this.sapVisuals?.updateLegend();
     this.reactionVisuals?.updateLegend();
@@ -358,7 +346,7 @@ export class StructuralScene {
         const t=l.start+(l.end-l.start)*i/nSegments;
         const intensity=l.w1+(l.w2-l.w1)*i/nSegments;
         const base=lerp(start,end,t);
-        const c=colorMap(Math.abs(intensity)/maxW);
+        const c=colorMap(Math.abs(intensity)/maxW,this.sapVisuals?.palette);
         if(i){pts.push(...this._prevLoadPt.toArray(),...base.toArray());colors.push(...this._prevLoadColor.toArray(),...c.toArray());}
         this._prevLoadPt=base;this._prevLoadColor=c;
         if(i%2===0&&arrowCount<550){
