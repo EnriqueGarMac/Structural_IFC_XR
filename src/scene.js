@@ -92,6 +92,7 @@ export class StructuralScene {
         if(this.mobileAR)this.updateMobileAR(frame);
         else this.xrControls.update(time,frame);
       }else this.controls.update();
+      this.sapVisuals?.updateModalAnimation(time);
       this.renderer.render(this.scene,this.camera);
     });
     this.resize();
@@ -237,7 +238,7 @@ export class StructuralScene {
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
-    if(rebuildOverlays)this.updateOverlays();
+    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();}
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
@@ -245,6 +246,7 @@ export class StructuralScene {
     $('legend-max').textContent=deform?`${(this.maxU*1000).toFixed(2)} mm`:`${maxLoad.toFixed(2)} kN/m`;
     $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
+    this.sapVisuals?.updateLegend();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
