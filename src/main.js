@@ -325,7 +325,7 @@ $('amp').addEventListener('input',e=>{
   showAmplitude();
   app.updateVisualization(app.showSAPOnly);
 });
-$('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(1)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
+$('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(2)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
 $('ifc-rotation').addEventListener('change',()=>{
   if(originalIFC?.length&&app.results?.frames?.length){const current=app.caseName;
     alignIFC(app.results);if(current)app.setCase(current);
@@ -407,12 +407,12 @@ app.onSelection=(name)=>info(`Elemento seleccionado: ${name}`);
 async function setWebcam(enable){
   const el=$('webcam');
   if(!enable){if(webcamStream){webcamStream.getTracks().forEach(track=>track.stop());webcamStream=null;}
-    el.srcObject=null;$('stage').classList.remove('cam-active');$('btn-cam').classList.remove('active');$('btn-3d').classList.add('active');return;}
+    el.srcObject=null;$('stage').classList.remove('cam-active');$('btn-cam').classList.remove('active');$('btn-3d').classList.add('active');app.webcamActive=false;app.webSun?.update();return;}
   try{
     if(!navigator.mediaDevices?.getUserMedia)throw new Error('La cámara necesita localhost o HTTPS.');
     webcamStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}});
     el.srcObject=webcamStream;await el.play();
-    $('stage').classList.add('cam-active');$('btn-cam').classList.add('active');$('btn-3d').classList.remove('active');
+    $('stage').classList.add('cam-active');$('btn-cam').classList.add('active');$('btn-3d').classList.remove('active');app.webcamActive=true;app.webSun?.update();
     info('Cámara activada. La vista 3D se superpone a la imagen sin seguimiento espacial.');
   }catch(err){await setWebcam(false);info(`No se pudo activar la cámara: ${err.message}`,true);}
 }
@@ -449,7 +449,7 @@ $('mobile-ar-place').addEventListener('click',()=>{
 });
 $('mobile-ar-redetect').addEventListener('click',()=>app.resetMobilePlacement());
 function adjustMobileSize(delta){
-  app.targetMeters=Math.max(.4,Math.min(5,Math.round((app.targetMeters+delta)*10)/10));
+  app.targetMeters=Math.max(.12,Math.min(5,Math.round((app.targetMeters+delta)*100)/100));
   $('model-size').value=String(app.targetMeters);
   $('model-size').dispatchEvent(new Event('input'));
 }
