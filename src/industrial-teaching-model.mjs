@@ -114,18 +114,19 @@ function define(){
     [0,-12.2,9.30],[0,12.2,9.30],.27,.09,0xcddbe1,false);
   // Vertical metal cladding with an unobstructed vehicle entrance in the
   // front façade. BIM walls carry neither analytical stiffness nor loads.
+  // Actual daylight openings: cladding below/above a continuous
+  // clerestory strip, rather than glazing pasted onto opaque walls.
   for(const x of [-9.07,9.07]){
     for(let j=0;j<12;j++){
       const yc=-11+j*2;
-      box('Panel sándwich fachada lateral '+x+'/'+j,'IfcWall',
-        [x,yc,3.25],[.12,2.02,6.50],C.siding,false);
-    }
-    for(const z of [1.7,4.7]){
-      for(let j=0;j<8;j++){
-        box('Ventana industrial lateral '+x+'/'+z+'/'+j,'IfcWindow',
-          [x+(x>0?.07:-.07),-10.5+3*j,z],
-          [.06,1.30,.60],C.glass,false);
-      }
+      box('Panel bajo ventanal fachada lateral '+x+'/'+j,'IfcWall',
+        [x,yc,2.05],[.12,2.02,4.10],C.siding,false);
+      box('Panel sobre ventanal fachada lateral '+x+'/'+j,'IfcWall',
+        [x,yc,5.78],[.12,2.02,1.44],C.siding,false);
+      box('Ventanal alto continuo fachada '+x+'/'+j,'IfcWindow',
+        [x+(x>0?.075:-.075),yc,4.69],[.075,1.88,.90],C.glass,false);
+      box('Montante ventanal fachada '+x+'/'+j,'IfcMember',
+        [x+(x>0?.095:-.095),yc+1.0,4.69],[.10,.06,.94],C.dark,false);
     }
   }
   for(const y of [-12.05,12.05]){
