@@ -5,7 +5,7 @@ export function rotateIndex(current,delta,count){
   return ((current+delta)%count+count)%count;
 }
 export function snapModelSize(size,delta){
-  return Math.round(clamp(size+delta,0.4,5)*10)/10;
+  return Math.max(.12,Math.round(clamp(size+delta,0.12,5)*100)/100);
 }
 export function isValidHorizontalHit(normal){
   if(!normal||normal.length!==3)return false;
