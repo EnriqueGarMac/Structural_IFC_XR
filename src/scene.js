@@ -84,7 +84,7 @@ export class StructuralScene {
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
-    this.mobileAR=false;this.mobileARState=null;this.webcamActive=false;
+    this.mobileAR=false;this.mobileARState=null;this.webcamActive=false;this.arAnchorPoint=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
@@ -188,6 +188,8 @@ export class StructuralScene {
     const size=this.bounds.getSize(new THREE.Vector3());
     this.maxSize=Math.max(size.x,size.y,size.z,.1);
     this.worldRoot.scale.setScalar(this.targetMeters/this.maxSize);
+    if(this.isXR&&this.xrMode==='ar'&&this.arAnchorPoint)
+      placeModelOnSurface(this,this.arAnchorPoint);
     // The grid now inherits the exact same worldRoot scale as the columns.
     this.grid.visible=this.showAxes&&!this.showSAPOnly&&!this.isXR;
     this.groundMarkers.visible=this.grid.visible;
@@ -530,6 +532,7 @@ export class StructuralScene {
             if(output)output.textContent=fitted.toFixed(2)+' m';
           }
         }
+        this.arAnchorPoint=st.preview.clone();
         placeModelOnSurface(this,st.preview);
         this.xrControls.reticle.visible=false;
         this.xrControls.contact.visible=false;
@@ -542,6 +545,7 @@ export class StructuralScene {
   resetMobilePlacement(){
     const st=this.mobileARState;
     if(st){st.scanning=true;st.placed=false;st.preview=null;st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;}
+    this.arAnchorPoint=null;
     this.xrControls.contact.visible=false;
     this.mobileShadowPlane.visible=false;
   }
@@ -578,6 +582,7 @@ export class StructuralScene {
       throw e;
     }
     this.xrMode=mode;
+    this.arAnchorPoint=null;
     this.mobileAR=mobile;
     this.xrSession=session;
     this.isXR=true;
@@ -588,7 +593,7 @@ export class StructuralScene {
     this.groundMarkers.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
-      this.xrSession=null;this.isXR=false;this.xrMode=null;
+      this.xrSession=null;this.isXR=false;this.xrMode=null;this.arAnchorPoint=null;
       this.vrEnvironment.visible=false;
       this.stopMobileAR();
       this.xrControls.stop();
