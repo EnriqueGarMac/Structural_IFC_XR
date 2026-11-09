@@ -393,7 +393,7 @@ export class StructuralXRControls {
       const button=$((id==='demo-roof')?'roof-demo-btn':'demo-btn');
       button?.click();
       this.selected='—';
-      this.notice='Ejemplo sintético cargado. No procede de SAP2000.';
+      this.notice='Modelo docente y resultados matriciales cargados.';
       this.dirty=true;
     }
     else if(id==='menu-move'){
