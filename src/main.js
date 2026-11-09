@@ -233,8 +233,8 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
   const sign=measured.value>0?'+':'';
   forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
     '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
-    '\\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
-    '\\nInterpolado entre estaciones SAP2000';
+    '\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
+    '\nInterpolado entre estaciones SAP2000';
   const stage=$('stage').getBoundingClientRect();
   forceReadout.style.left=Math.max(10,Math.min(stage.width-280,event.clientX-stage.left+20))+'px';
   forceReadout.style.top=Math.max(10,Math.min(stage.height-115,event.clientY-stage.top+16))+'px';
