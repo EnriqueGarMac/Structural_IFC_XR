@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniquePattern,
   amplificationFromSliderX,sliderXFromAmplification} from './xr-logic.mjs';
+import {nextXRIFCOpacity} from './ifc-opacity.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
@@ -336,19 +337,20 @@ export class StructuralXRControls {
       btn('back','‹ Volver',38,117,230,66);
       txt('CAPAS / VISUALIZACIÓN',38,224,28,'#e1f7fc');
       btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'Solo elementos SAP2000',
-        38,278,692,73,true);
-      btn('terrain',app.hideGround?'Terreno y cimentación: OCULTOS':'Mostrar terreno y cimentación',
-        38,366,692,73);
-      btn('original','IFC original: '+(app.showOriginal?'visible':'oculto'),38,462,692,74);
-      btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,551,692,74);
-      btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,640,692,74);
-      btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,729,692,74);
-      btn('supports','Apoyos 3D: '+(app.showSupports?'visibles':'ocultos'),38,818,692,74);
-      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,906,692,65);
-      txt(textFit(this.notice||'Se conservan los forjados estructurales.',63),
-        38,995,18,'#92e9d9');
-      txt('SAP puro: barras analíticas, nudos y cargas; sin IFC.',38,998,18);
-      txt(textFit(this.selected,40),38,1050,18,'#83e9da');
+        38,277,692,66,true);
+      btn('terrain',app.hideGround?'Terreno: OCULTO':'Terreno: VISIBLE',38,349,692,66);
+      btn('original','IFC: '+(app.showOriginal?'VISIBLE':'OCULTO'),38,421,692,66);
+      btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,493,692,66);
+      btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,565,692,66);
+      btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,637,692,66);
+      btn('supports','Apoyos 3D: '+(app.showSupports?'visibles':'ocultos'),38,709,692,66);
+      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,781,692,66);
+      btn('ifc-opacity-scope','Transparencia: '+
+        (app.ifcOpacityScope==='all'?'TODO EL IFC':'ENVOLVENTE'),38,853,692,66);
+      btn('ifc-opacity-step','Opacidad IFC: '+Math.round(app.ifcOpacity*100)+
+        '%  ·  siguiente nivel',38,925,692,66,true);
+      txt('0% / 25% / 50% / 75% / 92% transpar. por pulsación',38,1027,17,'#92e9d9');
+      txt(textFit(this.selected,48),38,1052,18,'#83e9da');
     }else if(this.page==='placement' && app.xrMode==='vr'){
       btn('back','‹ Volver',38,117,230,66);
       txt('ESTUDIO VIRTUAL · VR',38,219,29,'#e4f8ff');
@@ -410,6 +412,19 @@ export class StructuralXRControls {
         (desired?'Modo analítico SAP2000 activo.':'Vista IFC + SAP restaurada.') :
         'Importa SAP2000 y un IFC antes de activar este modo.';
     }
+    else if(id==='ifc-opacity-scope'){
+      const next=app.ifcOpacityScope==='envelope'?'all':'envelope';
+      const select=$('ifc-opacity-scope');
+      if(select){select.value=next;select.dispatchEvent(new Event('change'));}
+    }
+    else if(id==='ifc-opacity-step'){
+      const next=nextXRIFCOpacity(app.ifcOpacity);
+      const slider=$('ifc-transparency');
+      if(slider){
+        slider.value=String(Math.round((1-next)*100));
+        slider.dispatchEvent(new Event('input'));
+      }
+    }
     else if(id==='terrain'){
       this.syncControl('hide-ground',!app.hideGround);
       this.notice=app.hideGround?'Terreno oculto; forjados visibles.':'Terreno visible.';
@@ -467,7 +482,7 @@ export class StructuralXRControls {
     else if(id==='amp:+'||id==='amp:-'){
       this.setAmplification(app.amp+(id==='amp:+'?500:-500));
     }
-    else if(['loads','deformed','original','frames','axes'].includes(id)){
+    else if(['loads','deformed','original','frames','supports','axes'].includes(id)){
       const dict={loads:['showLoads','show-loads'],deformed:['showDeformed','show-displaced'],
         original:['showOriginal','show-original'],frames:['showFrames','show-frames'],supports:['showSupports','show-supports'],axes:['showAxes','show-axes']};
       const [prop,domId]=dict[id];
