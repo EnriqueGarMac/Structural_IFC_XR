@@ -51,11 +51,13 @@ export function characteristicStations(stations,maxLabels=4){
   if(allEqual)return [{...stations[Math.floor((stations.length-1)/2)],role:'Constante'}];
   const min=stations.reduce((a,b)=>b.value<a.value?b:a,stations[0]);
   const max=stations.reduce((a,b)=>b.value>a.value?b:a,stations[0]);
+  // When labels are capped to protect the XR view from clutter, preserve
+  // the largest negative and positive (or minimum and maximum) samples first.
   const proposed=[
-    {...first,role:'Inicio'},
-    {...last,role:'Fin'},
     {...min,role:'Mín.'},
-    {...max,role:'Máx.'}
+    {...max,role:'Máx.'},
+    {...first,role:'Inicio'},
+    {...last,role:'Fin'}
   ];
   const out=[];
   for(const p of proposed){
