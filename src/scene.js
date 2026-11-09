@@ -123,7 +123,7 @@ export class StructuralScene {
     for(const piece of items){
       const originalGeom=piece.geometry;
       const copiedGeom=originalGeom.clone();
-      const origMat=new THREE.MeshStandardMaterial({color:piece.color??0xb2c7d1,side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
+      const origMat=new THREE.MeshStandardMaterial({color:structuralColour(this.structurePalette,piece.color??0xb2c7d1),side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
       const displacedMat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,side:THREE.DoubleSide,roughness:.54,metalness:.04});
       const a=new THREE.Mesh(originalGeom,origMat),b=new THREE.Mesh(copiedGeom,displacedMat);
       a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType};
