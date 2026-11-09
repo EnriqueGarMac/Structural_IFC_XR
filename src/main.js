@@ -1,8 +1,9 @@
 import './style.css';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
-import { demoGeometry, demoResults } from './demo.js';
-import {roofDemoGeometry,roofDemoResults,ROOF_DEMO} from './roof-demo.js';
+import { demoGeometry, demoResults, buildingTeaching } from './demo.js';
+import {roofDemoGeometry,roofDemoResults,ROOF_DEMO,industrialTeaching} from './roof-demo.js';
+import {exportEducationalIFC} from './ifc4-export.mjs';
 import { normalizeResults } from './results.mjs';
 import { SAPVisuals, makeSAPGeometry } from './sap-visuals.js';
 import { ReactionVisuals } from './reaction-visuals.js';
@@ -74,12 +75,15 @@ function setResults(results,label){
 }
 const demos={
   frame:{
-    title:'Pórtico de demostración · 8 × 6 m',
-    geometry:demoGeometry,results:demoResults,button:'demo-btn'
+    title:buildingTeaching.results.meta.name,
+    geometry:demoGeometry,results:demoResults,button:'demo-btn',
+    definition:buildingTeaching,levels:[0,3.2,6.4,9.6],
+    filename:'EDIFICIO_3_PLANTAS_IMIS'
   },
   roof:{
     title:ROOF_DEMO.name,
-    geometry:roofDemoGeometry,results:roofDemoResults,button:'roof-demo-btn'
+    geometry:roofDemoGeometry,results:roofDemoResults,button:'roof-demo-btn',
+    definition:industrialTeaching,levels:[0],filename:'NAVE_INDUSTRIAL_IMIS'
   }
 };
 let activeDemo='frame';
@@ -90,10 +94,10 @@ function showDemo(kind='frame'){
   $('alignment-status').textContent='Importa un IFC y un JSON para alinear.';
   // Start with legible combined views, without inheriting an empty SAP-only mode.
   app.showSAPOnly=false;app.showOriginal=true;app.showDeformed=true;
-  app.showFrames=true;app.showLoads=true;app.hideGround=true;
+  app.showFrames=true;app.showSupports=true;app.showLoads=true;app.hideGround=true;app.showStructureOnly=false;
   for(const [id,checked] of [
     ['show-sap-only',false],['show-original',true],['show-displaced',true],
-    ['show-frames',true],['show-supports',true],['show-loads',true],['hide-ground',true]
+    ['show-frames',true],['show-supports',true],['show-resistance-only',false],['show-loads',true],['hide-ground',true]
   ])$(id).checked=checked;
   app.setResults(null); // Never interpolate the previous demo's result field.
   app.offset=[0,0,0];for(const c of ['x','y','z'])$('offset-'+c).value='0';
@@ -101,7 +105,9 @@ function showDemo(kind='frame'){
   app.setModel(selected.geometry());
   setModelLabel(selected.title);
   updateStats(app.parts.length);
-  setResults(selected.results,'SINTÉTICOS · NO SAP2000');
+  setResults(selected.results,'MATRIZ DE RIGIDEZ · DOCENTE (2D)');
+  const factor=app.maxU>0?Math.min(25000,Math.max(25,Math.round(.08*app.maxSize/app.maxU))):25;
+  app.amp=factor;showAmplitude();app.updateVisualization();
   for(const [name,config] of Object.entries(demos)){
     const button=$(config.button);
     button.classList.toggle('is-current',name===kind);
@@ -112,6 +118,31 @@ function showDemo(kind='frame'){
   app.updateVisualization();
   status('DEMO SINTÉTICA · NO SAP2000');
 }
+function downloadLocalFile(content,name,mime){
+  const objectURL=URL.createObjectURL(new Blob([content],{type:mime}));
+  const anchor=document.createElement('a');anchor.href=objectURL;anchor.download=name;
+  document.body.appendChild(anchor);anchor.click();anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(objectURL),30000);
+}
+$('download-demo-ifc').addEventListener('click',()=>{
+  if(!demoActive){info('Selecciona un modelo docente para descargar su IFC.',true);return;}
+  const current=demos[activeDemo];
+  try{
+    const output=exportEducationalIFC({
+      name:current.title,parts:current.definition.parts,levels:current.levels
+    });
+    downloadLocalFile(output.content,current.filename+'.ifc','application/octet-stream');
+    info('IFC4 creado: '+output.stats.products+' elementos y '+
+      output.stats.spaces+' espacios BIM.');
+  }catch(err){console.error(err);info('Error al generar IFC: '+err.message,true);}
+});
+$('download-demo-json').addEventListener('click',()=>{
+  if(!demoActive){info('Selecciona un modelo docente para descargar resultados.',true);return;}
+  const current=demos[activeDemo];
+  downloadLocalFile(JSON.stringify(current.results),
+    current.filename+'_FEM.json','application/json');
+  info('Resultados FEM exportados para los casos DEAD y WIND_X.');
+});
 $('demo-btn').addEventListener('click',()=>showDemo('frame'));
 $('roof-demo-btn').addEventListener('click',()=>showDemo('roof'));
 $('ifc-input').addEventListener('change',async(e)=>{
@@ -200,6 +231,11 @@ $('modal-amplitude').addEventListener('input',e=>{
 });
 $('case-select').addEventListener('change',e=>app.setCase(e.target.value));
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
+$('show-resistance-only').addEventListener('change',e=>{
+  app.showStructureOnly=e.target.checked;
+  app.updateVisualization();
+  if(!demoActive)info('El filtro solo tiene clasificación resistente completa en los ejemplos docentes.');
+});
 const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-supports':'showSupports','show-axes':'showAxes' };
 for(const [id,key]of Object.entries(showControls)){
   $(id).addEventListener('change',e=>{app[key]=e.target.checked;app.axes.visible=app.showAxes;
