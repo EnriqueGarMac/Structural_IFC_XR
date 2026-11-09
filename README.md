@@ -1,3 +1,41 @@
+## Sombras del visor web y colocación en superficies AR
+
+En **Vista 3D**, el IFC recibe iluminación desde un sol fijo inclinado:
+las fachadas, pilares y cubierta proyectan sombras sobre el terreno visible.
+Si el terreno está oculto, el visor añade una superficie receptora
+**exclusivamente visual**, que no se exporta al IFC ni al USDZ.
+
+El sol, su superficie receptora y el cálculo de sombras se desactivan
+al entrar en **Quest VR, Quest RM, AR móvil y Cámara + 3D**. En realidad
+aumentada, la iluminación y las posibles sombras del entorno dependen
+de las capacidades del dispositivo y su navegador. No se inyectan sombras
+artificiales en el modelo ni se garantiza que todos los dispositivos
+estimen sombras de objetos virtuales.
+
+Para colocar el modelo en **Quest RM** o **WebXR AR móvil**:
+- Apunta a una mesa o al suelo y espera a que se estabilice el indicador.
+  Se aceptan superficies prácticamente horizontales, con detección
+  repetida en varias imágenes.
+- Confirma la colocación. La base visible del modelo se hace coincidir con
+  la altura de la superficie, sin el antiguo desfase fijo de 2 cm.
+- Si el navegador proporciona opcionalmente los contornos reales del plano
+  mediante **WebXR Plane Detection**, y se identifica una superficie de
+  dimensiones compatibles con una mesa, se reduce el modelo para que quepa
+  con margen. El ajuste no se inventa a partir de la distancia del raycast.
+- Cuando no hay contorno de plano, el modelo se apoya igualmente y se conserva
+  el ajuste manual del tamaño; se puede reducir hasta 12 cm en su lado mayor.
+  Al modificar la escala de un modelo anclado, se recalcula su apoyo para que
+  no vuelva a quedar flotando.
+
+En **iPhone con AR Quick Look**, el anclaje nativo lo controla iOS. La
+aplicación no puede garantizar desde la página web el reconocimiento del
+tamaño de una mesa en esa interfaz independiente.
+
+La leyenda del visor muestra únicamente la magnitud, su barra cromática,
+los límites numéricos y el acceso a cambiar la escala, sin textos explicativos.
+
+---
+
 ## Visualización y consulta de resultados
 
 - **Encuadre al cargar:** la cámara centra y encuadra automáticamente el
