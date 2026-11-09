@@ -7,12 +7,7 @@ export const ROTATIONS=[...function*(){
     const signs=[sx,sy,sz];
     if(permutationParity(axes)*sx*sy*sz!==1)continue;
     const key=axes.join('')+signs.map(x=>x===1?'+':'-').join('');
-    let name=key;
-    if(key==='012+++')name='0°';
-    if(key==='021+-+')name='X +90°'; // (x,-z,y)
-    if(key==='021++-')name='X -90°'; // (x,z,-y)
-    if(key==='210-++')name='Y +90°'; // (z,y,-x)
-    if(key==='210++-')name='Y -90°'; // (-z,y,x) - see named override below
+    const name=key;
     yield {key,name,axes,signs};
   }
 }()];
@@ -103,4 +98,14 @@ export function findBestAlignment(items,results,option='auto'){
   return {...candidates[0],confidence:option==='auto'&&candidates.length>1?
     (candidates[1].score-candidates[0].score)/Math.max(candidates[1].score,1e-12):null,
     automatic:option==='auto'};
+}
+
+export function makeIFCTransformElements(alignment){
+  const R=Array.from({length:3},()=>[0,0,0]);
+  for(let row=0;row<3;row++)R[row][alignment.rotation.axes[row]]=alignment.rotation.signs[row];
+  const [x,y,z]=alignment.translation;
+  return [R[0][0],R[0][1],R[0][2],x,
+          R[1][0],R[1][1],R[1][2],y,
+          R[2][0],R[2][1],R[2][2],z,
+          0,0,0,1];
 }
