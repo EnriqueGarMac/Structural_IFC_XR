@@ -1,3 +1,28 @@
+## Importar directamente un JSON de SAP2000 (nuevo esquema IMIS)
+
+La aplicación admite tanto los archivos clásicos `{nodes, frames, loads, cases}` como
+el JSON enriquecido `imis.sap2000.xr/1` generado por el conversor Excel de SAP2000.
+
+1. Abre el visor y pulsa **Cargar SAP**.
+2. Selecciona `Modelo_XR.json`. No hace falta importar un IFC: se crea una
+   representación analítica de las barras con geometría cilíndrica simplificada.
+3. En **Vista de resultados**, elige **Desplazamientos**, **Esfuerzos internos**
+   o **Modos de vibración**.
+4. Para esfuerzos, selecciona el caso y el componente local
+   `P, V2, V3, T, M2, M3`. Los diagramas tienen escala visual normalizada.
+5. Para modos, selecciona el modo propio y una amplitud ilustrativa. La
+   frecuencia de animación corresponde al autovalor exportado.
+
+En **Meta Quest**, abre **Análisis y deformadas** y utiliza el botón
+**VISTA** para alternar entre desplazamientos, diagramas y vibraciones.
+Las flechas del campo de detalle cambian el esfuerzo o el modo.
+
+**Importante:** las formas modales están normalizadas: sus amplitudes
+no equivalen a desplazamientos físicos. Las barras generadas a partir del JSON
+son aproximaciones analíticas, no la geometría exacta IFC. El visor no realiza
+un cálculo FEM ni transforma esfuerzos locales a globales.
+
+---
 🌐 **[Abrir Structural IFC XR — aplicación web](https://enriquegarmac.github.io/Structural_IFC_XR/)**
 
 > Acceso directo desde el navegador, también desde Meta Quest 3. Sin instalar nada.
