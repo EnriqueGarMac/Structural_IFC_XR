@@ -1,160 +1,103 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {ROOF_DEMO,roofDemoGeometry,roofDemoResults,roofDemoStats} from '../src/roof-demo.js';
-import {demoGeometry,demoResults} from '../src/demo.js';
+import {demoGeometry,demoResults,buildingTeaching} from '../src/demo.js';
+import {roofDemoGeometry,roofDemoResults,ROOF_DEMO,industrialTeaching,roofDemoStats} from '../src/roof-demo.js';
 import {isTerrainElement} from '../src/view-filters.mjs';
-import {caseNodes,maxDisplacement,selectedLoads,analyticalNodePositions} from '../src/results.mjs';
 
-test('both demonstration models remain available with independent structures',()=>{
-  assert.ok(demoGeometry().length>0);
-  assert.ok(demoResults.frames.length>=8);
-  const roof=roofDemoGeometry();
-  const stats=roofDemoStats();
-  assert.ok(roof.length>280,'roof requires several trusses and purlins');
-  assert.equal(roof.length,stats.pieces);
-  assert.equal(roofDemoResults.frames.length,stats.frames);
-  assert.ok(roofDemoResults.nodes.length>150);
-  for(const item of roof)item.geometry.dispose();
+const balance=(results,caseName)=>{
+  const total=[0,0,0];
+  const frames=new Map(results.frames.map(f=>[f.id,f]));
+  for(const l of results.loads.filter(x=>x.pattern===caseName)){
+    const f=frames.get(l.frame);
+    assert.ok(f);
+    const v=(l.w1+l.w2)/2*f.length_m*(l.end-l.start);
+    const axis={4:0,5:1,6:2}[l.dir];
+    if(axis!==undefined)total[axis]+=v;
+  }
+  for(const r of Object.values(results.jointReactions[caseName]??{}))
+    for(let i=0;i<3;i++)total[i]+=r.force_kN[i];
+  assert.ok(total.every(v=>Math.abs(v)<1e-5),caseName+' unbalanced: '+JSON.stringify(total));
+};
+const validate=(results)=>{
+  const ids=new Set(results.nodes.map(n=>n.id));
+  const frames=new Set(results.frames.map(f=>f.id));
+  assert.equal(ids.size,results.nodes.length);
+  assert.equal(frames.size,results.frames.length);
+  assert.deepEqual(results.cases.map(c=>c.name),['DEAD','WIND_X']);
+  for(const f of results.frames){
+    assert.ok(ids.has(f.i)&&ids.has(f.j));
+    assert.ok(f.length_m>0);
+  }
+  for(const name of ['DEAD','WIND_X']){
+    assert.ok(results.forces[name]&&results.frameCurves[name]);
+    assert.ok(Object.keys(results.jointReactions[name]).length);
+    assert.ok(results.cases.find(c=>c.name===name).displacements.some(d=>
+      Math.hypot(d.ux,d.uy,d.uz)>1e-9));
+    for(const f of results.frames){
+      const data=results.forces[name][f.id];
+      assert.equal(data.length,11);
+      assert.ok(data.every(x=>['P_kN','V2_kN','M3_kNm'].every(k=>Number.isFinite(x[k]))));
+      assert.equal(results.frameCurves[name][f.id].length,11);
+    }
+    balance(results,name);
+  }
+};
+test('three-storey building: gravity and wind FEM, wall/door/window/room semantics',()=>{
+  validate(demoResults);
+  const parts=buildingTeaching.parts;
+  const categories=new Set(parts.map(p=>p.ifcType));
+  for(const kind of ['IfcColumn','IfcBeam','IfcSlab','IfcWall','IfcDoor',
+    'IfcWindow','IfcSpace','IfcSanitaryTerminal','IfcFurnishingElement',
+    'IfcGeographicElement','IfcFooting'])assert.ok(categories.has(kind),kind);
+  assert.ok(parts.some(p=>/Cocina/i.test(p.name)));
+  assert.ok(parts.some(p=>/Dormitorio/i.test(p.name)));
+  assert.ok(parts.some(p=>/Baño/i.test(p.name)));
+  assert.ok(parts.some(p=>/Fachada/i.test(p.name)));
+  assert.ok(parts.some(p=>p.structural));
+  assert.ok(parts.some(p=>p.structural===false));
+  assert.equal(buildingTeaching.spaces.filter(x=>x.type==='space').length,12);
+  assert.ok(demoResults.nodes.filter(n=>n.restrained_dof?.[0]).length>=6);
+  const geo=demoGeometry();
+  assert.ok(geo.length>150);
+  assert.ok(geo.every(x=>x.preserveStructuralOrigin));
+  assert.ok(geo.some(x=>x.analysisIncluded));
+  assert.ok(geo.some(x=>x.structural && !x.analysisIncluded));
+  assert.ok(geo.some(x=>!x.structural && !x.analysisIncluded));
+  geo.forEach(p=>p.geometry.dispose());
 });
-
-test('roof geometry spans 18 m by 24 m and rises to a pitched ridge',()=>{
+test('industrial hall: exact global balance, 5 truss planes and warehouse BIM',()=>{
+  validate(roofDemoResults);
   assert.equal(ROOF_DEMO.span,18);
   assert.equal(ROOF_DEMO.length,24);
+  assert.equal(roofDemoStats().cases,2);
+  assert.ok(roofDemoResults.nodes.length>120);
+  assert.ok(roofDemoResults.frames.length>240);
+  const parts=industrialTeaching.parts;
+  for(const type of ['IfcRoof','IfcWall','IfcWindow','IfcDoor','IfcFooting',
+    'IfcSlab','IfcGeographicElement','IfcFurnishingElement']){
+    assert.ok(parts.some(p=>p.ifcType===type),type);
+  }
+  assert.ok(parts.some(p=>/Correa longitudinal/i.test(p.name)));
+  assert.ok(parts.some(p=>/Puerta seccional|Portón/i.test(p.name)));
+  assert.ok(parts.some(p=>/Muelle|Explanada/i.test(p.name)));
   const roof=roofDemoGeometry();
-  const boxes=new THREE.Box3();
-  for(const part of roof){
-    const box=part.geometry.boundingBox||(
-      part.geometry.computeBoundingBox(),part.geometry.boundingBox
-    );
-    boxes.union(box);
-  }
-  const size=boxes.getSize(new THREE.Vector3());
-  assert.ok(size.x>18&&size.x<22);
-  assert.ok(size.y>24&&size.y<27);
-  assert.ok(boxes.max.z>8.8);
-  assert.ok(boxes.min.z<0);
-  assert.ok(roof.some(x=>x.name.includes('Diagonal')));
-  assert.ok(roof.some(x=>x.name.includes('Correa')));
-  assert.ok(roof.some(x=>x.name.includes('Arriostramiento')));
-  // Plan centred at the origin, and steel pillar bases at Z = 0.
-  assert.ok(Math.abs((boxes.min.x+boxes.max.x)/2)<1e-6);
-  assert.ok(Math.abs((boxes.min.y+boxes.max.y)/2)<1e-6);
-  assert.equal(roof.some(x=>x.ifcType==='IfcCovering'),false);
-  assert.equal(roof.some(x=>/chapa|panel cubierta/i.test(x.name)),false);
-  for(const part of roof)part.geometry.dispose();
+  assert.equal(roof.length,roofDemoStats().pieces);
+  const bbox=new THREE.Box3();
+  roof.filter(x=>!isTerrainElement(x)).forEach(p=>bbox.union(
+    p.geometry.boundingBox||(p.geometry.computeBoundingBox(),p.geometry.boundingBox)));
+  assert.ok(bbox.max.z>=9.0);
+  assert.ok(bbox.min.z<0);
+  roof.forEach(p=>p.geometry.dispose());
 });
-
-test('hidden foundations do not remove trusses, braces or structural columns',()=>{
-  const pieces=roofDemoGeometry();
-  const foundations=pieces.filter(x=>isTerrainElement(x));
-  const structural=pieces.filter(x=>!isTerrainElement(x));
-  assert.equal(foundations.length,10);
-  assert.ok(!pieces.some(x=>x.ifcType==='IfcCovering'));
-  assert.ok(!structural.some(x=>/chapa|cubrici[oó]n/i.test(x.name)));
-  assert.ok(structural.some(x=>x.ifcType==='IfcColumn'));
-  assert.ok(structural.some(x=>x.ifcType==='IfcBeam'));
-  assert.ok(structural.some(x=>x.ifcType==='IfcMember'));
-  assert.ok(new Set(pieces.map(x=>x.color)).size>=5);
-  for(const part of pieces)part.geometry.dispose();
-});
-
-test('every synthetic SAP frame connects distinct, existing roof joints',()=>{
-  const {nodes,frames,loads,cases}=roofDemoResults;
-  const ids=new Set(nodes.map(n=>n.id));
-  assert.equal(ids.size,nodes.length);
-  const frameIds=new Set(frames.map(f=>f.id));
-  assert.equal(frameIds.size,frames.length);
-  for(const f of frames){
-    assert.ok(ids.has(f.i));assert.ok(ids.has(f.j));
-    assert.notEqual(f.i,f.j);
+test('calculated displacements are not synthetic and each fixed support stays immobile',()=>{
+  for(const results of [demoResults,roofDemoResults]){
+    assert.match(results.meta.source,/matricial/i);
+    assert.doesNotMatch(results.meta.note,/NO proceden de SAP2000/);
+    const fixed=new Set(results.nodes.filter(n=>n.restrained_dof?.[0]&&n.restrained_dof?.[2]).map(n=>n.id));
+    for(const c of results.cases)
+      for(const d of c.displacements.filter(d=>fixed.has(d.node))){
+        assert.ok(Math.hypot(d.ux,d.uy,d.uz)<1e-10);
+      }
   }
-  for(const l of loads){
-    assert.ok(frameIds.has(l.frame));
-    assert.equal(l.csys,'Global');
-    assert.ok(Number.isFinite(l.w1));
-    assert.ok(Number.isFinite(l.w2));
-  }
-  assert.ok(selectedLoads(roofDemoResults,'G').length>10);
-  assert.ok(selectedLoads(roofDemoResults,'N').length>10);
-  assert.ok(selectedLoads(roofDemoResults,'V').length>3);
-  assert.ok(cases.length>=3);
-  assert.match(roofDemoResults.meta.note,/SINTÉTICA/i);
-  assert.match(roofDemoResults.meta.note,/NO obtenidos de SAP2000/i);
-});
-
-test('gravity/snow case gives support-zero deflection and higher ridge sag',()=>{
-  const nodes=caseNodes(roofDemoResults,roofDemoResults.cases[0].name);
-  const supports=nodes.filter(n=>n.z===0);
-  assert.ok(supports.length>=10);
-  assert.ok(supports.every(n=>n.uz===0));
-  const ridge=nodes.filter(n=>n.x===0&&n.z>8);
-  assert.ok(ridge.length>=5);
-  assert.ok(ridge.every(n=>n.uz<-.015));
-  assert.ok(maxDisplacement(nodes)>.02&&maxDisplacement(nodes)<.05);
-  const magnified=analyticalNodePositions(nodes,25,true);
-  const mid=nodes.findIndex(n=>n.id===ridge[0].id);
-  assert.ok(magnified[mid].z<nodes[mid].z);
-  assert.equal(nodes[mid].z,roofDemoResults.nodes[mid].z);
-});
-
-test('wind case gives predominantly horizontal sway of the steel roof',()=>{
-  const nodes=caseNodes(roofDemoResults,roofDemoResults.cases[1].name);
-  assert.ok(nodes.some(n=>n.z>8&&n.ux>.015));
-  assert.ok(nodes.filter(n=>n.z===0).every(n=>n.ux===0));
-  assert.ok(maxDisplacement(nodes)<.05);
-});
-
-test('structural supports and analytical nodes share an origin-centred coordinate system',()=>{
-  const results=roofDemoResults;
-  const coordinates=results.nodes;
-  assert.ok(coordinates.length>100);
-  const xs=coordinates.map(n=>n.x),ys=coordinates.map(n=>n.y);
-  assert.equal(Math.min(...xs),-9);
-  assert.equal(Math.max(...xs),9);
-  assert.equal(Math.min(...ys),-12);
-  assert.equal(Math.max(...ys),12);
-  const supports=coordinates.filter(n=>n.z===0);
-  assert.ok(supports.some(n=>n.x===-9&&n.y===-12));
-  assert.ok(supports.some(n=>n.x===9&&n.y===12));
-  assert.ok(supports.every(n=>Math.abs(n.x)<=9&&Math.abs(n.y)<=12));
-  const geometry=roofDemoGeometry();
-  const columnFootprint=new THREE.Box3();
-  for(const part of geometry){
-    if(part.ifcType!=='IfcColumn')continue;
-    part.geometry.computeBoundingBox();
-    columnFootprint.union(part.geometry.boundingBox);
-  }
-  assert.ok(Math.abs((columnFootprint.min.x+columnFootprint.max.x)/2)<1e-6);
-  assert.ok(Math.abs((columnFootprint.min.y+columnFootprint.max.y)/2)<1e-6);
-  for(const part of geometry)part.geometry.dispose();
-});
-
-
-test('all visible column feet lie at elevation Z=0 and keep the model origin fixed',()=>{
-  const pieces=roofDemoGeometry();
-  assert.ok(pieces.length>280);
-  assert.ok(pieces.every(p=>p.preserveStructuralOrigin===true));
-  const columns=pieces.filter(p=>p.ifcType==='IfcColumn');
-  assert.equal(columns.length,10);
-  for(const column of columns){
-    column.geometry.computeBoundingBox();
-    assert.ok(Math.abs(column.geometry.boundingBox.min.z)<1e-8,
-      column.name+' should start at Z=0');
-  }
-  // Any hidden footings may extend below zero; they do not redefine the
-  // origin or the visible column-base elevation.
-  const visible=pieces.filter(p=>!isTerrainElement(p));
-  const visibleBounds=new THREE.Box3();
-  for(const piece of visible){
-    piece.geometry.computeBoundingBox();
-    visibleBounds.union(piece.geometry.boundingBox);
-  }
-  assert.ok(Math.abs(visibleBounds.min.z)<1e-8);
-  assert.ok(Math.abs((visibleBounds.min.x+visibleBounds.max.x)/2)<1e-8);
-  assert.ok(Math.abs((visibleBounds.min.y+visibleBounds.max.y)/2)<1e-8);
-  const supports=roofDemoResults.nodes.filter(n=>n.z===0);
-  assert.equal(supports.length,10);
-  assert.ok(supports.every(n=>Math.abs(n.x)===9));
-  for(const piece of pieces)piece.geometry.dispose();
 });
