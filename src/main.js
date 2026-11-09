@@ -27,9 +27,9 @@ function alignIFC(results,notify=true){
   // not an unknown IFC local placement. Do not auto-centre them independently
   // against architectural walls/terrain, which distorts the analytical datum.
   const educationalPair=
-    ((/^EDIFICIO_3_PLANTAS_IMIS\\.ifc$/i.test(importedIFCName)&&
+    ((/^EDIFICIO_3_PLANTAS_IMIS\.ifc$/i.test(importedIFCName)&&
       /Edificio de viviendas/i.test(results.meta?.name||''))||
-     (/^NAVE_INDUSTRIAL_IMIS\\.ifc$/i.test(importedIFCName)&&
+     (/^NAVE_INDUSTRIAL_IMIS\.ifc$/i.test(importedIFCName)&&
       /Nave industrial/i.test(results.meta?.name||'')));
   const fit=educationalPair?
     {rotation:{key:'012+++'},translation:[0,0,0],rms_m:0,confidence:null,automatic:false}:
