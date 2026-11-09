@@ -68,7 +68,7 @@
         <label class="checkrow"><input id="show-loads" type="checkbox" checked><span>Distribución de cargas <small>Flechas + intensidad de color</small></span></label>
         <label class="checkrow"><input id="show-displaced" type="checkbox" checked><span>Deformada amplificada <small>Interpolada entre nudos SAP</small></span></label>
         <label class="checkrow"><input id="show-original" type="checkbox" checked><span>Geometría indeformada <small>Referencia transparente</small></span></label>
-        <div class="range-control"><div class="range-head"><label for="amp">Factor de amplificación</label><output id="amp-value">×25</output></div><input id="amp" type="range" min="0" max="25000" value="25" step="1" /></div>
+        <div class="range-control"><div class="range-head"><label for="amp">Factor de amplificación (máximo adaptado a la estructura)</label><output id="amp-value">×25</output></div><input id="amp" type="range" min="0" max="150" value="25" step="1" /></div>
         <div class="range-control"><div class="range-head"><label for="model-size">Tamaño del modelo (lado mayor)</label><output id="size-value">2.5 m</output></div><input id="model-size" type="range" min="0.5" max="5" value="2.5" step="0.1" /></div>
         <div class="separator"></div>
         <div class="section-label">03 / ALINEACIÓN IFC ↔ SAP</div>
@@ -138,7 +138,7 @@
         <button type="button" id="mobile-ar-smaller">− Tamaño</button>
         <button type="button" id="mobile-ar-larger">+ Tamaño</button>
         <label class="mobile-ar-range">Deformada: <output id="mobile-ar-amp-value">×25</output>
-          <input type="range" min="0" max="25000" step="1" value="25" id="mobile-ar-amp" />
+          <input type="range" min="0" max="150" step="1" value="25" id="mobile-ar-amp" />
         </label>
         <button type="button" id="mobile-ar-sap-only">Solo SAP: NO</button>
         <button type="button" id="mobile-ar-exit">Salir de AR</button>
@@ -148,11 +148,6 @@
   <div id="mobile-ios-actions" class="mobile-ios-actions" hidden>
     <strong>Ver estructura en AR · iPhone / iPad</strong>
     <p>Se creará una copia 3D del IFC o de la vista SAP actual. Abre AR Quick Look para colocarla en tu entorno y ajustar su escala con los dedos.</p>
-    <label class="ios-shadow-option">
-      <input id="mobile-ios-shadow" type="checkbox" checked />
-      Añadir sombra suave bajo el modelo
-    </label>
-    <p class="ios-shadow-hint">Sombra virtual incorporada al USDZ, independiente de la sombra automática del iPhone.</p>
     <a id="mobile-ios-open" rel="ar" hidden><img alt="Abrir estructura en realidad aumentada" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='330' height='64'%3E%3Crect width='330' height='64' rx='12' fill='%23146c72'/%3E%3Ctext x='165' y='40' font-size='20' text-anchor='middle' fill='white'%3EAbrir en AR Quick Look%3C/text%3E%3C/svg%3E" /></a>
     <p id="mobile-ios-status" role="status"></p>
     <button type="button" id="mobile-ios-close">Cerrar</button>

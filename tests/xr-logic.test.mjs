@@ -49,3 +49,11 @@ test('amplification-to-knob and knob-to-amplification roundtrip',()=>{
     assert.equal(amplificationFromSliderX(sliderXFromAmplification(amp)),amp);
   }
 });
+
+test('Quest slider handles small safe amplification ranges without integer snapping',()=>{
+  assert.equal(amplificationFromSliderX(163,163,604,.8),0);
+  assert.equal(amplificationFromSliderX(604,163,604,.8),.8);
+  assert.equal(amplificationFromSliderX(383.5,163,604,.8),.4);
+  assert.equal(amplificationFromSliderX(383.5,163,604,8),4);
+  assert.equal(sliderXFromAmplification(.4,163,604,.8),383.5);
+});

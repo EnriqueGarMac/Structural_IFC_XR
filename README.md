@@ -1,3 +1,25 @@
+## Amplificación de la deformada: control seguro
+
+Al cargar el edificio de tres plantas, la nave o un JSON SAP2000, el rango
+del deslizador se calcula de nuevo para cada caso **DEAD / WIND_X**.
+Se utiliza la longitud máxima de la estructura resistente (nudos de análisis),
+sin contar la parcela ni la explanada de la nave. También se consideran
+los máximos de las curvas de desplazamientos de barras, que pueden superar
+al desplazamiento nodal en el centro de un vano.
+
+Por defecto, el desplazamiento *representado* se limita aproximadamente al
+**0,4 % de la dimensión estructural**. Al alcanzar el extremo del deslizador,
+no puede superar aproximadamente el **2,5 % de esa dimensión**, salvo casos
+excepcionales en los que ni el rango mínimo permite mostrar una forma razonable.
+No se modifican esfuerzos, reacciones, desplazamientos físicos ni factores
+en el archivo JSON. Se aplica igual en escritorio, Quest y AR móvil.
+
+Se ha retirado el plano de sombra incluido artificialmente en el USDZ
+del iPhone, junto con su interruptor. La sombra nativa de AR Quick Look,
+si está disponible en el dispositivo, puede seguir apareciendo.
+
+---
+
 ## Transparencia del IFC y mobiliario docente
 
 En **04 / VISUALIZACIÓN**, utiliza **Transparencia del IFC** (0–100 %) para
@@ -196,7 +218,7 @@ Entra directamente en **[Structural IFC XR](https://enriquegarmac.github.io/Stru
 - **iPhone/iPad con Safari:** se genera **en el propio teléfono** una copia USDZ de la **vista actual**. Pulsa **Abrir en AR Quick Look** después de preparar el archivo. Allí puedes colocar, trasladar y escalar el modelo con los dedos. La exportación respeta las capas IFC visibles y el estado actual de la deformada. En modo **Solo SAP**, convierte las barras y nudos analíticos en cilindros/esferas para su visualización AR. Es una **instantánea**, no un visor interactivo SAP dentro de Quick Look: para cambiar el caso de carga o el factor, vuelve a la web y regenera el archivo.
 - Modelos IFC muy grandes pueden exceder la memoria del móvil; la exportación incluye un límite de complejidad y muestra una explicación en caso de superarlo.
 
-**Colores y sombras en AR móvil:** la deformada SAP usa una **textura cromática** con la misma escala azul–turquesa–amarillo–coral que en el visor web. Esto evita que Quick Look muestre en blanco las mallas coloreadas por vértice. Los elementos IFC conservan el color de su material. En **iPhone/iPad**, Quick Look puede generar una sombra automática, pero algunos modelos USDZ no la muestran. El panel de AR móvil ofrece ahora **«Añadir sombra suave bajo el modelo»**, activada por defecto. Se genera una proyección adicional en forma de textura semitransparente incorporada en el USDZ a partir de la geometría IFC o de las barras SAP. Es una **sombra aproximada, fijada al modelo y no interactiva con la iluminación real**. Puede desactivarse si el dispositivo ya genera una sombra nativa. En **Android/WebXR**, una luz virtual genera una sombra dinámica sobre un plano receptor transparente, tanto para los sólidos IFC como para las barras analíticas del modo Solo SAP. Se trata de una proyección gráfica, no de iluminación física de la habitación.
+**Colores y sombras en AR móvil:** la deformada SAP usa una **textura cromática** con la misma escala que el visor web. En **iPhone/iPad**, la exportación USDZ ya **no incluye el plano ni la textura de sombra artificial**, que interferían con la colocación. Se deja que **AR Quick Look** gestione el suelo y las sombras nativas que admita el dispositivo. En **Android/WebXR** se mantiene la representación independiente de sombras virtuales, sin cambiar el terreno geométrico IFC.
 
 Los datos permanecen en el navegador; no se suben archivos IFC/SAP a un servidor para convertirlos. Estas vías móviles han pasado pruebas automatizadas, pero requieren validación funcional sobre dispositivos reales.
 
@@ -210,7 +232,7 @@ El visor incluye un **menú 3D dentro del entorno inmersivo**, independiente de 
 - **Joystick izquierdo**: rotar en los ejes horizontal y vertical; **joystick derecho**: cambiar de tamaño progresivamente.
 - **Botón A/X del mando**: recentrar el menú si lo has movido fuera del campo visual.
 - **Cabecera del menú + gatillo**: arrastrar el menú. Alternativamente, pulsa **Mover menú**, señala el destino y vuelve a pulsar el gatillo para dejarlo fijo.
-- **Análisis y deformadas**: pasar entre casos y patrones de cargas SAP y **arrastrar el nuevo slider de amplificación con el gatillo** (×0–×150, paso de 1). Los botones −/+ ajustan en pasos de 5. El cambio es exclusivamente visual, no modifica los resultados del análisis.
+- **Análisis y deformadas:** los casos SAP y el control de amplificación se muestran en la misma página. El máximo es **adaptativo por caso y por modelo**, usando la dimensión de la estructura y el mayor desplazamiento de las curvas FEM (incluido el vano), no las dimensiones de la parcela. El control XR y los botones −/+ usan incrementos proporcionales y suaves. Solo cambia la representación gráfica, nunca el cálculo.
 - **Modo «Solo SAP»**: desde «Análisis y deformadas» o «Capas y elementos», oculta toda la geometría IFC original y deformada, dejando únicamente las barras analíticas, nudos y cargas procedentes del JSON de SAP2000. Requiere un modelo IFC cargado y un JSON SAP con barras. Se pueden mantener las cargas encendidas/apagadas por separado. Esta vista es un esquema analítico de líneas/nudos, no una recreación de vigas sólidas calculadas por SAP2000. **Si el caso SAP incluye desplazamientos nodales y la deformada está activada, el mismo slider también amplifica la geometría de las barras y nudos analíticos.** El campo de desplazamientos real y sus unidades no cambian.
 - **Capas y elementos**: activar/desactivar IFC, deformada, fuerzas, barras analíticas SAP y ejes. Contiene también **«Terreno y cimentación: ocultos»**, activado por defecto y reversible. En la demo desaparece la base de cimentación, **pero permanece el forjado de cubierta**. En un IFC externo se identifican elementos como `IfcSite`, `IfcGeographicElement`, `IfcFooting` y nombres habituales de terreno/cimentación. Las losas `IfcSlab`, vigas y pilares permanecen visibles. En IFC con clasificaciones o nombres atípicos es posible que haya que refinar el filtro.
 - **Colocación en la sala**: si Quest Browser admite WebXR \`hit-test\`, apuntar a una superficie horizontal para colocar el modelo y mostrar una sombra **de contacto aproximada**. El visor no reconstruye la habitación ni mide automáticamente el tamaño de la mesa en esta versión.
