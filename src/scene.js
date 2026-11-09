@@ -85,7 +85,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showSupports=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
+    this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -117,6 +117,7 @@ export class StructuralScene {
     this.clearGroup(this.originalGroup);this.clearGroup(this.deformedGroup);this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     this.parts=[];
     const bbox=new THREE.Box3(),allBounds=new THREE.Box3();
+    const hasExplicitRoles=items.some(p=>p.structural===true);
     for(const piece of items){
       const originalGeom=piece.geometry;
       const copiedGeom=originalGeom.clone();
@@ -128,7 +129,11 @@ export class StructuralScene {
       a.castShadow=b.castShadow=false;
       this.originalGroup.add(a);this.deformedGroup.add(b);
       allBounds.expandByObject(a);
-      if(!this.hideGround||!isTerrainElement(piece))bbox.expandByObject(a);
+      // Size the educational model using the resisting system, not the
+      // much larger landscaped parcel or external parking areas.
+      if(hasExplicitRoles?
+        (piece.structural===true&&!isTerrainElement(piece)):
+        !isTerrainElement(piece))bbox.expandByObject(a);
       const pos=copiedGeom.getAttribute('position');
       const colors=new Float32Array(pos.count*3);
       for(let j=0;j<pos.count;j++){colors[3*j]=.35;colors[3*j+1]=.72;colors[3*j+2]=.85;}
@@ -136,7 +141,10 @@ export class StructuralScene {
       // Normalized displacement amplitudes are also used as UVs for USDZ,
       // because Quick Look may discard THREE's per-vertex colours.
       copiedGeom.setAttribute('heat',new THREE.Float32BufferAttribute(new Float32Array(pos.count),1));
-      this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
+      this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),
+        structural:piece.structural??null,
+        analysisIncluded:piece.analysisIncluded??null,
+        base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
     if(allBounds.isEmpty())throw new Error('No se ha recibido geometría 3D.');
     if(bbox.isEmpty()){
@@ -226,9 +234,16 @@ export class StructuralScene {
     this.originalGroup.visible=visibility.original;
     this.deformedGroup.visible=isModal&&!this.showSAPOnly?this.showDeformed:visibility.deformed;
     for(const part of this.parts){
-      part.orig.visible=part.deformed.visible=!(this.hideGround&&part.terrain);
-      part.orig.material.opacity=(deform||isModal) ? 0.16 : 1;
-      part.orig.material.depthWrite=!(deform||isModal);
+      const visible=!(this.hideGround&&part.terrain)&&
+        (!this.showStructureOnly||part.structural!==false);
+      part.orig.visible=visible;
+      // A partition, glazed façade or piece of furniture does not acquire
+      // an invented FEM displacement field: only the analysed frame meshes
+      // deform in the educational examples. Imported IFC stays compatible.
+      part.deformed.visible=visible&&part.structural!==false&&part.analysisIncluded!==false;
+      const structuralDeformation=part.structural!==false&&part.analysisIncluded!==false&&(deform||isModal);
+      part.orig.material.opacity=structuralDeformation?0.16:1;
+      part.orig.material.depthWrite=!structuralDeformation;
       if(isModal){
         const attrs=part.deformed.geometry.getAttribute('position');
         attrs.array.set(part.base);attrs.needsUpdate=true;

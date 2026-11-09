@@ -23,13 +23,17 @@
         <div class="section-label demo-section-label">EJEMPLOS INTERACTIVOS</div>
         <div class="demo-grid" role="group" aria-label="Elegir modelo de demostración">
           <button class="demo-btn is-current" id="demo-btn" type="button" aria-pressed="true">
-            <span class="demo-icon">▦</span><strong>Pórtico</strong><small>8 × 6 m · hormigón</small>
+            <span class="demo-icon">▦</span><strong>Edificio de 3 plantas</strong><small>12 × 8 m · viviendas</small>
           </button>
           <button class="demo-btn demo-roof" id="roof-demo-btn" type="button" aria-pressed="false">
-            <span class="demo-icon">⌂</span><strong>Cubierta en celosía</strong><small>18 × 24 m · acero</small>
+            <span class="demo-icon">⌂</span><strong>Nave industrial</strong><small>18 × 24 m · acero</small>
           </button>
         </div>
-        <p class="demo-disclaimer">Geometría y resultados de demostración sintéticos. No proceden de SAP2000.</p>
+        <p class="demo-disclaimer">Resultados calculados por matriz de rigidez de pórticos planos. Modelo docente, sin validación de proyecto estructural; los acabados no son barras resistentes.</p>
+        <div class="demo-downloads">
+          <button type="button" id="download-demo-ifc" class="secondary-btn">Descargar IFC4 del ejemplo</button>
+          <button type="button" id="download-demo-json" class="secondary-btn">Descargar resultados FEM (JSON)</button>
+        </div>
         <div class="file-state" id="model-state">Modelo: —</div>
         <div class="file-state" id="sap-state">Resultados: —</div>
         <div class="separator"></div>
@@ -88,10 +92,11 @@
         <div class="section-label">04 / VISUALIZACIÓN</div>
         <label class="checkrow compact"><input id="show-axes" type="checkbox" checked><span>Ejes y cuadrícula</span></label>
         <label class="checkrow compact"><input id="show-frames" type="checkbox" checked><span>Barras analíticas SAP2000</span></label>
+        <label class="checkrow compact"><input id="show-resistance-only" type="checkbox"><span>Solo estructura resistente <small>Oculta fachadas, tabiques, puertas, ventanas y mobiliario de los ejemplos</small></span></label>
         <label class="checkrow compact"><input id="show-supports" type="checkbox" checked><span>Condiciones de borde 3D <small>Empotramientos, articulaciones y apoyos móviles</small></span></label>
         <label class="checkrow compact"><input id="show-sap-only" type="checkbox"><span>Solo elementos SAP2000 (barras, nudos y cargas)</span></label>
         <label class="checkrow compact"><input id="hide-ground" type="checkbox" checked><span>Ocultar terreno y cimentación (mantener forjados)</span></label>
-        <div class="notice-box"><strong>Importante</strong> El IFC aporta la geometría; los desplazamientos y cargas proceden de SAP2000. La deformación continua del IFC es una <b>interpolación visual</b> entre desplazamientos nodales, no un nuevo cálculo FEM. Asegúrate de que coinciden unidades y coordenadas.</div>
+        <div class="notice-box"><strong>Importante</strong> Los ejemplos docentes incluyen resultados obtenidos con <b>rigidez matricial 2D</b>; los IFC contienen elementos arquitectónicos que no aportan rigidez al modelo. En IFC externos, los resultados deben importarse desde SAP2000. La deformación de la malla IFC se interpola a partir del modelo de barras, no implica un análisis de los cerramientos. Asegúrate de que coinciden unidades y coordenadas.</div>
       </div>
       <div class="panel-footer"><i></i> Prototipo experimental · Tratamiento local de archivos</div>
     </aside>
