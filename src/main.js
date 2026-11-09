@@ -16,20 +16,32 @@ app.sapVisuals=new SAPVisuals(app);
 app.reactionVisuals=new ReactionVisuals(app);
 let sapGeometryActive=false;
 let originalIFC=null;
+let importedIFCName='';
 let ifcElementCount=0;
 const MAX_AMP=25000;
 function showAmplitude(){ $('amp').value=String(app.amp); $('amp-value').textContent='×'+app.amp.toLocaleString('es-ES'); }
 function alignIFC(results,notify=true){
   if(!originalIFC?.length||!results?.frames?.length)return null;
   const mode=$('ifc-rotation').value;
-  const fit=findBestAlignment(originalIFC,results,mode);
-  const matrix=new THREE.Matrix4().set(...makeIFCTransformElements(fit));
+  // Files downloaded together from this application use identical global XYZ,
+  // not an unknown IFC local placement. Do not auto-centre them independently
+  // against architectural walls/terrain, which distorts the analytical datum.
+  const educationalPair=
+    ((/^EDIFICIO_3_PLANTAS_IMIS\\.ifc$/i.test(importedIFCName)&&
+      /Edificio de viviendas/i.test(results.meta?.name||''))||
+     (/^NAVE_INDUSTRIAL_IMIS\\.ifc$/i.test(importedIFCName)&&
+      /Nave industrial/i.test(results.meta?.name||'')));
+  const fit=educationalPair?
+    {rotation:{key:'012+++'},translation:[0,0,0],rms_m:0,confidence:null,automatic:false}:
+    findBestAlignment(originalIFC,results,mode);
+  const matrix=educationalPair?new THREE.Matrix4():
+    new THREE.Matrix4().set(...makeIFCTransformElements(fit));
   const transformed=originalIFC.map(piece=>({...piece,geometry:piece.geometry.clone().applyMatrix4(matrix)}));
   app.setResults(null);
   app.setModel(transformed);
   app.setResults(results);
   sapGeometryActive=false;
-  const label=mode==='auto'?('Automática ('+fit.rotation.key+')'):(mode+' ('+fit.rotation.key+')');
+  const label=educationalPair?'XYZ directo · IFC/JSON docentes':mode==='auto'?('Automática ('+fit.rotation.key+')'):(mode+' ('+fit.rotation.key+')');
   const confidence=fit.confidence!==null&&fit.confidence<.02?' · orientación ambigua':'';
   const message='Alineación: '+label+' · RMS aprox. '+fit.rms_m.toFixed(3)+' m'+confidence;
   $('alignment-status').textContent=message;
@@ -90,7 +102,7 @@ let activeDemo='frame';
 function showDemo(kind='frame'){
   const selected=demos[kind];
   if(!selected)throw Error('Ejemplo de demostración desconocido.');
-  demoActive=true;syntheticResults=true;sapGeometryActive=false;originalIFC=null;activeDemo=kind;
+  demoActive=true;syntheticResults=true;sapGeometryActive=false;originalIFC=null;importedIFCName='';activeDemo=kind;
   $('alignment-status').textContent='Importa un IFC y un JSON para alinear.';
   // Start with legible combined views, without inheriting an empty SAP-only mode.
   app.showSAPOnly=false;app.showOriginal=true;app.showDeformed=true;
@@ -151,6 +163,7 @@ $('ifc-input').addEventListener('change',async(e)=>{
   try{
     const res=await readIFC(file,(message)=>status(message));
     originalIFC=res.items.map(item=>({...item,geometry:item.geometry.clone()}));
+    importedIFCName=file.name;
     ifcElementCount=res.elementCount;
     app.setModel(res.items);
     // Never accidentally apply synthetic example results to a real IFC.
@@ -172,7 +185,7 @@ $('sap-input').addEventListener('change',async(e)=>{
   try{
     const data=normalizeResults(JSON.parse(await f.text()));
     if(demoActive||sapGeometryActive||!app.parts.length){
-      originalIFC=null;
+      originalIFC=null;importedIFCName='';
       const geometry=makeSAPGeometry(data);
       if(!geometry.length)throw Error('El JSON no contiene barras válidas para visualizar.');
       app.setResults(null);
