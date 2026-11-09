@@ -16,8 +16,8 @@ test('open generated IFC4 file using the same web-ifc engine as the XR viewer',a
   }]});
   const model=ifc.OpenModel(new Uint8Array(Buffer.from(content.content,'utf8')));
   try{
-    const cols=ifc.GetAllItemsOfType(model,WebIFC.IFCCOLUMN);
-    const walls=ifc.GetAllItemsOfType(model,WebIFC.IFCWALL);
+    const cols=ifc.GetLineIDsWithType(model,WebIFC.IFCCOLUMN);
+    const walls=ifc.GetLineIDsWithType(model,WebIFC.IFCWALL);
     assert.equal(cols.size(),1);
     assert.equal(walls.size(),1);
     let meshCount=0;
