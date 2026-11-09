@@ -273,9 +273,16 @@ export class StructuralXRControls {
       btn('amp:+','+',629,622,101,75);
       txt('×0',157,713,18,'#a2c6d1');
       txt('×150',613,713,18,'#a2c6d1','right');
-      btn('deformed','Deformada: '+(app.showDeformed?'ON':'OFF'),38,756,334,73,true);
-      btn('original','IFC original: '+(app.showOriginal?'ON':'OFF'),394,756,336,73);
-      btn('loads','Cargas: '+(app.showLoads?'ON':'OFF'),38,847,692,69);
+      const view=app.sapVisuals?.view||'deformation';
+      const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',modes:'Modos de vibración'};
+      btn('view:next','VISTA: '+viewLabel[view],38,756,692,73,true);
+      const detail=view==='forces'?'Esfuerzo: '+(app.sapVisuals?.component||'M3'):
+        view==='modes'?'Modo '+((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.number??'—')+
+          ' · '+Number((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.frequency_hz||0).toFixed(2)+' Hz':
+          'Patrón: '+(app.pattern==='all'?'Todos':app.pattern);
+      btn('detail:-','‹',38,847,126,69);
+      txt(textFit(detail,37),385,881,23,'#edffff','center');
+      btn('detail:+','›',606,847,124,69);
       btn('sap-only',app.showSAPOnly?'✓ SOLO SAP — IFC OCULTO':'VER SOLO ELEMENTOS SAP',
         38,932,692,77,true);
       txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
@@ -361,6 +368,29 @@ export class StructuralXRControls {
         const i=cases.findIndex(c=>c.name===app.caseName);
         const next=cases[rotateIndex(Math.max(0,i),id==='case:+'?1:-1,cases.length)].name;
         app.setCase(next);$('case-select').value=next;
+      }
+    }
+    else if(id==='view:next'){
+      const choices=['deformation','forces','modes'];
+      const active=app.sapVisuals?.view||'deformation';
+      const next=choices[(choices.indexOf(active)+1)%choices.length];
+      const el=$('analysis-view');if(el){el.value=next;el.dispatchEvent(new Event('change'));}
+    }
+    else if(id==='detail:+'||id==='detail:-'){
+      const step=id==='detail:+'?1:-1,kind=app.sapVisuals?.view||'deformation';
+      if(kind==='forces'){
+        const options=['P','V2','V3','T','M2','M3'],i=options.indexOf(app.sapVisuals.component);
+        const selected=options[rotateIndex(Math.max(0,i),step,options.length)];
+        $('force-component').value=selected;$('force-component').dispatchEvent(new Event('change'));
+      }else if(kind==='modes'){
+        const n=app.results?.modes?.length||0;
+        if(n){
+          const selected=rotateIndex(app.sapVisuals.modeIndex,step,n);
+          $('mode-select').value=String(selected);$('mode-select').dispatchEvent(new Event('change'));
+        }
+      }else{
+        const p=nextUniquePattern(app.results?.loads,app.pattern,step);
+        app.setPattern(p);$('pattern-select').value=p;
       }
     }
     else if(id==='pattern:+'||id==='pattern:-'){
