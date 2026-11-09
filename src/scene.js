@@ -455,7 +455,7 @@ export class StructuralScene {
     this.mobileShadowPlane.visible=true;
   }
   async startMobileAR(session){
-    const st={session,source:null,preview:null,scanning:true,placeRequested:false,placed:false};
+    const st={session,source:null,preview:null,previewPlane:null,lastCandidate:null,stableFrames:0,scanning:true,placeRequested:false,placed:false};
     this.mobileARState=st;
     this.xrControls.reticle.visible=false;
     this.xrControls.contact.visible=false;
@@ -488,22 +488,30 @@ export class StructuralScene {
     const ref=this.renderer.xr.getReferenceSpace();
     if(st.scanning&&st.source&&ref){
       try{
-        st.preview=null;
+        let candidate=null,normal=null;
         for(const hit of frame.getHitTestResults(st.source)){
           const pose=hit.getPose(ref);
           if(!pose)continue;
           const m=pose.transform.matrix;
-          const normal=[m[4],m[5],m[6]];
-          if(normal[1]/(Math.hypot(...normal)||1)<.72)continue;
-          st.preview=new THREE.Vector3(m[12],m[13],m[14]);
-          st.previewNormal=normal;
+          const axis=[m[4],m[5],m[6]];
+          if(axis[1]/(Math.hypot(...axis)||1)<.85)continue;
+          candidate=new THREE.Vector3(m[12],m[13],m[14]);normal=axis;
           break;
         }
-      }catch{st.preview=null;}
+        if(candidate){
+          st.stableFrames=st.lastCandidate&&st.lastCandidate.distanceTo(candidate)<.065?
+            st.stableFrames+1:1;
+          st.lastCandidate=candidate.clone();
+        }else{st.stableFrames=0;st.lastCandidate=null;}
+        st.preview=st.stableFrames>=3?candidate:null;
+        st.previewNormal=st.preview?normal:null;
+        st.previewPlane=st.preview?matchingTablePlane(frame,ref,st.preview):null;
+      }catch{st.preview=null;st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;}
       this.xrControls.reticle.visible=Boolean(st.preview);
       if(st.preview)this.xrControls.reticle.position.copy(st.preview).add(new THREE.Vector3(0,.012,0));
       const field=document.getElementById('mobile-ar-status');
-      const message=st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
+      const message=st.previewPlane?'Mesa detectada. Se ajustará el tamaño automáticamente.':
+        st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
       if(field&&field.textContent!==message)field.textContent=message;
     }
     const place=document.getElementById('mobile-ar-place');
@@ -533,7 +541,7 @@ export class StructuralScene {
   }
   resetMobilePlacement(){
     const st=this.mobileARState;
-    if(st){st.scanning=true;st.placed=false;st.preview=null;}
+    if(st){st.scanning=true;st.placed=false;st.preview=null;st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;}
     this.xrControls.contact.visible=false;
     this.mobileShadowPlane.visible=false;
   }
