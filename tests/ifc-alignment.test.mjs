@@ -19,7 +19,7 @@ test('24 rigid rotations, determinant positive, and manually selected quarter tu
   for(const r of ROTATIONS){
     const a=rotateVector([1,0,0],r),b=rotateVector([0,1,0],r),c=rotateVector([0,0,1],r);
     const cross=[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
-    assert.deepEqual(cross,c);
+    assert.ok(cross.every((v,i)=>v===c[i]),'Improper rigid rotation: '+r.key);
   }
   assert.deepEqual(rotateVector([1,2,3],findRotation('x90')),[1,-3,2]);
   assert.deepEqual(rotateVector([1,2,3],findRotation('x_90')),[1,3,-2]);
