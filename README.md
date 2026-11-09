@@ -1,3 +1,14 @@
+## Interfaz definitiva
+
+Los controles muestran «Nodos», «Barras», «Cargar resultados» y
+«Solo modelo de cálculo» en lugar de etiquetas dependientes del origen
+SAP2000. Al inspeccionar los diagramas de esfuerzos se muestran únicamente
+la barra, el componente, el valor con unidades y la posición de la sección.
+El método de muestreo/interpolación se conserva en la implementación y
+documentación técnica, pero no aparece en cada consulta numérica.
+
+---
+
 ## Amplificación de la deformada: control seguro
 
 Al cargar el edificio de tres plantas, la nave o un JSON SAP2000, el rango
@@ -7,10 +18,11 @@ sin contar la parcela ni la explanada de la nave. También se consideran
 los máximos de las curvas de desplazamientos de barras, que pueden superar
 al desplazamiento nodal en el centro de un vano.
 
-Por defecto, el desplazamiento *representado* se limita aproximadamente al
-**0,4 % de la dimensión estructural**. Al alcanzar el extremo del deslizador,
-no puede superar aproximadamente el **2,5 % de esa dimensión**, salvo casos
-excepcionales en los que ni el rango mínimo permite mostrar una forma razonable.
+La deformada inicial es ahora aproximadamente **tres veces más visible**
+que en la versión anterior: su máxima separación gráfica es cercana al
+**1,3 % de la dimensión estructural**. Al llegar al extremo del deslizador,
+la representación se limita aproximadamente al **6 % de esa dimensión**,
+salvo situaciones excepcionales asociadas a un rango mínimo.
 No se modifican esfuerzos, reacciones, desplazamientos físicos ni factores
 en el archivo JSON. Se aplica igual en escritorio, Quest y AR móvil.
 
