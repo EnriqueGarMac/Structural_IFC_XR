@@ -81,7 +81,6 @@ function setResults(results,label){
   results.cases.forEach(c=>cases.add(new Option(c.name,c.name)));
   const patterns=$('pattern-select');patterns.innerHTML='';patterns.add(new Option('Todos los patrones','all'));
   for(const pattern of [...new Set(results.loads.map(l=>l.pattern))].sort())patterns.add(new Option(pattern,pattern));
-  if(results.meta?.note)info(results.meta.note);
   const rawFrameCount=results.loads.length;
   status(`${results.cases.length} caso(s) · ${rawFrameCount} cargas`);
 }
@@ -128,7 +127,7 @@ function showDemo(kind='frame'){
   app.xrControls.selected='—';
   app.xrControls.dirty=true;
   app.updateVisualization();
-  status('DEMO SINTÉTICA · NO SAP2000');
+  status('DEMO DOCENTE · ANÁLISIS MATRICIAL');
 }
 function downloadLocalFile(content,name,mime){
   const objectURL=URL.createObjectURL(new Blob([content],{type:mime}));
