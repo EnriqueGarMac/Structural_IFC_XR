@@ -9,6 +9,7 @@ import {sessionOptions} from './xr-session-config.mjs';
 import {createVREnvironment} from './vr-environment.js';
 import {ifcElementOpacity,normalizedScope} from './ifc-opacity.mjs';
 import {buildSupportSymbols} from './support-symbols.js';
+import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
 import {structuralColour,STRUCTURE_COLOURS} from './visual-palettes.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
@@ -197,13 +198,17 @@ export class StructuralScene {
     this.groundMarkers.visible=this.grid.visible;
   }
   recenterCamera(){
-    if(!this.bounds)return;
-    const s=this.targetMeters;
-    this.camera.position.set(s*1.50,s*1.05,s*1.65);
-    this.camera.near=Math.max(.001,s/1000);this.camera.far=Math.max(200,s*30);
-    this.camera.updateProjectionMatrix();
-    const h=this.bounds.getSize(new THREE.Vector3()).z*this.targetMeters/this.maxSize;
-    this.controls.target.set(0,h*.46,0);this.controls.update();
+    if(!this.bounds||this.isXR)return;
+    this.worldRoot.updateWorldMatrix(true,true);
+    const bounds=visibleModelBounds(this.parts,{
+      hideGround:this.hideGround,showStructureOnly:this.showStructureOnly
+    });
+    if(bounds.isEmpty())return;
+    const result=fitPerspectiveToBounds(this.camera,bounds);
+    if(!result)return;
+    this.controls.target.copy(result.center);
+    this.controls.maxDistance=Math.max(150,result.distance*8);
+    this.controls.update();
   }
   setResults(results){this.results=results;this.caseName=results?.cases?.[0]?.name||'';this.pattern='all';this.updateVisualization();}
   setCase(name){this.caseName=name;this.updateVisualization();}
