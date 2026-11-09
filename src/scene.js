@@ -7,6 +7,7 @@ import {makeStructuralGroundGrid,makeColumnFootMarkers} from './ground-reference
 import {makeBeamFieldSampler} from './beam-field.mjs';
 import {sessionOptions} from './xr-session-config.mjs';
 import {createVREnvironment} from './vr-environment.js';
+import {ifcElementOpacity,normalizedScope} from './ifc-opacity.mjs';
 import {buildSupportSymbols} from './support-symbols.js';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
@@ -85,7 +86,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
+    this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -143,6 +144,7 @@ export class StructuralScene {
       copiedGeom.setAttribute('heat',new THREE.Float32BufferAttribute(new Float32Array(pos.count),1));
       this.parts.push({orig:a,deformed:b,terrain:isTerrainElement(piece),
         structural:piece.structural??null,
+        ifcType:piece.ifcType??null,
         analysisIncluded:piece.analysisIncluded??null,
         base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
@@ -206,6 +208,8 @@ export class StructuralScene {
   setPattern(name){this.pattern=name;this.updateVisualization();}
   setOffset(offset){this.offset=offset;this.updateVisualization();}
   setHideGround(enabled){this.hideGround=!!enabled;this.updateVisualization();}
+  setIFCOpacity(opacity){this.ifcOpacity=Math.max(0,Math.min(1,Number(opacity)||0));this.updateVisualization(false);}
+  setIFCOpacityScope(scope){this.ifcOpacityScope=normalizedScope(scope);this.updateVisualization(false);}
   setSAPOnly(enabled){
     // Avoid showing an empty environment if SAP geometry has not been imported.
     if(enabled&&(!this.results?.frames?.length||!this.parts.length))return false;
@@ -242,8 +246,14 @@ export class StructuralScene {
       // deform in the educational examples. Imported IFC stays compatible.
       part.deformed.visible=visible&&part.structural!==false&&part.analysisIncluded!==false;
       const structuralDeformation=part.structural!==false&&part.analysisIncluded!==false&&(deform||isModal);
-      part.orig.material.opacity=structuralDeformation?0.16:1;
-      part.orig.material.depthWrite=!structuralDeformation;
+      const alpha=ifcElementOpacity({
+        opacity:this.ifcOpacity,scope:this.ifcOpacityScope,
+        ifcType:part.ifcType,structuralDeformation
+      });
+      part.orig.material.opacity=alpha;
+      // Without this, an invisible wall still hides rooms behind it.
+      part.orig.material.depthWrite=alpha>=.999;
+      part.orig.material.transparent=alpha<.999;
       if(isModal){
         const attrs=part.deformed.geometry.getAttribute('position');
         attrs.array.set(part.base);attrs.needsUpdate=true;
