@@ -117,6 +117,7 @@ export class StructuralScene {
     this.clearGroup(this.originalGroup);this.clearGroup(this.deformedGroup);this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     this.parts=[];
     const bbox=new THREE.Box3(),allBounds=new THREE.Box3();
+    const hasExplicitRoles=items.some(p=>p.structural===true);
     for(const piece of items){
       const originalGeom=piece.geometry;
       const copiedGeom=originalGeom.clone();
@@ -128,7 +129,11 @@ export class StructuralScene {
       a.castShadow=b.castShadow=false;
       this.originalGroup.add(a);this.deformedGroup.add(b);
       allBounds.expandByObject(a);
-      if(!this.hideGround||!isTerrainElement(piece))bbox.expandByObject(a);
+      // Size the educational model using the resisting system, not the
+      // much larger landscaped parcel or external parking areas.
+      if(hasExplicitRoles?
+        (piece.structural===true&&!isTerrainElement(piece)):
+        !isTerrainElement(piece))bbox.expandByObject(a);
       const pos=copiedGeom.getAttribute('position');
       const colors=new Float32Array(pos.count*3);
       for(let j=0;j<pos.count;j++){colors[3*j]=.35;colors[3*j+1]=.72;colors[3*j+2]=.85;}
