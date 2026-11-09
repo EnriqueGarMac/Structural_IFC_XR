@@ -4,6 +4,7 @@ import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loa
 import { StructuralXRControls } from './xr-controls.js';
 import {isTerrainElement,displayModeVisibility} from './view-filters.mjs';
 import {makeStructuralGroundGrid,makeColumnFootMarkers} from './ground-reference.js';
+import {makeBeamFieldSampler} from './beam-field.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -92,6 +93,7 @@ export class StructuralScene {
         if(this.mobileAR)this.updateMobileAR(frame);
         else this.xrControls.update(time,frame);
       }else this.controls.update();
+      this.sapVisuals?.updateModalAnimation(time);
       this.renderer.render(this.scene,this.camera);
     });
     this.resize();
@@ -203,20 +205,30 @@ export class StructuralScene {
     const hasCases=!!this.results?.cases?.length;
     const nodes=hasCases?caseNodes(this.results,this.caseName,this.offset):[];
     this.maxU=maxDisplacement(nodes);
-    const sample=makeDisplacementSampler(nodes);
-    const deform=hasCases && this.showDeformed;
+    const view=this.sapVisuals?.view||'deformation';
+    const isModal=view==='modes'&&Boolean(this.results?.modes?.length);
+    const hasBeamCurves=Boolean(this.results?.frameCurves?.[this.caseName]);
+    const sample=hasCases&&hasBeamCurves?
+      makeBeamFieldSampler(this.results,{caseName:this.caseName,offset:this.offset}):
+      makeDisplacementSampler(nodes);
+    const deform=hasCases&&this.showDeformed&&view==='deformation';
     this.axes.visible=this.showAxes&&!this.showSAPOnly;
     this.grid.visible=this.showAxes&&!this.isXR&&!this.showSAPOnly;
     this.groundMarkers.visible=this.grid.visible;
     const visibility=displayModeVisibility({showSAPOnly:this.showSAPOnly,
       hideGround:this.hideGround,showOriginal:this.showOriginal,
-      showDeformed:this.showDeformed,hasCases});
+      showDeformed:this.showDeformed,hasCases:hasCases||isModal});
     this.originalGroup.visible=visibility.original;
-    this.deformedGroup.visible=visibility.deformed;
+    this.deformedGroup.visible=isModal&&!this.showSAPOnly?this.showDeformed:visibility.deformed;
     for(const part of this.parts){
       part.orig.visible=part.deformed.visible=!(this.hideGround&&part.terrain);
-      part.orig.material.opacity=deform ? 0.20 : 1;
-      part.orig.material.depthWrite=!deform;
+      part.orig.material.opacity=(deform||isModal) ? 0.16 : 1;
+      part.orig.material.depthWrite=!(deform||isModal);
+      if(isModal){
+        const attrs=part.deformed.geometry.getAttribute('position');
+        attrs.array.set(part.base);attrs.needsUpdate=true;
+        continue;
+      }
       if(!deform)continue;
       const attrs=part.deformed.geometry.getAttribute('position');
       const cs=part.deformed.geometry.getAttribute('color');
@@ -237,7 +249,7 @@ export class StructuralScene {
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
-    if(rebuildOverlays)this.updateOverlays();
+    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();}
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
@@ -245,12 +257,13 @@ export class StructuralScene {
     $('legend-max').textContent=deform?`${(this.maxU*1000).toFixed(2)} mm`:`${maxLoad.toFixed(2)} kN/m`;
     $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
+    this.sapVisuals?.updateLegend();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     if(!this.results)return;
     const nodes=caseNodes(this.results,this.caseName,this.offset);
-    const showAnalyticalDeformation=this.showSAPOnly&&this.showDeformed&&
+    const showAnalyticalDeformation=this.sapVisuals?.view==='deformation'&&this.showSAPOnly&&this.showDeformed&&
       Boolean(this.results.cases?.length);
     const displayedNodes=analyticalNodePositions(nodes,this.amp,showAnalyticalDeformation);
     const nodeMap=new Map(displayedNodes.map(n=>[n.id,vector(n)]));
@@ -262,7 +275,7 @@ export class StructuralScene {
         const line=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x53f0e1,transparent:true,opacity:.85}));this.framesGroup.add(line);}
       for(const n of displayedNodes){const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),new THREE.MeshBasicMaterial({color:0x82f5d6}));dot.position.copy(vector(n));this.framesGroup.add(dot);}
     }
-    this.framesGroup.visible=this.showFrames;
+    this.framesGroup.visible=this.showFrames&&this.sapVisuals?.view!=='modes';
     if(this.mobileAR){
       this.enableMobileCastShadows();
       this.updateMobileSAPShadowCasters();

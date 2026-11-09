@@ -4,8 +4,37 @@ import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults } from './demo.js';
 import {roofDemoGeometry,roofDemoResults,ROOF_DEMO} from './roof-demo.js';
 import { normalizeResults } from './results.mjs';
+import { SAPVisuals, makeSAPGeometry } from './sap-visuals.js';
+import * as THREE from 'three';
+import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
 const $=(id)=>document.getElementById(id);
 const app=new StructuralScene($('canvas-wrap'));
+app.sapVisuals=new SAPVisuals(app);
+let sapGeometryActive=false;
+let originalIFC=null;
+let ifcElementCount=0;
+const MAX_AMP=25000;
+function showAmplitude(){ $('amp').value=String(app.amp); $('amp-value').textContent='×'+app.amp.toLocaleString('es-ES'); }
+function alignIFC(results,notify=true){
+  if(!originalIFC?.length||!results?.frames?.length)return null;
+  const mode=$('ifc-rotation').value;
+  const fit=findBestAlignment(originalIFC,results,mode);
+  const matrix=new THREE.Matrix4().set(...makeIFCTransformElements(fit));
+  const transformed=originalIFC.map(piece=>({...piece,geometry:piece.geometry.clone().applyMatrix4(matrix)}));
+  app.setResults(null);
+  app.setModel(transformed);
+  app.setResults(results);
+  sapGeometryActive=false;
+  const label=mode==='auto'?('Automática ('+fit.rotation.key+')'):(mode+' ('+fit.rotation.key+')');
+  const confidence=fit.confidence!==null&&fit.confidence<.02?' · orientación ambigua':'';
+  const message='Alineación: '+label+' · RMS aprox. '+fit.rms_m.toFixed(3)+' m'+confidence;
+  $('alignment-status').textContent=message;
+  setModelLabel('IFC alineado + SAP2000');
+  updateStats(ifcElementCount);
+  if(notify)info(message);
+  return fit;
+}
+
 let webcamStream=null;
 let demoActive=false;
 let syntheticResults=true;
@@ -18,6 +47,15 @@ function setResults(results,label){
   $('sap-state').textContent=`Resultados: ${label}`;
   $('num-nodes').textContent=results.nodes.length.toLocaleString('es-ES');
   $('num-frames').textContent=results.frames.length.toLocaleString('es-ES');
+  const modalSelect=$('mode-select');modalSelect.innerHTML='';
+  (results.modes||[]).forEach((m,i)=>modalSelect.add(new Option('Modo '+m.number+' · '+Number(m.frequency_hz).toFixed(3)+' Hz',String(i))));
+  if(!results.modes?.length)modalSelect.add(new Option('Sin modos', ''));
+  $('analysis-view').value='deformation';
+  app.sapVisuals.view='deformation';app.sapVisuals.refresh();
+  if(!syntheticResults){
+    const factor=app.maxU>0?Math.min(MAX_AMP,Math.max(25,Math.round(.10*app.maxSize/app.maxU))):25;
+    app.amp=factor;showAmplitude();app.updateVisualization();
+  }
   const cases=$('case-select');cases.innerHTML='';
   if(!results.cases.length)cases.add(new Option('Sin deformadas', ''));
   results.cases.forEach(c=>cases.add(new Option(c.name,c.name)));
@@ -41,7 +79,8 @@ let activeDemo='frame';
 function showDemo(kind='frame'){
   const selected=demos[kind];
   if(!selected)throw Error('Ejemplo de demostración desconocido.');
-  demoActive=true;syntheticResults=true;activeDemo=kind;
+  demoActive=true;syntheticResults=true;sapGeometryActive=false;originalIFC=null;activeDemo=kind;
+  $('alignment-status').textContent='Importa un IFC y un JSON para alinear.';
   // Start with legible combined views, without inheriting an empty SAP-only mode.
   app.showSAPOnly=false;app.showOriginal=true;app.showDeformed=true;
   app.showFrames=true;app.showLoads=true;app.hideGround=true;
@@ -73,10 +112,13 @@ $('ifc-input').addEventListener('change',async(e)=>{
   status('Leyendo IFC…');
   try{
     const res=await readIFC(file,(message)=>status(message));
+    originalIFC=res.items.map(item=>({...item,geometry:item.geometry.clone()}));
+    ifcElementCount=res.elementCount;
     app.setModel(res.items);
     // Never accidentally apply synthetic example results to a real IFC.
     if(syntheticResults){app.setResults(null);$('sap-state').textContent='Resultados: importa SAP JSON';$('num-nodes').textContent='—';$('num-frames').textContent='—';$('case-select').innerHTML='<option>Sin resultados</option>'; $('pattern-select').innerHTML='<option value="all">Todos</option>';}
-    demoActive=false;
+    demoActive=false;sapGeometryActive=false;
+    if(!syntheticResults&&app.results?.frames?.length)alignIFC(app.results,false);
     for(const config of Object.values(demos)){
       $(config.button).classList.remove('is-current');
       $(config.button).setAttribute('aria-pressed','false');
@@ -89,12 +131,46 @@ $('ifc-input').addEventListener('change',async(e)=>{
 });
 $('sap-input').addEventListener('change',async(e)=>{
   const f=e.target.files?.[0];if(!f)return;
-  try{const data=normalizeResults(JSON.parse(await f.text()));syntheticResults=false;setResults(data,f.name);
-    if(!app.parts.length)info('Resultados SAP cargados. Importa un IFC para representarlos.');
-    else if(demoActive)info('Resultados cargados sobre geometría DEMO: solo coincidirán si las coordenadas y dimensiones son equivalentes.',true);
-    else info('Resultados importados. Revisa la alineación espacial y las unidades antes de interpretarlos.');
+  try{
+    const data=normalizeResults(JSON.parse(await f.text()));
+    if(demoActive||sapGeometryActive||!app.parts.length){
+      originalIFC=null;
+      const geometry=makeSAPGeometry(data);
+      if(!geometry.length)throw Error('El JSON no contiene barras válidas para visualizar.');
+      app.setResults(null);
+      app.setModel(geometry);
+      demoActive=false;sapGeometryActive=true;
+      app.showSAPOnly=false;app.showOriginal=true;app.showDeformed=true;app.showFrames=true;
+      $('show-sap-only').checked=false;
+      $('show-original').checked=true;$('show-displaced').checked=true;$('show-frames').checked=true;
+      for(const config of Object.values(demos)){
+        $(config.button).classList.remove('is-current');
+        $(config.button).setAttribute('aria-pressed','false');
+      }
+      setModelLabel(f.name+' · barras SAP');
+      updateStats(0);
+    }
+    syntheticResults=false;
+    if(originalIFC?.length)alignIFC(data,false);
+    setResults(data,f.name);
+    info('Modelo SAP2000 cargado: '+data.nodes.length+' nudos, '+data.frames.length+
+      ' barras. Vista analítica generada; secciones simplificadas.');
   }catch(err){console.error(err);info(`No se pudo leer SAP JSON: ${err.message}`,true);}
   e.target.value='';
+});
+$('analysis-view').addEventListener('change',e=>{
+  const kind=e.target.value;
+  app.showDeformed=kind==='deformation'||kind==='modes';
+  app.showLoads=kind==='deformation';
+  $('show-displaced').checked=app.showDeformed;
+  $('show-loads').checked=app.showLoads;
+  app.sapVisuals.setView(kind);
+});
+$('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
+$('mode-select').addEventListener('change',e=>app.sapVisuals.setMode(e.target.value));
+$('modal-amplitude').addEventListener('input',e=>{
+  app.sapVisuals.setAmplitude(e.target.value);
+  $('modal-amplitude-value').textContent=Number(e.target.value).toFixed(2)+' m (visual)';
 });
 $('case-select').addEventListener('change',e=>app.setCase(e.target.value));
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
@@ -122,6 +198,15 @@ $('show-sap-only').addEventListener('change',e=>{
 $('hide-ground').addEventListener('change',e=>app.setHideGround(e.target.checked));
 $('amp').addEventListener('input',e=>{app.amp=Number(e.target.value);$('amp-value').textContent=`×${app.amp}`;app.updateVisualization(app.showSAPOnly);});
 $('model-size').addEventListener('input',e=>{app.targetMeters=Number(e.target.value);$('size-value').textContent=`${app.targetMeters.toFixed(1)} m`;app.updateScale();if(!app.isXR)app.recenterCamera();});
+$('ifc-rotation').addEventListener('change',()=>{
+  if(originalIFC?.length&&app.results?.frames?.length){const current=app.caseName;
+    alignIFC(app.results);if(current)app.setCase(current);
+  }
+});
+$('fit-ifc').addEventListener('click',()=>{
+  if(!originalIFC?.length||!app.results?.frames?.length){info('Carga primero un IFC real y un JSON de SAP2000.',true);return;}
+  alignIFC(app.results);
+});
 $('apply-offset').addEventListener('click',()=>{
   const off=['x','y','z'].map(c=>Number($(`offset-${c}`).value));
   if(off.some(v=>!Number.isFinite(v))){info('Los offsets deben ser numéricos.',true);return;}

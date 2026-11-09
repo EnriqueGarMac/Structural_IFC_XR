@@ -1,8 +1,10 @@
+import {unpackRichSAP} from './sap-rich.mjs';
 // Data contract deliberately independent from IFC/Three.js for testing.
 // All SAP2000 coordinates and displacements are in metres, forces in kN.
 const finite = (v, defaultValue=0) => v === undefined || v === null || v === '' ? defaultValue : Number(v);
 const valid = (x) => Number.isFinite(x);
 export function normalizeResults(input) {
+  input=unpackRichSAP(input);
   if (!input || typeof input !== 'object') throw new Error('El archivo JSON no contiene un objeto válido.');
   const nodes = (input.nodes || []).map((n, i) => ({
     id: String(n.id ?? n.name ?? i), x: finite(n.x), y: finite(n.y), z: finite(n.z)
@@ -11,7 +13,9 @@ export function normalizeResults(input) {
   const seen = new Set();
   for (const n of nodes) { if (seen.has(n.id)) throw new Error('Identificador de nudo duplicado: '+n.id); seen.add(n.id); }
   const frames = (input.frames || []).map(f=>({
-    id: String(f.id ?? f.name), i: String(f.i), j: String(f.j)
+    id: String(f.id ?? f.name), i: String(f.i), j: String(f.j),
+    section: f.section??null,material:f.material??null,
+    local_axes:f.local_axes??null,length_m:f.length_m??null
   })).filter(f=> f.i !== 'undefined' && f.j !== 'undefined');
   const loads = (input.loads || []).map(l=>({
     frame: String(l.frame), pattern: String(l.pattern ?? 'SIN_PATRON'),
@@ -31,7 +35,11 @@ export function normalizeResults(input) {
     }))
   }));
   for (const c of cases) if (c.displacements.some(d=>![d.ux,d.uy,d.uz].every(valid))) throw new Error('Desplazamientos no numéricos en '+c.name);
-  return {meta:{...input.meta, units:'m, kN'}, nodes, frames, loads, cases};
+  if(!nodes.length && !frames.length && !cases.length && !loads.length)
+    throw new Error('Este JSON no contiene nodos, barras ni resultados compatibles de SAP2000.');
+  return {meta:{...input.meta, units:'m, kN'}, nodes, frames, loads, cases,
+    forces:input.forces??{},modes:input.modes??[],sections:input.sections??{},
+    frameCurves:input.frameCurves??{}};
 }
 export function caseNodes(results, selectedCase, offset=[0,0,0]) {
   const c = results.cases.find(v=>v.name===selectedCase) || results.cases[0];
