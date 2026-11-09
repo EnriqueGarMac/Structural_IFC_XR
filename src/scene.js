@@ -250,10 +250,12 @@ export class StructuralScene {
         opacity:this.ifcOpacity,scope:this.ifcOpacityScope,
         ifcType:part.ifcType,structuralDeformation
       });
-      part.orig.material.opacity=alpha;
-      // Without this, an invisible wall still hides rooms behind it.
-      part.orig.material.depthWrite=alpha>=.999;
-      part.orig.material.transparent=alpha<.999;
+      const mat=part.orig.material;
+      const transparent=alpha<.999;
+      if(mat.transparent!==transparent){mat.transparent=transparent;mat.needsUpdate=true;}
+      mat.opacity=alpha;
+      // An invisible wall must never write to the depth buffer.
+      mat.depthWrite=!transparent;
       if(isModal){
         const attrs=part.deformed.geometry.getAttribute('position');
         attrs.array.set(part.base);attrs.needsUpdate=true;
