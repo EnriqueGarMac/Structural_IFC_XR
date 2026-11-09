@@ -4,6 +4,7 @@ import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniqu
 import {nextXRIFCOpacity} from './ifc-opacity.mjs';
 import {formatAmplification} from './deformation-scale.mjs';
 import {FORCE_PALETTES,nextPalette} from './visual-palettes.mjs';
+import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
@@ -19,7 +20,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
-    this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=true;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;
+    this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -146,13 +147,26 @@ export class StructuralXRControls {
       const input=controller.userData.xrInput;
       const plane=(input&&this.hitByInput.get(input))||this.latestHit;
       if(plane){
-        this.app.worldRoot.position.set(plane.point.x,plane.point.y+.02,plane.point.z);
         this.app.worldRoot.quaternion.copy(this.baseQuat);
+        const table=plane.table??null;
+        if(table){
+          const fitted=tableFitSize(this.app,table);
+          if(fitted){
+            this.app.targetMeters=fitted;this.app.updateScale();
+            const slider=document.getElementById('model-size');
+            if(slider)slider.value=String(fitted);
+            const label=document.getElementById('size-value');
+            if(label)label.textContent=fitted.toFixed(2)+' m';
+          }
+        }
+        this.app.arAnchorPoint=plane.point.clone();
+        placeModelOnSurface(this.app,plane.point);
         this.placeMode=false;this.reticle.visible=false;
-        this.contact.position.set(plane.point.x,plane.point.y+.008,plane.point.z);
-        this.hasPlacedSurface=true;this.contact.visible=this.shadow;
+        this.hasPlacedSurface=true;this.contact.visible=false;
         this.dirty=true;
-        this.app.onXRMessage?.('Modelo colocado en superficie horizontal detectada.');
+        this.app.onXRMessage?.(table?
+          'Modelo apoyado y ajustado al tamaño de la mesa.':
+          'Modelo apoyado sobre la superficie detectada.');
       }
       return;
     }
@@ -388,8 +402,8 @@ export class StructuralXRControls {
       txt(this.latestHit&&this.placeMode?'Anillo verde visible: gatillo para colocar':
         'Apunta al plano y confirma con el gatillo.',38,497,20);
       btn('reset-model','Recentrar modelo',38,590,692,82);
-      btn('shadow','Sombra de contacto: '+(this.shadow?'ON':'OFF'),38,703,692,82);
-      txt('La sombra es virtual y aproximada.',38,854,21);
+      txt('La superficie detectada define la altura real del modelo.',38,738,19);
+      txt('En mesas detectadas, el tamaño se ajusta automáticamente.',38,821,19);
       txt('Ajusta la posición y el tamaño con los mandos.',38,903,21);
       txt('Carga los modelos desde el navegador antes de entrar.',38,977,19);
     }
@@ -418,7 +432,7 @@ export class StructuralXRControls {
     else if(id==='reset-model'){
       app.worldRoot.position.copy(app.xrMode==='vr'?this.vrPosition:this.basePosition);
       app.worldRoot.quaternion.copy(this.baseQuat);
-      this.contact.visible=false;this.hasPlacedSurface=false;
+      this.contact.visible=false;this.hasPlacedSurface=false;app.arAnchorPoint=null;
     }
     else if(id==='sap-only'){
       const desired=!app.showSAPOnly;
@@ -459,7 +473,7 @@ export class StructuralXRControls {
       app.targetMeters=snapModelSize(app.targetMeters,id==='size:+'?.2:-.2);
       app.updateScale();
       const input=$('model-size');if(input)input.value=String(app.targetMeters);
-      const label=$('size-value');if(label)label.textContent=app.targetMeters.toFixed(1)+' m';
+      const label=$('size-value');if(label)label.textContent=app.targetMeters.toFixed(2)+' m';
     }
     else if(id==='case:+'||id==='case:-'){
       const cases=app.results?.cases||[];
@@ -518,11 +532,7 @@ export class StructuralXRControls {
     else if(id==='place'){
       if(!this.hitAvailable){this.app.onXRMessage?.('WebXR hit-test no disponible.');return;}
       this.placeMode=!this.placeMode;
-      this.latestHit=null;this.reticle.visible=false;
-    }
-    else if(id==='shadow'){
-      this.shadow=!this.shadow;
-      this.contact.visible=this.shadow&&this.hasPlacedSurface;
+      this.latestHit=null;this.hitObservation=null;this.reticle.visible=false;
     }
     this.dirty=true;
   }
@@ -549,14 +559,21 @@ export class StructuralXRControls {
           const normal=[m[4],m[5],m[6]];
           if(!isValidHorizontalHit(normal))continue;
           const point=new THREE.Vector3(m[12],m[13],m[14]);
-          const item={point,normal};
+          const item={point,normal,table:matchingTablePlane(frame,ref,point)};
           this.hitByInput.set(input,item);chosen??=item;break;
         }
       }catch{/* Spatial sensing is best-effort. */}
     }
-    this.latestHit=chosen;
-    this.reticle.visible=!!chosen;
-    if(chosen)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
+    if(chosen){
+      const previous=this.hitObservation;
+      const close=previous&&previous.point.distanceTo(chosen.point)<.07;
+      this.hitObservation={point:chosen.point.clone(),count:close?previous.count+1:1};
+    }else this.hitObservation=null;
+    const stable=Boolean(chosen&&this.hitObservation?.count>=3);
+    this.latestHit=stable?chosen:null;
+    if(!stable)this.hitByInput.clear();
+    this.reticle.visible=stable;
+    if(stable)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
   }
   update(time,frame){
     if(!this.session)return;
@@ -621,7 +638,7 @@ export class StructuralXRControls {
       }else if(source.handedness==='right'&&Math.abs(y)>.16){
         // Continuous scaling: rounding on every frame would swallow small
         // joystick increments, so quantize the label, not the actual size.
-        const newSize=clamp(this.app.targetMeters-y*dt*1.3,0.4,5);
+        const newSize=clamp(this.app.targetMeters-y*dt*1.3,0.12,5);
         if(Math.abs(newSize-this.app.targetMeters)>1e-6){
           this.app.targetMeters=newSize;this.app.updateScale();this.dirty=true;
           $('model-size').value=String(newSize);

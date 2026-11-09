@@ -11,6 +11,8 @@ import {ifcElementOpacity,normalizedScope} from './ifc-opacity.mjs';
 import {buildSupportSymbols} from './support-symbols.js';
 import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
 import {resultColourHex,cssResultGradient} from './visual-palettes.mjs';
+import {WebSun} from './web-sun.js';
+import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t,palette)=>new THREE.Color(resultColourHex(t,palette));
@@ -64,6 +66,7 @@ export class StructuralScene {
     this.scene.add(this.vrEnvironment);
     this.worldRoot=new THREE.Group();this.worldRoot.rotation.x=-Math.PI/2;this.scene.add(this.worldRoot);
     this.contentRoot=new THREE.Group();this.worldRoot.add(this.contentRoot);
+    this.webSun=new WebSun(this);
     this.originalGroup=new THREE.Group();this.deformedGroup=new THREE.Group();
     this.loadsGroup=new THREE.Group();this.framesGroup=new THREE.Group();this.supportGroup=new THREE.Group();
     this.contentRoot.add(this.originalGroup,this.deformedGroup,this.loadsGroup,this.framesGroup,this.supportGroup);
@@ -81,7 +84,7 @@ export class StructuralScene {
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
-    this.mobileAR=false;this.mobileARState=null;
+    this.mobileAR=false;this.mobileARState=null;this.webcamActive=false;this.arAnchorPoint=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
@@ -185,6 +188,8 @@ export class StructuralScene {
     const size=this.bounds.getSize(new THREE.Vector3());
     this.maxSize=Math.max(size.x,size.y,size.z,.1);
     this.worldRoot.scale.setScalar(this.targetMeters/this.maxSize);
+    if(this.isXR&&this.xrMode==='ar'&&this.arAnchorPoint)
+      placeModelOnSurface(this,this.arAnchorPoint);
     // The grid now inherits the exact same worldRoot scale as the columns.
     this.grid.visible=this.showAxes&&!this.showSAPOnly&&!this.isXR;
     this.groundMarkers.visible=this.grid.visible;
@@ -299,7 +304,6 @@ export class StructuralScene {
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
     const maxLoad=Math.max(0,...visibleLoads.map(loadMagnitude));
     $('legend-max').textContent=deform?`${(this.maxU*1000).toFixed(2)} mm`:`${maxLoad.toFixed(2)} kN/m`;
-    $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
     if(view==='deformation'){
       const bar=document.querySelector('#legend .legend-bar');
       if(bar)bar.style.background=cssResultGradient(this.sapVisuals?.palette);
@@ -307,6 +311,7 @@ export class StructuralScene {
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
     this.sapVisuals?.updateLegend();
     this.reactionVisuals?.updateLegend();
+    this.webSun?.update();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);this.clearGroup(this.supportGroup);
@@ -347,10 +352,7 @@ export class StructuralScene {
       }
     }
     this.framesGroup.visible=this.showFrames&&this.sapVisuals?.view!=='modes';
-    if(this.mobileAR){
-      this.enableMobileCastShadows();
-      this.updateMobileSAPShadowCasters();
-    }
+    // Immersive scenes do not inject virtual shadow casters.
     if(!this.showLoads)return;
     const loads=selectedLoads(this.results,this.pattern).filter(l=>l.type==='force_per_length');
     const maxW=Math.max(1,...loads.map(loadMagnitude));
@@ -452,17 +454,16 @@ export class StructuralScene {
     this.mobileShadowPlane.visible=true;
   }
   async startMobileAR(session){
-    const st={session,source:null,preview:null,scanning:true,placeRequested:false,placed:false};
+    const st={session,source:null,preview:null,previewPlane:null,lastCandidate:null,stableFrames:0,scanning:true,placeRequested:false,placed:false};
     this.mobileARState=st;
     this.xrControls.reticle.visible=false;
     this.xrControls.contact.visible=false;
     this.mobileOriginalShadowMap=this.renderer.shadowMap.enabled;
-    this.renderer.shadowMap.enabled=true;
-    this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    this.mobileShadowLight.visible=true;
+    // Do not inject virtual contact shadows into immersive AR.
+    this.renderer.shadowMap.enabled=false;
+    this.mobileShadowLight.visible=false;
     this.mobileShadowPlane.visible=false;
-    this.enableMobileCastShadows();
-    this.updateMobileSAPShadowCasters();
+    this.webSun.update();
     const status=document.getElementById('mobile-ar-status');
     if(status)status.textContent='Apunta hacia una mesa o al suelo.';
     const capability=typeof session.requestHitTestSource==='function'&&
@@ -486,22 +487,30 @@ export class StructuralScene {
     const ref=this.renderer.xr.getReferenceSpace();
     if(st.scanning&&st.source&&ref){
       try{
-        st.preview=null;
+        let candidate=null,normal=null;
         for(const hit of frame.getHitTestResults(st.source)){
           const pose=hit.getPose(ref);
           if(!pose)continue;
           const m=pose.transform.matrix;
-          const normal=[m[4],m[5],m[6]];
-          if(normal[1]/(Math.hypot(...normal)||1)<.72)continue;
-          st.preview=new THREE.Vector3(m[12],m[13],m[14]);
-          st.previewNormal=normal;
+          const axis=[m[4],m[5],m[6]];
+          if(axis[1]/(Math.hypot(...axis)||1)<.85)continue;
+          candidate=new THREE.Vector3(m[12],m[13],m[14]);normal=axis;
           break;
         }
-      }catch{st.preview=null;}
+        if(candidate){
+          st.stableFrames=st.lastCandidate&&st.lastCandidate.distanceTo(candidate)<.065?
+            st.stableFrames+1:1;
+          st.lastCandidate=candidate.clone();
+        }else{st.stableFrames=0;st.lastCandidate=null;}
+        st.preview=st.stableFrames>=3?candidate:null;
+        st.previewNormal=st.preview?normal:null;
+        st.previewPlane=st.preview?matchingTablePlane(frame,ref,st.preview):null;
+      }catch{st.preview=null;st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;}
       this.xrControls.reticle.visible=Boolean(st.preview);
       if(st.preview)this.xrControls.reticle.position.copy(st.preview).add(new THREE.Vector3(0,.012,0));
       const field=document.getElementById('mobile-ar-status');
-      const message=st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
+      const message=st.previewPlane?'Mesa detectada. Se ajustará el tamaño automáticamente.':
+        st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
       if(field&&field.textContent!==message)field.textContent=message;
     }
     const place=document.getElementById('mobile-ar-place');
@@ -509,20 +518,31 @@ export class StructuralScene {
     if(st.placeRequested){
       st.placeRequested=false;
       if(st.preview){
-        this.worldRoot.position.copy(st.preview).add(new THREE.Vector3(0,.02,0));
         this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
+        if(st.previewPlane){
+          const fitted=tableFitSize(this,st.previewPlane);
+          if(fitted){
+            this.targetMeters=fitted;this.updateScale();
+            const slider=$('model-size');
+            if(slider)slider.value=String(fitted);
+            const output=$('size-value');
+            if(output)output.textContent=fitted.toFixed(2)+' m';
+          }
+        }
+        this.arAnchorPoint=st.preview.clone();
+        placeModelOnSurface(this,st.preview);
         this.xrControls.reticle.visible=false;
         this.xrControls.contact.visible=false;
-        this.positionMobileShadow(st.preview,st.previewNormal||[0,1,0]);
         st.scanning=false;st.placed=true;
         const field=document.getElementById('mobile-ar-status');
-        if(field)field.textContent='Estructura colocada. Ajusta el tamaño o la deformada.';
+        if(field)field.textContent=st.previewPlane?'Modelo apoyado y ajustado a la mesa.':'Modelo apoyado. Puedes modificar el tamaño.';
       }
     }
   }
   resetMobilePlacement(){
     const st=this.mobileARState;
-    if(st){st.scanning=true;st.placed=false;st.preview=null;}
+    if(st){st.scanning=true;st.placed=false;st.preview=null;st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;}
+    this.arAnchorPoint=null;
     this.xrControls.contact.visible=false;
     this.mobileShadowPlane.visible=false;
   }
@@ -559,21 +579,26 @@ export class StructuralScene {
       throw e;
     }
     this.xrMode=mode;
+    this.arAnchorPoint=null;
     this.mobileAR=mobile;
     this.xrSession=session;
     this.isXR=true;
+    this.renderer.shadowMap.enabled=false;
+    this.webSun.update();
     this.vrEnvironment.visible=mode==='vr';
     this.grid.visible=false;
     this.groundMarkers.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
-      this.xrSession=null;this.isXR=false;this.xrMode=null;
+      this.xrSession=null;this.isXR=false;this.xrMode=null;this.arAnchorPoint=null;
       this.vrEnvironment.visible=false;
       this.stopMobileAR();
       this.xrControls.stop();
       this.grid.visible=this.showAxes&&!this.showSAPOnly;
       this.groundMarkers.visible=this.grid.visible;
       this.controls.enabled=true;
+      this.renderer.shadowMap.enabled=true;
+      this.webSun.update();
       this.onXREnd?.();
     });
     try{

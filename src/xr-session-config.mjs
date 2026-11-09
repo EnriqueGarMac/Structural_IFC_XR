@@ -14,11 +14,11 @@ export function sessionOptions({mode='ar',mobile=false}={}){
     sessionType:'immersive-ar',
     referenceSpace:'local',
     init:{requiredFeatures:['local','dom-overlay'],
-      optionalFeatures:['hit-test','local-floor']}
+      optionalFeatures:['hit-test','plane-detection','local-floor']}
   };
   return {
     sessionType:'immersive-ar',
     referenceSpace:'local',
-    init:{requiredFeatures:['local'],optionalFeatures:['hit-test','local-floor']}
+    init:{requiredFeatures:['local'],optionalFeatures:['hit-test','plane-detection','local-floor']}
   };
 }

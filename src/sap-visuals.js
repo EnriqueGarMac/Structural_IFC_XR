@@ -80,14 +80,10 @@ export class SAPVisuals{
     const title=document.getElementById('legend-title');
     const lo=document.getElementById('legend-min');
     const hi=document.getElementById('legend-max');
-    const note=document.getElementById('legend-note');
     if(this.view==='forces'){
       if(title)title.textContent=this.component+' | '+(['P','V2','V3'].includes(this.component)?'kN':'kN·m');
       if(lo)lo.textContent=(this.forceMin??0).toFixed(2);
       if(hi)hi.textContent=(this.forceMax??0).toFixed(2);
-      if(note)note.textContent=(this.maxForce??0)<1e-10?
-        'Este componente no presenta esfuerzos distintos de cero en el caso seleccionado.':
-        forcePalette(this.palette).description+' · ejes locales';
       const bar=document.querySelector('#legend .legend-bar');
       if(bar)bar.style.background=cssForceGradient(this.palette);
     }else if(this.view==='modes'){
@@ -97,7 +93,6 @@ export class SAPVisuals{
       if(title)title.textContent=m?'MODO '+m.number:'SIN MODOS';
       if(lo)lo.textContent='Forma relativa';
       if(hi)hi.textContent=m?Number(m.frequency_hz).toFixed(3)+' Hz':'—';
-      if(note)note.textContent='Forma normalizada · animación lenta ilustrativa, no tiempo real';
     }
   }
   nodePositions(r){

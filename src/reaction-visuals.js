@@ -142,11 +142,8 @@ export class ReactionVisuals{
     const [rx,ry,rz]=summary.force;
     const set=(id,value)=>{const element=document.getElementById(id);if(element)element.textContent=value;};
     set('legend-title','REACCIONES · GLOBAL XYZ');
-    set('legend-min','ΣRx '+rx.toFixed(2)+' kN');
+    set('legend-min','ΣRx '+rx.toFixed(2)+' · ΣRy '+ry.toFixed(2)+' kN');
     set('legend-max','ΣRz '+rz.toFixed(2)+' kN');
-    set('legend-note',summary.rows.length?
-      'ΣRy '+ry.toFixed(2)+' kN · Flechas: fuerza (kN); arcos: momento (kN·m). Longitudes ilustrativas.':
-      'Este caso no contiene reacciones exportadas. No se calculan automáticamente.');
   }
   pick(raycaster){
     if(!this.isActive()||!this.pickers.length)return null;
