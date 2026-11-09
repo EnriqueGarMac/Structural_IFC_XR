@@ -11,6 +11,8 @@ import {ifcElementOpacity,normalizedScope} from './ifc-opacity.mjs';
 import {buildSupportSymbols} from './support-symbols.js';
 import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
 import {resultColourHex,cssResultGradient} from './visual-palettes.mjs';
+import {WebSun} from './web-sun.js';
+import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t,palette)=>new THREE.Color(resultColourHex(t,palette));
@@ -64,6 +66,7 @@ export class StructuralScene {
     this.scene.add(this.vrEnvironment);
     this.worldRoot=new THREE.Group();this.worldRoot.rotation.x=-Math.PI/2;this.scene.add(this.worldRoot);
     this.contentRoot=new THREE.Group();this.worldRoot.add(this.contentRoot);
+    this.webSun=new WebSun(this);
     this.originalGroup=new THREE.Group();this.deformedGroup=new THREE.Group();
     this.loadsGroup=new THREE.Group();this.framesGroup=new THREE.Group();this.supportGroup=new THREE.Group();
     this.contentRoot.add(this.originalGroup,this.deformedGroup,this.loadsGroup,this.framesGroup,this.supportGroup);
@@ -81,7 +84,7 @@ export class StructuralScene {
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
-    this.mobileAR=false;this.mobileARState=null;
+    this.mobileAR=false;this.mobileARState=null;this.webcamActive=false;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
@@ -299,7 +302,6 @@ export class StructuralScene {
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
     const maxLoad=Math.max(0,...visibleLoads.map(loadMagnitude));
     $('legend-max').textContent=deform?`${(this.maxU*1000).toFixed(2)} mm`:`${maxLoad.toFixed(2)} kN/m`;
-    $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
     if(view==='deformation'){
       const bar=document.querySelector('#legend .legend-bar');
       if(bar)bar.style.background=cssResultGradient(this.sapVisuals?.palette);
@@ -307,6 +309,7 @@ export class StructuralScene {
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
     this.sapVisuals?.updateLegend();
     this.reactionVisuals?.updateLegend();
+    this.webSun?.update();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);this.clearGroup(this.supportGroup);
