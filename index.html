@@ -38,6 +38,7 @@
           <select id="analysis-view">
             <option value="deformation">Desplazamientos</option>
             <option value="forces">Esfuerzos internos</option>
+            <option value="reactions">Reacciones en apoyos</option>
             <option value="modes">Modos de vibración</option>
           </select></div>
         <div class="control"><label for="case-select">Caso / combinación</label><select id="case-select"><option value="">Sin resultados</option></select></div>
@@ -50,6 +51,10 @@
             <option value="M2">M2 · Momento local 2 (kN·m)</option>
             <option value="M3" selected>M3 · Momento local 3 (kN·m)</option>
           </select></div>
+        <div id="reaction-values-controls" class="reaction-values-controls" hidden>
+          <button id="toggle-reaction-values" type="button" class="secondary-btn" aria-pressed="false">Mostrar valores de reacciones</button>
+          <p class="field-help">Reacciones calculadas en los nudos · F (kN) y M (kN·m) en ejes globales XYZ. Las longitudes de las flechas son ilustrativas.</p>
+        </div>
         <div id="force-values-controls" class="force-values-controls" hidden><button id="toggle-force-values" type="button" class="secondary-btn force-values-btn" aria-pressed="false">Mostrar valores característicos</button><p class="field-help">Extremos registrados e inicio/fin de cada barra · esfuerzos locales SAP2000.</p></div>
         <div class="control"><label for="mode-select">Modo propio</label><select id="mode-select"><option value="">Sin modos</option></select></div>
         <div class="range-control"><div class="range-head"><label for="modal-amplitude">Amplitud modal ilustrativa</label><output id="modal-amplitude-value">0.30 m (visual)</output></div>
@@ -83,6 +88,7 @@
         <div class="section-label">04 / VISUALIZACIÓN</div>
         <label class="checkrow compact"><input id="show-axes" type="checkbox" checked><span>Ejes y cuadrícula</span></label>
         <label class="checkrow compact"><input id="show-frames" type="checkbox" checked><span>Barras analíticas SAP2000</span></label>
+        <label class="checkrow compact"><input id="show-supports" type="checkbox" checked><span>Condiciones de borde 3D <small>Empotramientos, articulaciones y apoyos móviles</small></span></label>
         <label class="checkrow compact"><input id="show-sap-only" type="checkbox"><span>Solo elementos SAP2000 (barras, nudos y cargas)</span></label>
         <label class="checkrow compact"><input id="hide-ground" type="checkbox" checked><span>Ocultar terreno y cimentación (mantener forjados)</span></label>
         <div class="notice-box"><strong>Importante</strong> El IFC aporta la geometría; los desplazamientos y cargas proceden de SAP2000. La deformación continua del IFC es una <b>interpolación visual</b> entre desplazamientos nodales, no un nuevo cálculo FEM. Asegúrate de que coinciden unidades y coordenadas.</div>

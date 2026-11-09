@@ -5,11 +5,14 @@ import { demoGeometry, demoResults } from './demo.js';
 import {roofDemoGeometry,roofDemoResults,ROOF_DEMO} from './roof-demo.js';
 import { normalizeResults } from './results.mjs';
 import { SAPVisuals, makeSAPGeometry } from './sap-visuals.js';
+import { ReactionVisuals } from './reaction-visuals.js';
+import { reactionText } from './reactions.mjs';
 import * as THREE from 'three';
 import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
 const $=(id)=>document.getElementById(id);
 const app=new StructuralScene($('canvas-wrap'));
 app.sapVisuals=new SAPVisuals(app);
+app.reactionVisuals=new ReactionVisuals(app);
 let sapGeometryActive=false;
 let originalIFC=null;
 let ifcElementCount=0;
@@ -51,9 +54,10 @@ function setResults(results,label){
   (results.modes||[]).forEach((m,i)=>modalSelect.add(new Option('Modo '+m.number+' · '+Number(m.frequency_hz).toFixed(3)+' Hz',String(i))));
   if(!results.modes?.length)modalSelect.add(new Option('Sin modos', ''));
   $('analysis-view').value='deformation';
-  app.sapVisuals.view='deformation';app.sapVisuals.refresh();
+  app.sapVisuals.view='deformation';app.sapVisuals.refresh();app.reactionVisuals.refresh();
   $('force-values-controls').hidden=true;
-  $('legend').classList.remove('force-legend');
+  $('reaction-values-controls').hidden=true;
+  $('legend').classList.remove('force-legend','reaction-legend');
   $('force-readout').hidden=true;
   if(!syntheticResults){
     const factor=app.maxU>0?Math.min(MAX_AMP,Math.max(25,Math.round(.10*app.maxSize/app.maxU))):25;
@@ -89,7 +93,7 @@ function showDemo(kind='frame'){
   app.showFrames=true;app.showLoads=true;app.hideGround=true;
   for(const [id,checked] of [
     ['show-sap-only',false],['show-original',true],['show-displaced',true],
-    ['show-frames',true],['show-loads',true],['hide-ground',true]
+    ['show-frames',true],['show-supports',true],['show-loads',true],['hide-ground',true]
   ])$(id).checked=checked;
   app.setResults(null); // Never interpolate the previous demo's result field.
   app.offset=[0,0,0];for(const c of ['x','y','z'])$('offset-'+c).value='0';
@@ -170,6 +174,8 @@ $('analysis-view').addEventListener('change',e=>{
   app.sapVisuals.setView(kind);
   $('legend').classList.toggle('force-legend',kind==='forces');
   $('force-values-controls').hidden=kind!=='forces';
+  $('reaction-values-controls').hidden=kind!=='reactions';
+  $('legend').classList.toggle('reaction-legend',kind==='reactions');
   $('force-readout').hidden=true;
 });
 $('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
@@ -180,6 +186,13 @@ $('toggle-force-values').addEventListener('click',()=>{
   $('toggle-force-values').textContent=enabled?
     'Ocultar valores característicos':'Mostrar valores característicos';
 });
+$('toggle-reaction-values').addEventListener('click',()=>{
+  const enabled=!app.reactionVisuals.showValues;
+  app.reactionVisuals.setValues(enabled);
+  $('toggle-reaction-values').setAttribute('aria-pressed',String(enabled));
+  $('toggle-reaction-values').textContent=enabled?
+    'Ocultar valores de reacciones':'Mostrar valores de reacciones';
+});
 $('mode-select').addEventListener('change',e=>app.sapVisuals.setMode(e.target.value));
 $('modal-amplitude').addEventListener('input',e=>{
   app.sapVisuals.setAmplitude(e.target.value);
@@ -187,7 +200,7 @@ $('modal-amplitude').addEventListener('input',e=>{
 });
 $('case-select').addEventListener('change',e=>app.setCase(e.target.value));
 $('pattern-select').addEventListener('change',e=>app.setPattern(e.target.value));
-const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-axes':'showAxes' };
+const showControls={ 'show-loads':'showLoads','show-displaced':'showDeformed','show-original':'showOriginal','show-frames':'showFrames','show-supports':'showSupports','show-axes':'showAxes' };
 for(const [id,key]of Object.entries(showControls)){
   $(id).addEventListener('change',e=>{app[key]=e.target.checked;app.axes.visible=app.showAxes;
     if(id==='show-axes'){
@@ -228,7 +241,8 @@ $('apply-offset').addEventListener('click',()=>{
 
 const forceReadout=$('force-readout');
 app.renderer.domElement.addEventListener('pointermove',event=>{
-  if(app.isXR||app.sapVisuals.view!=='forces'){
+  const view=app.sapVisuals.view;
+  if(app.isXR||(view!=='forces'&&view!=='reactions')){
     forceReadout.hidden=true;return;
   }
   const rect=app.renderer.domElement.getBoundingClientRect();
@@ -236,13 +250,20 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
   app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
     -(event.clientY-rect.top)/rect.height*2+1);
   app.pickRaycaster.setFromCamera(app.mouse,app.camera);
-  const measured=app.sapVisuals.pickForce(app.pickRaycaster);
-  if(!measured){forceReadout.hidden=true;return;}
-  const sign=measured.value>0?'+':'';
-  forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
-    '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
-    '\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
-    '\nInterpolado entre estaciones SAP2000';
+  if(view==='reactions'){
+    const reaction=app.reactionVisuals.pick(app.pickRaycaster);
+    if(!reaction){forceReadout.hidden=true;return;}
+    forceReadout.textContent='Nudo '+reaction.node+' · '+reaction.caseName+
+      '\n'+reactionText(reaction.reaction);
+  }else{
+    const measured=app.sapVisuals.pickForce(app.pickRaycaster);
+    if(!measured){forceReadout.hidden=true;return;}
+    const sign=measured.value>0?'+':'';
+    forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
+      '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
+      '\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
+      '\nInterpolado entre estaciones SAP2000';
+  }
   const stage=$('stage').getBoundingClientRect();
   forceReadout.style.left=Math.max(10,Math.min(stage.width-280,event.clientX-stage.left+20))+'px';
   forceReadout.style.top=Math.max(10,Math.min(stage.height-115,event.clientY-stage.top+16))+'px';

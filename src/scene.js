@@ -7,6 +7,7 @@ import {makeStructuralGroundGrid,makeColumnFootMarkers} from './ground-reference
 import {makeBeamFieldSampler} from './beam-field.mjs';
 import {sessionOptions} from './xr-session-config.mjs';
 import {createVREnvironment} from './vr-environment.js';
+import {buildSupportSymbols} from './support-symbols.js';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -69,8 +70,8 @@ export class StructuralScene {
     this.worldRoot=new THREE.Group();this.worldRoot.rotation.x=-Math.PI/2;this.scene.add(this.worldRoot);
     this.contentRoot=new THREE.Group();this.worldRoot.add(this.contentRoot);
     this.originalGroup=new THREE.Group();this.deformedGroup=new THREE.Group();
-    this.loadsGroup=new THREE.Group();this.framesGroup=new THREE.Group();
-    this.contentRoot.add(this.originalGroup,this.deformedGroup,this.loadsGroup,this.framesGroup);
+    this.loadsGroup=new THREE.Group();this.framesGroup=new THREE.Group();this.supportGroup=new THREE.Group();
+    this.contentRoot.add(this.originalGroup,this.deformedGroup,this.loadsGroup,this.framesGroup,this.supportGroup);
     this.mobileSAPShadowGroup=new THREE.Group();
     this.mobileSAPShadowGroup.visible=false;
     this.contentRoot.add(this.mobileSAPShadowGroup);
@@ -84,7 +85,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
+    this.showFrames=true;this.showSupports=true;this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -253,7 +254,7 @@ export class StructuralScene {
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
-    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();}
+    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();this.reactionVisuals?.refresh();}
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
@@ -262,11 +263,16 @@ export class StructuralScene {
     $('legend-note').textContent=deform?'Color: desplazamiento real · Forma: amplificada':'Acciones aplicadas, no esfuerzos internos';
     $('max-u').textContent=hasCases?`${(this.maxU*1000).toFixed(2)} mm`:'—';
     this.sapVisuals?.updateLegend();
+    this.reactionVisuals?.updateLegend();
   }
   updateOverlays(){
-    this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
+    this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);this.clearGroup(this.supportGroup);
     if(!this.results)return;
     const nodes=caseNodes(this.results,this.caseName,this.offset);
+    const size=Math.max(.08,Math.min(.6,(this.maxSize||8)*.028));
+    const symbols=buildSupportSymbols(this.results.nodes,this.offset,size);
+    for(const symbol of [...symbols.children])this.supportGroup.add(symbol);
+    this.supportGroup.visible=this.showSupports;
     const showAnalyticalDeformation=this.sapVisuals?.view==='deformation'&&this.showSAPOnly&&this.showDeformed&&
       Boolean(this.results.cases?.length);
     const displayedNodes=analyticalNodePositions(nodes,this.amp,showAnalyticalDeformation);

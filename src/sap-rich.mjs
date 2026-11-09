@@ -64,6 +64,7 @@ export function unpackRichSAP(input) {
       name:input.source?.workbook??'Modelo SAP2000',
       note:(input.warnings??[]).join(' ')},
     nodes,frames,loads,cases,modes,
-    forces:r.frame_forces??{},sections:g.sections??{},frameCurves:r.frame_curves_m??{}
+    forces:r.frame_forces??{},sections:g.sections??{},frameCurves:r.frame_curves_m??{},
+    jointReactions:r.joint_reactions??r.jointReactions??{}
   };
 }

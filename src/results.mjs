@@ -1,4 +1,5 @@
 import {unpackRichSAP} from './sap-rich.mjs';
+import {normalizeJointReactions} from './reactions.mjs';
 // Data contract deliberately independent from IFC/Three.js for testing.
 // All SAP2000 coordinates and displacements are in metres, forces in kN.
 const finite = (v, defaultValue=0) => v === undefined || v === null || v === '' ? defaultValue : Number(v);
@@ -7,7 +8,8 @@ export function normalizeResults(input) {
   input=unpackRichSAP(input);
   if (!input || typeof input !== 'object') throw new Error('El archivo JSON no contiene un objeto válido.');
   const nodes = (input.nodes || []).map((n, i) => ({
-    id: String(n.id ?? n.name ?? i), x: finite(n.x), y: finite(n.y), z: finite(n.z)
+    id: String(n.id ?? n.name ?? i), x: finite(n.x), y: finite(n.y), z: finite(n.z),
+    restrained_dof:Array.isArray(n.restrained_dof)?n.restrained_dof.map(Boolean):[]
   }));
   if (nodes.some(n => ![n.x,n.y,n.z].every(valid))) throw new Error('Hay coordenadas SAP no numéricas.');
   const seen = new Set();
@@ -39,7 +41,8 @@ export function normalizeResults(input) {
     throw new Error('Este JSON no contiene nodos, barras ni resultados compatibles de SAP2000.');
   return {meta:{...input.meta, units:'m, kN'}, nodes, frames, loads, cases,
     forces:input.forces??{},modes:input.modes??[],sections:input.sections??{},
-    frameCurves:input.frameCurves??{}};
+    frameCurves:input.frameCurves??{},
+    jointReactions:normalizeJointReactions(input.jointReactions??{},nodes)};
 }
 export function caseNodes(results, selectedCase, offset=[0,0,0]) {
   const c = results.cases.find(v=>v.name===selectedCase) || results.cases[0];

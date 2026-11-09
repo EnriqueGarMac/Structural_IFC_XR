@@ -68,3 +68,7 @@
   .mode-tabs{max-width:calc(100% - 65px)}
   #btn-vr{font-size:9px}
 }
+
+/* SAP2000 support reactions: distinct axes and unit-aware reading. */
+.reaction-legend .legend-bar{background:linear-gradient(90deg,#ffb26c 0%,#ffb26c 30%,#86e0a8 35%,#86e0a8 64%,#5dc7f2 70%,#5dc7f2 100%)}
+.reaction-values-controls .secondary-btn{margin-bottom:5px}

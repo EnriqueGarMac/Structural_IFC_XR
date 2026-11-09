@@ -83,6 +83,7 @@ export class StructuralXRControls {
   stop(){
     this.session=null;this.panel.visible=false;this.reticle.visible=false;
     this.app.sapVisuals?.hideXRHover();
+    this.app.reactionVisuals?.hideXRHover();
     this.contact.visible=false;this.hasPlacedSurface=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
     for(const h of this.hitSources.values())h.source?.cancel();
     this.hitSources.clear();this.hitByInput.clear();this.buttonLatches.clear();
@@ -172,6 +173,13 @@ export class StructuralXRControls {
       if(selected){
         this.selected='Barra '+selected.frameId+' · '+selected.component+
           ' '+selected.value.toFixed(2)+' '+selected.unit;
+        this.dirty=true;return;
+      }
+    }
+    if(this.app.sapVisuals?.view==='reactions'){
+      const reaction=this.app.reactionVisuals?.inspectXRRay(this._ray(controller));
+      if(reaction){
+        this.selected='Nudo '+reaction.node+' · '+reaction.caseName;
         this.dirty=true;return;
       }
     }
@@ -289,15 +297,28 @@ export class StructuralXRControls {
       txt('×0',157,713,18,'#a2c6d1');
       txt('×25.000',613,713,18,'#a2c6d1','right');
       const view=app.sapVisuals?.view||'deformation';
-      const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',modes:'Modos de vibración'};
+      const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',
+        reactions:'Reacciones en apoyos',modes:'Modos de vibración'};
       btn('view:next','VISTA: '+viewLabel[view],38,756,692,73,true);
       const detail=view==='forces'?'Esfuerzo: '+(app.sapVisuals?.component||'M3'):
         view==='modes'?'Modo '+((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.number??'—')+
           ' · '+Number((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.frequency_hz||0).toFixed(2)+' Hz':
           'Patrón: '+(app.pattern==='all'?'Todos':app.pattern);
-      btn('detail:-','‹',38,847,126,69);
-      txt(textFit(detail,37),385,881,23,'#edffff','center');
-      btn('detail:+','›',606,847,124,69);
+      if(view==='reactions'){
+        const summary=app.reactionVisuals?.lastSummary;
+        const z=summary?.force?.[2];
+        txt('Suma reacciones Z: '+(Number.isFinite(z)?z.toFixed(3)+' kN':'—'),
+          385,881,23,'#a6eeea','center');
+        btn('reaction-values','VALORES: '+(app.reactionVisuals?.showValues?'SÍ':'NO'),
+          38,932,334,77,true);
+        btn('sap-only',app.showSAPOnly?'IFC: OCULTO':'IFC: VISIBLE',
+          394,932,336,77);
+        txt('Apunta al nudo del apoyo: fuerzas y momentos en ejes globales XYZ.',
+          38,1052,17,'#9ce6d9');
+      }else{
+        btn('detail:-','‹',38,847,126,69);
+        txt(textFit(detail,37),385,881,23,'#edffff','center');
+        btn('detail:+','›',606,847,124,69);
       if(view==='forces'){
         btn('force-values','ETIQUETAS: '+(app.sapVisuals?.showCharacteristics?'SÍ':'NO'),
           38,932,334,77,true);
@@ -310,6 +331,7 @@ export class StructuralXRControls {
           38,932,692,77,true);
         txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
       }
+      }
     }else if(this.page==='layers'){
       btn('back','‹ Volver',38,117,230,66);
       txt('CAPAS / VISUALIZACIÓN',38,224,28,'#e1f7fc');
@@ -321,9 +343,10 @@ export class StructuralXRControls {
       btn('deformed','Deformada: '+(app.showDeformed?'visible':'oculta'),38,551,692,74);
       btn('loads','Cargas: '+(app.showLoads?'visibles':'ocultas'),38,640,692,74);
       btn('frames','Barras SAP: '+(app.showFrames?'visibles':'ocultas'),38,729,692,74);
-      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,818,692,74);
+      btn('supports','Apoyos 3D: '+(app.showSupports?'visibles':'ocultos'),38,818,692,74);
+      btn('axes','Ejes: '+(app.showAxes?'visibles':'ocultos'),38,906,692,65);
       txt(textFit(this.notice||'Se conservan los forjados estructurales.',63),
-        38,948,19,'#92e9d9');
+        38,995,18,'#92e9d9');
       txt('SAP puro: barras analíticas, nudos y cargas; sin IFC.',38,998,18);
       txt(textFit(this.selected,40),38,1050,18,'#83e9da');
     }else if(this.page==='placement' && app.xrMode==='vr'){
@@ -406,7 +429,7 @@ export class StructuralXRControls {
       }
     }
     else if(id==='view:next'){
-      const choices=['deformation','forces','modes'];
+      const choices=['deformation','forces','reactions','modes'];
       const active=app.sapVisuals?.view||'deformation';
       const next=choices[(choices.indexOf(active)+1)%choices.length];
       const el=$('analysis-view');if(el){el.value=next;el.dispatchEvent(new Event('change'));}
@@ -428,6 +451,9 @@ export class StructuralXRControls {
         app.setPattern(p);$('pattern-select').value=p;
       }
     }
+    else if(id==='reaction-values'){
+      $('toggle-reaction-values')?.click();
+    }
     else if(id==='force-values'){
       $('toggle-force-values')?.click();
       this.notice=app.sapVisuals?.showCharacteristics?
@@ -443,7 +469,7 @@ export class StructuralXRControls {
     }
     else if(['loads','deformed','original','frames','axes'].includes(id)){
       const dict={loads:['showLoads','show-loads'],deformed:['showDeformed','show-displaced'],
-        original:['showOriginal','show-original'],frames:['showFrames','show-frames'],axes:['showAxes','show-axes']};
+        original:['showOriginal','show-original'],frames:['showFrames','show-frames'],supports:['showSupports','show-supports'],axes:['showAxes','show-axes']};
       const [prop,domId]=dict[id];
       this.syncControl(domId,!app[prop]);
     }
@@ -520,10 +546,14 @@ export class StructuralXRControls {
       if(!controller.userData.xrInput)continue;
       const hit=this._menuHit(controller);
       hovered??=hit?.item?.id??null;
-      if(!hit&&!this.drag&&!this.placeMode&&!forceHovered&&
-        this.app.sapVisuals?.view==='forces'){
-        const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
-        if(selected)forceHovered=true;
+      if(!hit&&!this.drag&&!this.placeMode&&!forceHovered){
+        if(this.app.sapVisuals?.view==='forces'){
+          const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
+          if(selected)forceHovered=true;
+        }else if(this.app.sapVisuals?.view==='reactions'){
+          const selected=this.app.reactionVisuals?.inspectXRRay(this._ray(controller));
+          if(selected)forceHovered=true;
+        }
       }
       rayLine.scale.z=hit?.intersection?.distance||2.8;
       const source=controller.userData.xrInput;
@@ -554,7 +584,7 @@ export class StructuralXRControls {
         }
       }
     }
-    if(!forceHovered)this.app.sapVisuals?.hideXRHover();
+    if(!forceHovered){this.app.sapVisuals?.hideXRHover();this.app.reactionVisuals?.hideXRHover();}
     if(hovered!==this.hoverId){this.hoverId=hovered;this.dirty=true;}
     if(this.moveMenu&&!this.drag){
       const ctrl=this.controllers.find(x=>x.controller.userData.xrInput)?.controller;

@@ -1,3 +1,28 @@
+## Reacciones en apoyos (SAP2000 → XR)
+
+Al importar un JSON SAP2000 con `jointReactions`, selecciona **Reacciones en apoyos** en **Vista de resultados**. El visor muestra las reacciones del caso activo directamente sobre los nudos, sin recalcular el equilibrio:
+
+- Flechas para `Fx, Fy, Fz` en **ejes globales XYZ**, con colores según el eje. El sentido refleja el signo obtenido en SAP2000. Unidades: **kN**.
+- Arcos con flecha circular para `Mx, My, Mz` siguiendo la regla de la mano derecha. Unidades: **kN·m**.
+- Botón **Mostrar valores de reacciones**: despliega los vectores `(Fx,Fy,Fz)` y `(Mx,My,Mz)` en cada apoyo. Las flechas y los radios tienen **escala ilustrativa**, no representan la magnitud física directamente.
+- En **escritorio**, pasa el puntero sobre el marcador del apoyo. En **Quest RM o VR**, apunta con el mando al marcador y consulta sus seis componentes sin mover el modelo. Cambiar de caso actualiza las reacciones.
+- La leyenda muestra las sumas `ΣRx`, `ΣRy` y `ΣRz`. Estas sumas **no constituyen por sí solas una comprobación completa de equilibrio** si faltan otras cargas o momentos externos.
+
+El formato plano incluye por ejemplo:
+
+```json
+"jointReactions": {
+  "DEAD": {
+    "1": {"force_kN": [0, 0, 7.0285], "moment_kNm": [0, 0, 0]},
+    "4": {"force_kN": [0, 0, 7.0285], "moment_kNm": [0, 0, 0]}
+  }
+}
+```
+
+Si un caso no contiene reacciones, se indica explícitamente y no se inventan valores a partir de las restricciones de los nudos.
+
+---
+
 ## Realidad virtual inmersiva en Meta Quest (modo VR)
 
 El visor dispone de dos experiencias independientes para Meta Quest:
