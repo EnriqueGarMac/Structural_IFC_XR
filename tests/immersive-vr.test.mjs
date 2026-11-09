@@ -30,7 +30,7 @@ test('VR environment is hidden by default and independent of structural root',()
   const sky=room.getObjectByName('VR panoramic background');
   const floor=room.getObjectByName('VR virtual floor');
   const grid=room.getObjectByName('VR floor scale grid');
-  assert.ok(sky?.isMesh && floor?.isMesh && grid?.isGridHelper);
+  assert.ok(sky?.isMesh && floor?.isMesh && grid?.type==='GridHelper');
   assert.equal(sky.material.side,THREE.BackSide);
   assert.ok(Math.abs(floor.rotation.x+Math.PI/2)<1e-12);
   assert.ok(grid.position.y>floor.position.y);
