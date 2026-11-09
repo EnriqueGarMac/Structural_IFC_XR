@@ -40,3 +40,17 @@ test('bad rich JSON reports a problem instead of silent blank model',()=>{
   assert.throws(()=>normalizeResults({schema:'imis.sap2000.xr/1',geometry:{}}),/incompleto/);
   assert.throws(()=>normalizeResults({...rich,geometry:{...rich.geometry,frames:{A:{joint_i:'1',joint_j:'99'}}}}),/inexistente/);
 });
+
+test('flat Modelo_XR_corregido.json format with rich schema identifier remains readable',()=>{
+  const data=normalizeResults(rich);
+  const flat={schema:'imis.sap2000.xr/1',...data,
+    materials:{},jointReactions:{},loadAssignments:{},warnings:[]};
+  const actual=normalizeResults(flat);
+  assert.equal(actual.nodes.length,2);
+  assert.equal(actual.frames[0].local_axes.basis_global[0][0],1);
+  assert.equal(actual.loads[0].dir,6);
+  assert.equal(actual.cases[0].name,'DEAD');
+  assert.equal(actual.forces.DEAD.A[0].M3_kNm,1);
+  assert.equal(actual.modes[0].frequency_hz,2.5);
+  assert.deepEqual(actual.frameCurves,flat.frameCurves);
+});
