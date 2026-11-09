@@ -7,6 +7,7 @@ import {exportEducationalIFC} from './ifc4-export.mjs';
 import { normalizeResults } from './results.mjs';
 import { SAPVisuals, makeSAPGeometry } from './sap-visuals.js';
 import { ReactionVisuals } from './reaction-visuals.js';
+import { NodeDisplacementProbe,displacementLabel } from './node-displacement-probe.js';
 import { reactionText } from './reactions.mjs';
 import * as THREE from 'three';
 import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
@@ -15,6 +16,7 @@ const $=(id)=>document.getElementById(id);
 const app=new StructuralScene($('canvas-wrap'));
 app.sapVisuals=new SAPVisuals(app);
 app.reactionVisuals=new ReactionVisuals(app);
+app.nodeProbe=new NodeDisplacementProbe(app);
 let sapGeometryActive=false;
 let originalIFC=null;
 let importedIFCName='';
@@ -234,6 +236,8 @@ $('analysis-view').addEventListener('change',e=>{
   $('reaction-values-controls').hidden=kind!=='reactions';
   $('legend').classList.toggle('reaction-legend',kind==='reactions');
   $('force-readout').hidden=true;
+  app.nodeProbe?.hideXRHover();
+  app.sapVisuals?.hideXRHover();
 });
 $('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
 $('toggle-force-values').addEventListener('click',()=>{
@@ -262,6 +266,12 @@ $('ifc-transparency').addEventListener('input',e=>{
   app.setIFCOpacity(1-transparency/100);
   $('ifc-transparency-value').textContent=transparency+' %';
   if(app.xrControls)app.xrControls.dirty=true;
+});
+$('structure-palette').addEventListener('change',e=>{
+  app.setStructurePalette(e.target.value);
+});
+$('force-palette').addEventListener('change',e=>{
+  app.sapVisuals.setPalette(e.target.value);
 });
 $('ifc-opacity-scope').addEventListener('change',e=>{
   app.setIFCOpacityScope(e.target.value);
@@ -318,22 +328,34 @@ $('apply-offset').addEventListener('click',()=>{
 const forceReadout=$('force-readout');
 app.renderer.domElement.addEventListener('pointermove',event=>{
   const view=app.sapVisuals.view;
-  if(app.isXR||(view!=='forces'&&view!=='reactions')){
-    forceReadout.hidden=true;return;
+  if(app.isXR||(view!=='forces'&&view!=='reactions'&&view!=='deformation')){
+    forceReadout.hidden=true;app.nodeProbe?.hideXRHover();
+    app.sapVisuals?.setHoverSection(null);return;
   }
   const rect=app.renderer.domElement.getBoundingClientRect();
   if(rect.width<1||rect.height<1)return;
   app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
     -(event.clientY-rect.top)/rect.height*2+1);
   app.pickRaycaster.setFromCamera(app.mouse,app.camera);
-  if(view==='reactions'){
+  if(view==='deformation'){
+    const picked=app.nodeProbe?.pick(app.pickRaycaster);
+    if(!picked){
+      app.nodeProbe?.showHover(null);
+      forceReadout.hidden=true;return;
+    }
+    app.nodeProbe.showHover(picked);
+    forceReadout.textContent=displacementLabel(picked,picked.caseName);
+  }else if(view==='reactions'){
     const reaction=app.reactionVisuals.pick(app.pickRaycaster);
     if(!reaction){forceReadout.hidden=true;return;}
     forceReadout.textContent='Nudo '+reaction.node+' · '+reaction.caseName+
       '\n'+reactionText(reaction.reaction);
   }else{
     const measured=app.sapVisuals.pickForce(app.pickRaycaster);
-    if(!measured){forceReadout.hidden=true;return;}
+    if(!measured){
+      app.sapVisuals.setHoverSection(null);forceReadout.hidden=true;return;
+    }
+    app.sapVisuals.setHoverSection(measured);
     const sign=measured.value>0?'+':'';
     forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
       '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
@@ -344,7 +366,26 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
   forceReadout.style.top=Math.max(10,Math.min(stage.height-100,event.clientY-stage.top+16))+'px';
   forceReadout.hidden=false;
 });
-app.renderer.domElement.addEventListener('pointerleave',()=>{forceReadout.hidden=true;});
+app.renderer.domElement.addEventListener('pointerleave',()=>{
+  forceReadout.hidden=true;
+  app.sapVisuals?.setHoverSection(null);
+  app.nodeProbe?.hideXRHover();
+});
+app.renderer.domElement.addEventListener('pointerup',event=>{
+  if(app.isXR||!app.pickStart||
+    Math.hypot(app.pickStart.x-event.clientX,app.pickStart.y-event.clientY)>4)return;
+  const rect=app.renderer.domElement.getBoundingClientRect();
+  app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
+    -(event.clientY-rect.top)/rect.height*2+1);
+  app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+  if(app.sapVisuals.view==='forces'){
+    const section=app.sapVisuals.pickForce(app.pickRaycaster);
+    if(section)app.sapVisuals.pinSection(section);
+  }else if(app.sapVisuals.view==='deformation'){
+    const node=app.nodeProbe.pick(app.pickRaycaster);
+    if(node)app.nodeProbe.pin(node);
+  }
+});
 $('reset-view').addEventListener('click',()=>app.recenterCamera());
 app.onSelection=(name)=>info(`Elemento seleccionado: ${name}`);
 async function setWebcam(enable){

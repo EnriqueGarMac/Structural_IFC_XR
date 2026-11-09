@@ -103,6 +103,23 @@
           </select>
           <p class="field-help">La transparencia es solo visual. Las cargas, reacciones y deformadas no cambian.</p>
         </div>
+        <div class="control color-option"><label for="structure-palette">Color del modelo 3D</label>
+          <select id="structure-palette">
+            <option value="original">Colores originales</option>
+            <option value="teal">Turquesa</option>
+            <option value="steel">Azul acero</option>
+            <option value="coral">Coral</option>
+            <option value="ivory">Marfil</option>
+          </select>
+        </div>
+        <div class="control color-option"><label for="force-palette">Colores de los diagramas de esfuerzos</label>
+          <select id="force-palette">
+            <option value="classic">Cian y ámbar</option>
+            <option value="contrast">Azul y rojo</option>
+            <option value="nature">Verde y naranja</option>
+            <option value="violet">Violeta y dorado</option>
+          </select>
+        </div>
         <label class="checkrow compact"><input id="show-resistance-only" type="checkbox"><span>Solo estructura resistente <small>Oculta fachadas, tabiques, puertas, ventanas y mobiliario de los ejemplos</small></span></label>
         <label class="checkrow compact"><input id="show-supports" type="checkbox" checked><span>Apoyos 3D <small>Empotramientos, articulaciones y apoyos móviles</small></span></label>
         <label class="checkrow compact"><input id="show-sap-only" type="checkbox"><span>Solo modelo de cálculo (barras, nodos y cargas)</span></label>
@@ -116,7 +133,7 @@
       <div class="stage" id="stage">
         <video id="webcam" playsinline muted autoplay></video>
         <div class="canvas-wrap" id="canvas-wrap"></div>
-        <div class="viewer-top"><div class="scene-pill"><i></i><span id="scene-label">MODELO DE EJEMPLO</span></div><span class="viewer-chip">BIM + ANÁLISIS</span></div>
+        <div class="viewer-top"><div class="scene-pill"><i></i><span id="scene-label">MODELO DE EJEMPLO</span></div></div>
         <div class="legend" id="legend"><strong id="legend-title">DESPLAZAMIENTO |u|</strong><div class="legend-bar"></div><div class="legend-minmax"><span id="legend-min">0 mm</span><span id="legend-max">—</span></div><small id="legend-note">Color: desplazamiento real · Forma amplificada</small></div>
         <div class="force-readout" id="force-readout" hidden></div>
         <div class="mode-tabs"><button type="button" class="tab active" id="btn-3d">◈ Vista 3D</button><button type="button" class="tab" id="btn-cam">◎ Cámara + 3D</button><button type="button" class="tab accent" id="btn-xr" title="Realidad mixta: ver el modelo sobre tu entorno real">◉ Quest 3 RM</button><button type="button" class="tab accent" id="btn-vr" title="Realidad virtual: entrar en un estudio 3D inmersivo sin passthrough">◉ Quest 3 VR</button><button type="button" class="tab accent" id="btn-mobile-ar">▣ AR móvil</button></div>

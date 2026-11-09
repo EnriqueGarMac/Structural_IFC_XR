@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {makeBeamFieldSampler} from './beam-field.mjs';
 import {FORCE_COMPONENTS,readForceStations,forceSegments,characteristicStations,
   makeForcePatchCoordinates,forceReadoutFromPoint} from './force-diagrams.mjs';
+import {forcePalette,forceSignColour,FORCE_PALETTES,cssForceGradient} from './visual-palettes.mjs';
+import {forceSectionMarker} from './force-section-marker.mjs';
 
 // Fallback geometry: analytical frame rods, not exact section extrusions.
 export function makeSAPGeometry(results){
@@ -33,6 +35,8 @@ export class SAPVisuals{
     this.modalAmplitude=.3;this.frequency=0;this.visualHz=.65;this.dynamic=[];this.modalParts=[];this.frameNumber=0;
     this.showCharacteristics=false;this.characteristicSprites=[];this.forceMeshes=[];this.forceMin=0;this.forceMax=0;
     this.xrTooltip=null;this.xrTooltipText='';
+    this.palette='classic';
+    this.hoverMarker=null;this.pinnedMarker=null;this.pinnedSection=null;
     this.group=new THREE.Group();app.contentRoot.add(this.group);
   }
   clear(){
@@ -46,7 +50,14 @@ export class SAPVisuals{
     this.characteristicSprites=[];
     this.app.clearGroup(this.group);
     this.dynamic=[];this.modalParts=[];this.forceMeshes=[];
+    this.hoverMarker=null;this.pinnedMarker=null;this.pinnedSection=null;
     this.hideXRHover();
+  }
+  setPalette(id){
+    this.palette=Object.hasOwn(FORCE_PALETTES,id)?id:'classic';
+    if(this.view==='forces')this.refresh();
+    this.updateLegend();
+    if(this.app.xrControls)this.app.xrControls.dirty=true;
   }
   setCharacteristics(enabled){
     this.showCharacteristics=Boolean(enabled);
@@ -75,8 +86,12 @@ export class SAPVisuals{
       if(hi)hi.textContent=(this.forceMax??0).toFixed(2);
       if(note)note.textContent=(this.maxForce??0)<1e-10?
         'Este componente no presenta esfuerzos distintos de cero en el caso seleccionado.':
-        'Cian: negativo · ámbar: positivo · valores en ejes locales';
+        forcePalette(this.palette).description+' · ejes locales';
+      const bar=document.querySelector('#legend .legend-bar');
+      if(bar)bar.style.background=cssForceGradient(this.palette);
     }else if(this.view==='modes'){
+      const bar=document.querySelector('#legend .legend-bar');
+      if(bar)bar.style.background='';
       const m=r.modes?.[this.modeIndex];
       if(title)title.textContent=m?'MODO '+m.number:'SIN MODOS';
       if(lo)lo.textContent='Forma relativa';
@@ -103,6 +118,7 @@ export class SAPVisuals{
     const amplitude=(this.app.maxSize||1)*.16/denom;
     const nodes=this.nodePositions(r);
     const unit=FORCE_COMPONENTS[this.component]?.unit??'';
+    const colours=forcePalette(this.palette);
     for(const f of r.frames){
       const a=nodes.get(f.i),b=nodes.get(f.j);
       if(!a||!b)continue;
@@ -128,7 +144,7 @@ export class SAPVisuals{
         const geometry=new THREE.BufferGeometry();
         geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
         geometry.computeVertexNormals();
-        const colour=seg.sign<0?0x48bbd8:seg.sign>0?0xf5b364:0xa1b9c0;
+        const colour=forceSignColour(seg.sign,this.palette);
         const material=new THREE.MeshBasicMaterial({
           color:colour,transparent:true,opacity:.62,side:THREE.DoubleSide,
           depthWrite:false,depthTest:true
@@ -137,7 +153,8 @@ export class SAPVisuals{
         mesh.renderOrder=12;
         mesh.userData.forceSegment={segment:seg,frameId:f.id,
           component:this.component,caseName:this.app.caseName,
-          origin:a.toArray(),axis:axis.toArray()};
+          origin:a.toArray(),axis:axis.toArray(),
+          normal:normal.toArray(),amplitude};
         this.group.add(mesh);
         this.forceMeshes.push(mesh);
       }
@@ -150,12 +167,12 @@ export class SAPVisuals{
       }
       if(outline.length>1)this.group.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(outline),
-        new THREE.LineBasicMaterial({color:0xf3faff,transparent:true,opacity:.84,
+        new THREE.LineBasicMaterial({color:colours.outline,transparent:true,opacity:.84,
           depthTest:false})
       ));
       if(stems.length)this.group.add(new THREE.LineSegments(
         new THREE.BufferGeometry().setFromPoints(stems),
-        new THREE.LineBasicMaterial({color:0xa7e8ef,transparent:true,opacity:.24,
+        new THREE.LineBasicMaterial({color:colours.stems,transparent:true,opacity:.24,
           depthTest:false})
       ));
       if(this.showCharacteristics&&typeof document!=='undefined'){
@@ -163,7 +180,8 @@ export class SAPVisuals{
           const value=Math.abs(p.value)<1e-9?0:p.value;
           const sign=value>0?'+':'';
           const line='B'+f.id+' '+p.role+' · '+sign+value.toFixed(2)+' '+unit;
-          const tag=this.makeLabel(line,value>=0?'#f9c786':'#77d5eb');
+          const shade=forceSignColour(value,this.palette).toString(16).padStart(6,'0');
+          const tag=this.makeLabel(line,'#'+shade);
           const point=a.clone().addScaledVector(axis,p.station)
             .addScaledVector(normal,value*amplitude);
           // Lift the tag off the diagram so it remains legible from either side.
@@ -207,7 +225,52 @@ export class SAPVisuals{
     };
     const readout=forceReadoutFromPoint(meta.segment,hit.point.toArray(),toLocal,
       meta.origin,meta.axis,meta.frameId,meta.component,meta.caseName);
-    return {...readout,point:hit.point.clone()};
+    return {...readout,point:hit.point.clone(),markerGeometry:{
+      origin:meta.origin,axis:meta.axis,normal:meta.normal,
+      amplitude:meta.amplitude
+    }};
+  }
+  // A bright perpendicular line marks the true analytical section, from
+  // the beam axis to the value on its diagram. Two independent indicators
+  // let students preview a section and keep a clicked one fixed in place.
+  ensureSectionMarker(pinned=false){
+    const key=pinned?'pinnedMarker':'hoverMarker';
+    if(this[key])return this[key];
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(24),3));
+    const material=new THREE.LineBasicMaterial({
+      color:pinned?0xffdf72:0xffffff,depthTest:false,
+      transparent:true,opacity:pinned?1:.96,depthWrite:false
+    });
+    const marker=new THREE.LineSegments(geometry,material);
+    marker.name=pinned?'Sección fijada':'Sección señalada';
+    marker.renderOrder=2000;marker.visible=false;
+    this.group.add(marker);this[key]=marker;
+    return marker;
+  }
+  updateSectionMarker(data,pinned=false){
+    const key=pinned?'pinnedMarker':'hoverMarker';
+    if(!data?.markerGeometry){
+      if(this[key])this[key].visible=false;
+      return;
+    }
+    const marker=this.ensureSectionMarker(pinned);
+    const section=forceSectionMarker({...data.markerGeometry,station:data.station,
+      value:data.value,scale:this.app.maxSize||1});
+    marker.geometry.getAttribute('position').array.set(section.positions);
+    marker.geometry.getAttribute('position').needsUpdate=true;
+    marker.geometry.computeBoundingSphere();
+    marker.visible=true;
+  }
+  setHoverSection(data){this.updateSectionMarker(data,false);}
+  pinSection(data){
+    if(!data||this.view!=='forces')return;
+    this.pinnedSection=data;
+    this.updateSectionMarker(data,true);
+  }
+  clearPinnedSection(){
+    this.pinnedSection=null;
+    this.updateSectionMarker(null,true);
   }
   ensureXRTooltip(){
     if(this.xrTooltip || typeof document==='undefined')return;
@@ -221,13 +284,15 @@ export class SAPVisuals{
   inspectXRRay(raycaster){
     const data=this.pickForce(raycaster);
     if(!data){this.hideXRHover();return null;}
+    this.setHoverSection(data);
     this.ensureXRTooltip();
     const sign=data.value>0?'+':'';
     const line='B'+data.frameId+'  '+data.component+' '+sign+data.value.toFixed(2)+' '+data.unit+
       '  ·  s='+data.station.toFixed(2)+' m';
     if(this.xrTooltip){
       if(this.xrTooltipText!==line){
-        const sprite=this.makeLabel(line,data.value>=0?'#f9c786':'#77d5eb');
+        const color='#'+forceSignColour(data.value,this.palette).toString(16).padStart(6,'0');
+        const sprite=this.makeLabel(line,color);
         this.xrTooltip.material.map?.dispose();
         this.xrTooltip.material.map=sprite.material.map;
         sprite.material.map=null;
@@ -240,7 +305,7 @@ export class SAPVisuals{
     }
     return data;
   }
-  hideXRHover(){if(this.xrTooltip)this.xrTooltip.visible=false;}
+  hideXRHover(){if(this.xrTooltip)this.xrTooltip.visible=false;this.setHoverSection(null);}
 
   drawMode(r){
     const mode=r.modes?.[this.modeIndex];if(!mode)return;

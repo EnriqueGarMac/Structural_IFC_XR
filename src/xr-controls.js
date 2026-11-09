@@ -3,6 +3,7 @@ import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniqu
   amplificationFromSliderX,sliderXFromAmplification} from './xr-logic.mjs';
 import {nextXRIFCOpacity} from './ifc-opacity.mjs';
 import {formatAmplification} from './deformation-scale.mjs';
+import {STRUCTURE_COLOURS,FORCE_PALETTES,nextPalette} from './visual-palettes.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
@@ -173,8 +174,17 @@ export class StructuralXRControls {
     if(this.app.sapVisuals?.view==='forces'){
       const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
       if(selected){
+        this.app.sapVisuals.pinSection(selected);
         this.selected='Barra '+selected.frameId+' · '+selected.component+
           ' '+selected.value.toFixed(2)+' '+selected.unit;
+        this.dirty=true;return;
+      }
+    }
+    if(this.app.sapVisuals?.view==='deformation'){
+      const node=this.app.nodeProbe?.inspectXRRay(this._ray(controller));
+      if(node){
+        this.app.nodeProbe.pin(node);
+        this.selected='Nodo '+node.id+' · |u| '+(node.magnitude*1000).toFixed(3)+' mm';
         this.dirty=true;return;
       }
     }
@@ -332,7 +342,9 @@ export class StructuralXRControls {
       }else{
         btn('sap-only',app.showSAPOnly?'MOSTRAR MODELO BIM':'VER SOLO ESTRUCTURA',
           38,932,692,77,true);
-        txt('La escala solo afecta a la representación, no al cálculo.',38,1052,18);
+        txt(view==='deformation'?
+          'Apunta a un nodo: consulta Ux, Uy, Uz y desplazamiento total.':
+          'La escala solo afecta a la representación.',38,1052,18);
       }
       }
     }else if(this.page==='layers'){
@@ -352,7 +364,29 @@ export class StructuralXRControls {
       btn('ifc-opacity-step','Opacidad IFC: '+Math.round(app.ifcOpacity*100)+
         '%  ·  siguiente nivel',38,925,692,66,true);
       txt('0% / 25% / 50% / 75% / 92% transpar. por pulsación',38,1027,17,'#92e9d9');
-      txt(textFit(this.selected,48),38,1052,18,'#83e9da');
+      btn('colors','COLORES DEL MODELO Y DE LOS ESFUERZOS',
+        38,998,692,67,true);
+    }else if(this.page==='colors'){
+      btn('back','‹ Volver',38,117,230,66);
+      txt('COLORES DE REPRESENTACIÓN',38,223,28,'#e4f8ff');
+      txt('MODELO 3D',38,304,22,'#a4d6e3');
+      btn('palette:model',
+        'COLOR DEL MODELO: '+(STRUCTURE_COLOURS[app.structurePalette]?.label??'Original'),
+        38,353,692,92,true);
+      txt('Puedes conservar los materiales originales o elegir un tono único.',
+        38,482,18);
+      txt('ESFUERZOS INTERNOS',38,567,22,'#a4d6e3');
+      btn('palette:forces',
+        'DIAGRAMAS: '+(FORCE_PALETTES[app.sapVisuals?.palette]?.label??'Cian y ámbar'),
+        38,612,692,92,true);
+      const palette=FORCE_PALETTES[app.sapVisuals?.palette]??FORCE_PALETTES.classic;
+      const hex=n=>'#'+n.toString(16).padStart(6,'0');
+      rounded(c,72,776,276,38,7,hex(palette.negative));
+      rounded(c,419,776,276,38,7,hex(palette.positive));
+      txt('NEGATIVO',212,847,20,'#c3f4f8','center');
+      txt('POSITIVO',557,847,20,'#fbe4c9','center');
+      txt('Los colores no alteran el valor ni el signo de los esfuerzos.',
+        38,970,19);
     }else if(this.page==='placement' && app.xrMode==='vr'){
       btn('back','‹ Volver',38,117,230,66);
       txt('ESTUDIO VIRTUAL · VR',38,219,29,'#e4f8ff');
@@ -389,7 +423,7 @@ export class StructuralXRControls {
   command(id){
     const app=this.app;
     if(id==='back'){this.page='main';}
-    else if(['results','layers','placement'].includes(id))this.page=id;
+    else if(['results','layers','placement','colors'].includes(id))this.page=id;
     else if(id==='exit'){this.session?.end();return;}
     else if(id==='demo-frame'||id==='demo-roof'){
       const button=$((id==='demo-roof')?'roof-demo-btn':'demo-btn');
@@ -413,6 +447,20 @@ export class StructuralXRControls {
       this.notice=app.showSAPOnly===desired?
         (desired?'Solo estructura visible.':'Modelo BIM visible.') :
         'Carga un modelo con sus resultados antes de activar esta vista.';
+    }
+    else if(id==='palette:model'){
+      const select=$('structure-palette');
+      if(select){
+        select.value=nextPalette(STRUCTURE_COLOURS,select.value);
+        select.dispatchEvent(new Event('change'));
+      }
+    }
+    else if(id==='palette:forces'){
+      const select=$('force-palette');
+      if(select){
+        select.value=nextPalette(FORCE_PALETTES,select.value);
+        select.dispatchEvent(new Event('change'));
+      }
     }
     else if(id==='ifc-opacity-scope'){
       const next=app.ifcOpacityScope==='envelope'?'all':'envelope';
@@ -568,6 +616,9 @@ export class StructuralXRControls {
         if(this.app.sapVisuals?.view==='forces'){
           const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
           if(selected)forceHovered=true;
+        }else if(this.app.sapVisuals?.view==='deformation'){
+          const selected=this.app.nodeProbe?.inspectXRRay(this._ray(controller));
+          if(selected)forceHovered=true;
         }else if(this.app.sapVisuals?.view==='reactions'){
           const selected=this.app.reactionVisuals?.inspectXRRay(this._ray(controller));
           if(selected)forceHovered=true;
@@ -602,7 +653,7 @@ export class StructuralXRControls {
         }
       }
     }
-    if(!forceHovered){this.app.sapVisuals?.hideXRHover();this.app.reactionVisuals?.hideXRHover();}
+    if(!forceHovered){this.app.sapVisuals?.hideXRHover();this.app.reactionVisuals?.hideXRHover();this.app.nodeProbe?.hideXRHover();}
     if(hovered!==this.hoverId){this.hoverId=hovered;this.dirty=true;}
     if(this.moveMenu&&!this.drag){
       const ctrl=this.controllers.find(x=>x.controller.userData.xrInput)?.controller;

@@ -9,6 +9,8 @@ import {sessionOptions} from './xr-session-config.mjs';
 import {createVREnvironment} from './vr-environment.js';
 import {ifcElementOpacity,normalizedScope} from './ifc-opacity.mjs';
 import {buildSupportSymbols} from './support-symbols.js';
+import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
+import {structuralColour,STRUCTURE_COLOURS} from './visual-palettes.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t)=> {
@@ -86,7 +88,7 @@ export class StructuralScene {
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
-    this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
+    this.showFrames=true;this.showSupports=true;this.structurePalette='original';this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
     this.mobileAR=false;this.mobileARState=null;
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
@@ -122,7 +124,7 @@ export class StructuralScene {
     for(const piece of items){
       const originalGeom=piece.geometry;
       const copiedGeom=originalGeom.clone();
-      const origMat=new THREE.MeshStandardMaterial({color:piece.color??0xb2c7d1,side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
+      const origMat=new THREE.MeshStandardMaterial({color:structuralColour(this.structurePalette,piece.color??0xb2c7d1),side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
       const displacedMat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,side:THREE.DoubleSide,roughness:.54,metalness:.04});
       const a=new THREE.Mesh(originalGeom,origMat),b=new THREE.Mesh(copiedGeom,displacedMat);
       a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType};
@@ -146,6 +148,7 @@ export class StructuralScene {
         structural:piece.structural??null,
         ifcType:piece.ifcType??null,
         analysisIncluded:piece.analysisIncluded??null,
+        baseColor:piece.color??0xb2c7d1,
         base:originalGeom.getAttribute('position').array.slice(),name:piece.name});
     }
     if(allBounds.isEmpty())throw new Error('No se ha recibido geometría 3D.');
@@ -195,13 +198,17 @@ export class StructuralScene {
     this.groundMarkers.visible=this.grid.visible;
   }
   recenterCamera(){
-    if(!this.bounds)return;
-    const s=this.targetMeters;
-    this.camera.position.set(s*1.50,s*1.05,s*1.65);
-    this.camera.near=Math.max(.001,s/1000);this.camera.far=Math.max(200,s*30);
-    this.camera.updateProjectionMatrix();
-    const h=this.bounds.getSize(new THREE.Vector3()).z*this.targetMeters/this.maxSize;
-    this.controls.target.set(0,h*.46,0);this.controls.update();
+    if(!this.bounds||this.isXR)return;
+    this.worldRoot.updateWorldMatrix(true,true);
+    const bounds=visibleModelBounds(this.parts,{
+      hideGround:this.hideGround,showStructureOnly:this.showStructureOnly
+    });
+    if(bounds.isEmpty())return;
+    const result=fitPerspectiveToBounds(this.camera,bounds);
+    if(!result)return;
+    this.controls.target.copy(result.center);
+    this.controls.maxDistance=Math.max(150,result.distance*8);
+    this.controls.update();
   }
   setResults(results){this.results=results;this.caseName=results?.cases?.[0]?.name||'';this.pattern='all';this.updateVisualization();}
   setCase(name){this.caseName=name;this.updateVisualization();}
@@ -210,6 +217,15 @@ export class StructuralScene {
   setHideGround(enabled){this.hideGround=!!enabled;this.updateVisualization();}
   setIFCOpacity(opacity){this.ifcOpacity=Math.max(0,Math.min(1,Number(opacity)||0));this.updateVisualization(false);}
   setIFCOpacityScope(scope){this.ifcOpacityScope=normalizedScope(scope);this.updateVisualization(false);}
+  setStructurePalette(name){
+    this.structurePalette=Object.hasOwn(STRUCTURE_COLOURS,name)?name:'original';
+    for(const part of this.parts){
+      part.orig.material.color.setHex(
+        structuralColour(this.structurePalette,part.baseColor));
+    }
+    this.updateVisualization(false);
+    if(this.xrControls)this.xrControls.dirty=true;
+  }
   setSAPOnly(enabled){
     // Avoid showing an empty environment if SAP geometry has not been imported.
     if(enabled&&(!this.results?.frames?.length||!this.parts.length))return false;
@@ -293,7 +309,7 @@ export class StructuralScene {
       part.deformed.geometry.computeVertexNormals();
       part.deformed.geometry.computeBoundingSphere();
     }
-    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();this.reactionVisuals?.refresh();}
+    if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();this.reactionVisuals?.refresh();this.nodeProbe?.refresh();}
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
@@ -364,6 +380,8 @@ export class StructuralScene {
     if(this.isXR||!this.pickStart||Math.hypot(this.pickStart.x-evt.clientX,this.pickStart.y-evt.clientY)>4)return;
     const r=this.renderer.domElement.getBoundingClientRect();this.mouse.set((evt.clientX-r.left)/r.width*2-1,-(evt.clientY-r.top)/r.height*2+1);
     this.pickRaycaster.setFromCamera(this.mouse,this.camera);
+    if(this.sapVisuals?.view==='forces'&&this.sapVisuals.pickForce(this.pickRaycaster))return;
+    if(this.sapVisuals?.view==='deformation'&&this.nodeProbe?.pick(this.pickRaycaster))return;
     const hit=this.pickRaycaster.intersectObjects([...this.originalGroup.children,...this.deformedGroup.children],false)[0];
     if(hit){const u=hit.object.userData;const id=u.guid?` · GUID ${u.guid}`:'';
       this.onSelection?.(`${u.name}${id}`);}

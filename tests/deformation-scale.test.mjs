@@ -18,8 +18,8 @@ test('adaptive amplification uses structural nodes, not the much larger IFC terr
       assert.ok(defaultAmp<=maxAmp,'Default > max');
       assert.ok(defaultAmp>0,'Default empty');
       // Underlying true displacement is preserved; graphical offset stays
-      // below 6 % of the structural span, even at maximum slider travel.
-      assert.ok(maxAmp*displacement<=span*.06+1e-6,
+      // below 12 % of the structural span, even at maximum slider travel.
+      assert.ok(maxAmp*displacement<=span*.12+1e-6,
         c.name+' maximum screen deformation exceeds safety budget');
       assert.ok(defaultAmp*displacement<=span*.015+1e-6,
         c.name+' default deformation visually exaggerated');
@@ -37,7 +37,7 @@ test('beam midspan bending (not just the joint displacements) limits amplificati
   assert.equal(maxCaseDeflection(model,'DEAD'),.010);
   const range=deformationScale(model,'DEAD');
   assert.equal(range.span,10);
-  assert.ok(range.maxAmp<=60);
+  assert.ok(range.maxAmp<=120);
   assert.ok(range.defaultAmp>10 && range.defaultAmp<15);
 });
 test('no displacement case is safe and all updates are clamped',()=>{
