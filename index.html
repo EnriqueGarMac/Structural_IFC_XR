@@ -34,7 +34,26 @@
         <div class="file-state" id="sap-state">Resultados: —</div>
         <div class="separator"></div>
         <div class="section-label">02 / RESULTADOS DE ANÁLISIS</div>
+        <div class="control"><label for="analysis-view">Vista de resultados</label>
+          <select id="analysis-view">
+            <option value="deformation">Desplazamientos</option>
+            <option value="forces">Esfuerzos internos</option>
+            <option value="modes">Modos de vibración</option>
+          </select></div>
         <div class="control"><label for="case-select">Caso / combinación</label><select id="case-select"><option value="">Sin resultados</option></select></div>
+        <div class="control"><label for="force-component">Componente de esfuerzo (ejes locales)</label>
+          <select id="force-component">
+            <option value="P">P · Axial (kN)</option>
+            <option value="V2">V2 · Cortante local 2 (kN)</option>
+            <option value="V3">V3 · Cortante local 3 (kN)</option>
+            <option value="T">T · Torsión (kN·m)</option>
+            <option value="M2">M2 · Momento local 2 (kN·m)</option>
+            <option value="M3" selected>M3 · Momento local 3 (kN·m)</option>
+          </select></div>
+        <div class="control"><label for="mode-select">Modo propio</label><select id="mode-select"><option value="">Sin modos</option></select></div>
+        <div class="range-control"><div class="range-head"><label for="modal-amplitude">Amplitud modal ilustrativa</label><output id="modal-amplitude-value">0.30 m (visual)</output></div>
+          <input id="modal-amplitude" type="range" min="0" max="1" value="0.30" step="0.02" />
+        </div>
         <div class="control"><label for="pattern-select">Patrón de carga</label><select id="pattern-select"><option value="all">Todos</option></select></div>
         <label class="checkrow"><input id="show-loads" type="checkbox" checked><span>Distribución de cargas <small>Flechas + intensidad de color</small></span></label>
         <label class="checkrow"><input id="show-displaced" type="checkbox" checked><span>Deformada amplificada <small>Interpolada entre nudos SAP</small></span></label>
