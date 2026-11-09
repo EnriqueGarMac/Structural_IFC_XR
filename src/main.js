@@ -232,7 +232,7 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
   if(!measured){forceReadout.hidden=true;return;}
   const sign=measured.value>0?'+':'';
   forceReadout.textContent='Barra '+measured.frameId+' · '+measured.component+
-    '\\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
+    '\n'+sign+measured.value.toFixed(3)+' '+measured.unit+
     '\\nSección s = '+measured.station.toFixed(3)+' m · '+measured.caseName+
     '\\nInterpolado entre estaciones SAP2000';
   const stage=$('stage').getBoundingClientRect();
