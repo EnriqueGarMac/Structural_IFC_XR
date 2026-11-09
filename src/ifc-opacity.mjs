@@ -14,7 +14,12 @@ export function ifcElementOpacity({opacity=1,scope='envelope',ifcType,structural
   const alpha=Math.max(0,Math.min(1,Number.isFinite(Number(opacity))?Number(opacity):1));
   const affected=normalizedScope(scope)==='all'||isEnvelopeElement(ifcType);
   const applied=affected?alpha:1;
-  return structuralDeformation?Math.min(applied,.16):applied;
+  // Give window glazing a modest default transparency even if the general
+  // IFC slider is at 0 % transparency. User-selected stronger transparency
+  // still wins, and this never changes the underlying IFC file.
+  const glass=String(ifcType??'').toUpperCase()==='IFCWINDOW';
+  const visualOpacity=glass?Math.min(applied,.60):applied;
+  return structuralDeformation?Math.min(visualOpacity,.16):visualOpacity;
 }
 export function nextXRIFCOpacity(opacity){
   const steps=[1,.75,.5,.25,.08];
