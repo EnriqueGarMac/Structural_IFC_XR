@@ -73,7 +73,9 @@ export class SAPVisuals{
       if(title)title.textContent=this.component+' | '+(['P','V2','V3'].includes(this.component)?'kN':'kN·m');
       if(lo)lo.textContent=(this.forceMin??0).toFixed(2);
       if(hi)hi.textContent=(this.forceMax??0).toFixed(2);
-      if(note)note.textContent='Cian: negativo · ámbar: positivo · valores en ejes locales';
+      if(note)note.textContent=(this.maxForce??0)<1e-10?
+        'Este componente no presenta esfuerzos distintos de cero en el caso seleccionado.':
+        'Cian: negativo · ámbar: positivo · valores en ejes locales';
     }else if(this.view==='modes'){
       const m=r.modes?.[this.modeIndex];
       if(title)title.textContent=m?'MODO '+m.number:'SIN MODOS';
@@ -194,7 +196,8 @@ export class SAPVisuals{
   // Pointer and WebXR ray intersections use the exact same SAP station data.
   pickForce(raycaster){
     if(this.view!=='forces'||!this.forceMeshes.length)return null;
-    this.app.contentRoot.updateMatrixWorld(true);
+    if(this.app.worldRoot?.updateWorldMatrix)this.app.worldRoot.updateWorldMatrix(true,true);
+    else this.app.contentRoot.updateMatrixWorld(true);
     const hits=raycaster.intersectObjects(this.forceMeshes,false);
     if(!hits.length)return null;
     const hit=hits[0],meta=hit.object.userData.forceSegment;
