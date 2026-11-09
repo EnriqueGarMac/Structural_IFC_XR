@@ -71,7 +71,7 @@ export function sampleIFCVertices(items,maxPoints=1800){
 }
 export function evaluateAlignment(ifcVertices,results,rotation){
   const structural=frameSamples(results);
-  const sapBounds=bounds(results.nodes.map(n=>[n.x,n.y,n.z]));
+  const sapBounds=bounds(structural);
   const rotated=ifcVertices.map(p=>rotateVector(p,rotation));
   const ifcBounds=bounds(rotated);
   const translation=sapBounds.center.map((v,i)=>v-ifcBounds.center[i]);
