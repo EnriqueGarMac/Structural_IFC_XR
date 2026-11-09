@@ -50,7 +50,7 @@
             <option value="M2">M2 · Momento local 2 (kN·m)</option>
             <option value="M3" selected>M3 · Momento local 3 (kN·m)</option>
           </select></div>
-        <label class="checkrow force-value-option"><input id="show-force-values" type="checkbox"><span>Mostrar valores característicos <small>Extremos y valores de inicio/fin de cada barra · esfuerzos locales SAP2000</small></span></label>
+        <div id="force-values-controls" class="force-values-controls" hidden><button id="toggle-force-values" type="button" class="secondary-btn force-values-btn" aria-pressed="false">Mostrar valores característicos</button><p class="field-help">Extremos registrados e inicio/fin de cada barra · esfuerzos locales SAP2000.</p></div>
         <div class="control"><label for="mode-select">Modo propio</label><select id="mode-select"><option value="">Sin modos</option></select></div>
         <div class="range-control"><div class="range-head"><label for="modal-amplitude">Amplitud modal ilustrativa</label><output id="modal-amplitude-value">0.30 m (visual)</output></div>
           <input id="modal-amplitude" type="range" min="0" max="1" value="0.30" step="0.02" />
