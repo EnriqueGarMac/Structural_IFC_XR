@@ -219,7 +219,8 @@ export class StructuralXRControls {
        d.kind==='amp-slider'&&button==='select')this.drag=null;
   }
   setAmplification(value){
-    const next=Math.round(clamp(value,0,25000));
+    const max=this.app.ampMax??150,step=this.app.ampStep??1;
+    const next=Number((Math.round(clamp(value,0,max)/step)*step).toFixed(2));
     if(next===this.app.amp)return false;
     const input=$('amp');
     input.value=String(next);
@@ -228,7 +229,7 @@ export class StructuralXRControls {
     return true;
   }
   setAmplificationFromX(x){
-    return this.setAmplification(amplificationFromSliderX(x,163,604,25000));
+    return this.setAmplification(amplificationFromSliderX(x,163,604,this.app.ampMax??150));
   }
   _buttons(){
     const c=this.ctx;
@@ -288,7 +289,7 @@ export class StructuralXRControls {
       txt('×'+app.amp,712,584,29,'#8bf6df','right');
       const left=163,right=604,y=660;
       rounded(c,left-7,y-8,right-left+14,16,8,'#254859');
-      const x=sliderXFromAmplification(app.amp,163,604,25000);
+      const x=sliderXFromAmplification(app.amp,163,604,app.ampMax??150);
       rounded(c,left-7,y-8,Math.max(10,x-left+7),16,8,'#45c6ae');
       c.beginPath();c.arc(x,y,21,0,Math.PI*2);c.fillStyle='#e8ffff';c.fill();
       c.strokeStyle='#72eed9';c.lineWidth=4;c.stroke();
@@ -296,7 +297,7 @@ export class StructuralXRControls {
       btn('amp:-','−',38,622,102,75);
       btn('amp:+','+',629,622,101,75);
       txt('×0',157,713,18,'#a2c6d1');
-      txt('×25.000',613,713,18,'#a2c6d1','right');
+      txt('×'+Math.round(app.ampMax??150).toLocaleString('es-ES'),613,713,18,'#a2c6d1','right');
       const view=app.sapVisuals?.view||'deformation';
       const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',
         reactions:'Reacciones en apoyos',modes:'Modos de vibración'};
@@ -440,7 +441,7 @@ export class StructuralXRControls {
       if(cases.length){
         const i=cases.findIndex(c=>c.name===app.caseName);
         const next=cases[rotateIndex(Math.max(0,i),id==='case:+'?1:-1,cases.length)].name;
-        app.setCase(next);$('case-select').value=next;
+        $('case-select').value=next;$('case-select').dispatchEvent(new Event('change'));
       }
     }
     else if(id==='view:next'){
@@ -480,7 +481,8 @@ export class StructuralXRControls {
       app.setPattern(p);$('pattern-select').value=p;
     }
     else if(id==='amp:+'||id==='amp:-'){
-      this.setAmplification(app.amp+(id==='amp:+'?500:-500));
+      const delta=Math.max(this.app.ampStep??1,(this.app.ampMax??150)/80);
+      this.setAmplification(app.amp+(id==='amp:+'?delta:-delta));
     }
     else if(['loads','deformed','original','frames','supports','axes'].includes(id)){
       const dict={loads:['showLoads','show-loads'],deformed:['showDeformed','show-displaced'],
