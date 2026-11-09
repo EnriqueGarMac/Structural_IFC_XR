@@ -414,7 +414,7 @@ export class StructuralXRControls {
       }
     }
     else if(id==='force-values'){
-      this.syncControl('show-force-values',!app.sapVisuals?.showCharacteristics);
+      $('toggle-force-values')?.click();
       this.notice=app.sapVisuals?.showCharacteristics?
         'Valores característicos activados. Apunta con el mando para inspeccionar las secciones.':
         'Valores característicos ocultos. Puedes seguir apuntando para leer esfuerzos.';
