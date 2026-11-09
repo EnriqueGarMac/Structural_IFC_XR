@@ -322,11 +322,29 @@ export class StructuralScene {
     const nodeMap=new Map(displayedNodes.map(n=>[n.id,vector(n)]));
     const frameMap=new Map(this.results.frames.map(f=>[f.id,f]));
     if(this.showFrames){
-      const points=[];
-      for(const f of this.results.frames){const a=nodeMap.get(f.i),b=nodeMap.get(f.j);if(a&&b)points.push(...a.toArray(),...b.toArray());}
-      if(points.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
-        const line=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x53f0e1,transparent:true,opacity:.85}));this.framesGroup.add(line);}
-      for(const n of displayedNodes){const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),new THREE.MeshBasicMaterial({color:0x82f5d6}));dot.position.copy(vector(n));this.framesGroup.add(dot);}
+      const points=[],colors=[];
+      const scaledColors=showAnalyticalDeformation&&this.maxU>0;
+      const heat=new Map(displayedNodes.map(n=>[
+        n.id,scaledColors?colorMap(n.magnitude/this.maxU,this.sapVisuals?.palette):new THREE.Color(0x53f0e1)
+      ]));
+      for(const f of this.results.frames){
+        const a=nodeMap.get(f.i),b=nodeMap.get(f.j);
+        if(!a||!b)continue;
+        points.push(...a.toArray(),...b.toArray());
+        colors.push(...heat.get(f.i).toArray(),...heat.get(f.j).toArray());
+      }
+      if(points.length){
+        const g=new THREE.BufferGeometry();
+        g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
+        g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+        this.framesGroup.add(new THREE.LineSegments(g,
+          new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.9})));
+      }
+      for(const n of displayedNodes){
+        const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),
+          new THREE.MeshBasicMaterial({color:heat.get(n.id)}));
+        dot.position.copy(vector(n));this.framesGroup.add(dot);
+      }
     }
     this.framesGroup.visible=this.showFrames&&this.sapVisuals?.view!=='modes';
     if(this.mobileAR){
