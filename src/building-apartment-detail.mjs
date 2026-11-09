@@ -5,7 +5,7 @@ export function addApartmentDetails({level,floorZ,box}){
   if(!Number.isInteger(level)||level<0||typeof box!=='function')
     throw Error('Invalid apartment furniture placement.');
   const F='IfcFurnishingElement',S='IfcSanitaryTerminal',P='IfcBuildingElementProxy',
-    COVER='IfcCovering',T='IfcFlowTerminal';
+    COVER='IfcCovering',T='IfcLightFixture';
   const wood=0xc39a74,oak=0xa87853,white=0xeceae3,cream=0xd9cfc1,
     steel=0x9db5bf,black=0x273947,glass=0x85bfd0,blue=0x5f879d,
     green=0x718e81,soft=0xc4afa0,chrome=0xc9d7da,
