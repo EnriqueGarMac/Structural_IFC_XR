@@ -43,3 +43,31 @@ test('modal displacement changes actual deformed IFC mesh, not only stick lines'
   visuals.setAmplitude(0);
   assert.ok(Math.abs(position.getY(1))<1e-10);
 });
+
+test('shaded force panels are raycastable and report SAP section value',()=>{
+  const app=makeApp(),visuals=new SAPVisuals(app);
+  visuals.view='forces';visuals.component='M3';
+  visuals.drawForces(results);
+  assert.equal(visuals.forceMeshes.length,3,'zero crossing splits signed segments');
+  assert.ok(visuals.forceMeshes.every(x=>x.isMesh&&x.material.side===THREE.DoubleSide));
+  assert.ok(new Set(visuals.forceMeshes.map(x=>x.material.color.getHex())).size>1);
+  const ray=new THREE.Raycaster(new THREE.Vector3(3,-2,.15),
+    new THREE.Vector3(0,1,0));
+  const hovered=visuals.pickForce(ray);
+  assert.ok(hovered,'Could not intersect shaded diagram');
+  assert.equal(hovered.frameId,'F1');
+  assert.equal(hovered.component,'M3');
+  assert.equal(hovered.unit,'kN·m');
+  assert.ok(Math.abs(hovered.station-3)<1e-5);
+  assert.ok(Math.abs(hovered.value-3)<1e-5);
+  visuals.clear();
+  assert.equal(visuals.forceMeshes.length,0);
+});
+test('characteristic labels option can be toggled independently of force component',()=>{
+  const app=makeApp(),visuals=new SAPVisuals(app);
+  visuals.view='forces';
+  visuals.setCharacteristics(true);
+  assert.equal(visuals.showCharacteristics,true);
+  visuals.setCharacteristics(false);
+  assert.equal(visuals.showCharacteristics,false);
+});
