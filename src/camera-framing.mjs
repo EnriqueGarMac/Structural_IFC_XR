@@ -21,22 +21,31 @@ export function visibleModelBounds(parts,{hideGround=false,showStructureOnly=fal
   return bounds;
 }
 export function fitPerspectiveToBounds(camera,bounds,{
-  direction=new THREE.Vector3(1.5,1.05,1.65),margin=1.22
+  direction=new THREE.Vector3(1.5,1.05,1.65),margin=1.4
 }={}){
   if(!camera?.isPerspectiveCamera||bounds?.isEmpty?.()!==false)return null;
-  const sphere=bounds.getBoundingSphere(new THREE.Sphere());
-  const radius=Math.max(.001,sphere.radius);
-  const vFov=THREE.MathUtils.degToRad(camera.fov);
-  const halfV=vFov/2;
-  const halfH=Math.atan(Math.tan(halfV)*Math.max(.08,camera.aspect));
-  // A sphere of radius R fits the entire rectangle if R <= d*sin(fov/2).
-  // Include a 22 % margin for selection/highlighting and sidebars.
-  const dist=Math.max(
-    radius/Math.sin(Math.max(.01,halfV)),
-    radius/Math.sin(Math.max(.01,halfH))
-  )*Math.max(1,margin);
-  const center=sphere.center;
+  const radius=Math.max(.001,bounds.getBoundingSphere(new THREE.Sphere()).radius);
+  const center=bounds.getCenter(new THREE.Vector3());
+  const tanV=Math.tan(Math.max(.01,THREE.MathUtils.degToRad(camera.fov)/2));
+  const tanH=tanV*Math.max(.08,camera.aspect);
+  // Fit the eight box corners as seen from the viewing direction, not the
+  // bounding sphere: a sphere wastes most of the screen on long, slender
+  // models (an 18 m plate girder, a truss). Same camera basis as lookAt.
   const unitDirection=direction.clone().normalize();
+  const right=new THREE.Vector3().crossVectors(camera.up,unitDirection);
+  if(right.lengthSq()<1e-12)right.set(1,0,0);
+  right.normalize();
+  const up=new THREE.Vector3().crossVectors(unitDirection,right);
+  // A 40 % margin on the projected extent keeps the model clear of the
+  // legend, the toolbar and the selection highlight.
+  const m=Math.max(1,margin);
+  let dist=.001;
+  for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])
+    for(const z of [bounds.min.z,bounds.max.z]){
+      const p=new THREE.Vector3(x,y,z).sub(center);
+      const depth=p.dot(unitDirection);
+      dist=Math.max(dist,depth+m*Math.abs(p.dot(right))/tanH,depth+m*Math.abs(p.dot(up))/tanV);
+    }
   camera.position.copy(center).addScaledVector(unitDirection,dist);
   camera.near=Math.max(.001,(dist-radius*1.8)/300);
   camera.far=Math.max(500,dist+radius*6);

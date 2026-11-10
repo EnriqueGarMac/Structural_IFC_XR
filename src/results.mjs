@@ -37,12 +37,68 @@ export function normalizeResults(input) {
     }))
   }));
   for (const c of cases) if (c.displacements.some(d=>![d.ux,d.uy,d.uz].every(valid))) throw new Error('Desplazamientos no numéricos en '+c.name);
-  if(!nodes.length && !frames.length && !cases.length && !loads.length)
+  // Shell/plate elements: 3 or more joints, drawn as flat surfaces.
+  const nodeIds=new Set(nodes.map(n=>n.id));
+  const areas=(input.areas||[]).map((a,i)=>({
+    id:String(a.id ?? i), joints:(a.joints||[]).map(String),
+    section:a.section??null, material:a.material??null,
+    thickness_m:a.thickness_m==null?null:Number(a.thickness_m)
+  }));
+  for (const a of areas) if (a.joints.length<3 || a.joints.some(j=>!nodeIds.has(j)))
+    throw new Error('Placa '+a.id+': nudos inexistentes o insuficientes.');
+  const pointLoads=(input.pointLoads||[]).map(p=>({
+    pattern:String(p.pattern ?? 'SIN_PATRON'), joint:p.joint==null?null:String(p.joint),
+    frame:p.frame==null?null:String(p.frame),
+    xyz_m:(p.xyz_m||[]).map(Number), force_kN:(p.force_kN||[0,0,0]).map(Number)
+  }));
+  if (pointLoads.some(p=>p.xyz_m.length!==3 || p.force_kN.length!==3 || ![...p.xyz_m,...p.force_kN].every(valid)))
+    throw new Error('Datos de cargas puntuales inválidos.');
+  // Linear buckling: factor lambda multiplies the reference loads of the case.
+  const bucklingModes=(input.bucklingModes||[]).map(m=>({...m, factor:Number(m.factor),
+    jointShape:m.jointShape??{}, frameCurves:m.frameCurves??{}}));
+  if (bucklingModes.some(m=>!valid(m.factor))) throw new Error('Factor de pandeo no numérico.');
+  if(!nodes.length && !frames.length && !areas.length && !cases.length && !loads.length)
     throw new Error('Este JSON no contiene nodos, barras ni resultados compatibles de SAP2000.');
-  return {meta:{...input.meta, units:'m, kN'}, nodes, frames, loads, cases,
-    forces:input.forces??{},modes:input.modes??[],sections:input.sections??{},
-    frameCurves:input.frameCurves??{},
+  // An empty curve set is not a beam deflection: dropping it lets the
+  // viewer fall back to the nodal displacements (shell-only models).
+  const frameCurves=Object.fromEntries(Object.entries(input.frameCurves??{})
+    .filter(([,curves])=>curves && Object.keys(curves).length));
+  return {meta:{...input.meta, units:'m, kN'}, nodes, frames, areas, loads, pointLoads, cases,
+    forces:input.forces??{},modes:input.modes??[],bucklingModes,
+    bucklingReference:input.bucklingReference??{},sections:input.sections??{},
+    areaSections:input.areaSections??{},frameCurves,
     jointReactions:normalizeJointReactions(input.jointReactions??{},nodes)};
+}
+// Nodal field of a modal or buckling shape, in the same form as caseNodes.
+export function modeNodes(results, mode, offset=[0,0,0]) {
+  const shape=mode?.jointShape??{};
+  return results.nodes.map(n=>{
+    const [ux,uy,uz]=(shape[n.id]??[0,0,0]).map(Number);
+    return {...n, x:n.x+offset[0], y:n.y+offset[1], z:n.z+offset[2], ux,uy,uz,
+      magnitude:Math.hypot(ux,uy,uz)};
+  });
+}
+// Unique joint pairs along the perimeter of the shell elements.
+export function areaEdges(areas) {
+  const seen=new Set(), edges=[];
+  for (const a of areas||[]) a.joints.forEach((j,k)=>{
+    const next=a.joints[(k+1)%a.joints.length];
+    const key=j<next?j+'|'+next:next+'|'+j;
+    if(!seen.has(key)){seen.add(key);edges.push([j,next]);}
+  });
+  return edges;
+}
+// Legend text for a buckling mode. A negative factor means that buckling
+// occurs with the reference loads reversed.
+export function bucklingSummary(mode) {
+  if (!mode) return null;
+  const factor=Number(mode.factor);
+  const fmt=v=>v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const p=mode.critical_force_resultant_kN;
+  const magnitude=Array.isArray(p)&&p.length===3?Math.hypot(...p.map(Number)):null;
+  return {factor, label:'λ = '+fmt(factor),
+    critical:magnitude===null?null:
+      'Pcr = '+fmt(magnitude)+' kN'+(factor<0?' con las cargas de referencia invertidas':'')};
 }
 export function caseNodes(results, selectedCase, offset=[0,0,0]) {
   const c = results.cases.find(v=>v.name===selectedCase) || results.cases[0];

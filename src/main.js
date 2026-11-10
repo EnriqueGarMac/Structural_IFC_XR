@@ -4,7 +4,8 @@ import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults, buildingTeaching } from './demo.js';
 import {roofDemoGeometry,roofDemoResults,ROOF_DEMO,industrialTeaching} from './roof-demo.js';
 import {exportEducationalIFC} from './ifc4-export.mjs';
-import { normalizeResults } from './results.mjs';
+import { normalizeResults, bucklingSummary } from './results.mjs';
+import { isControlActive } from './view-controls.mjs';
 import { SAPVisuals, makeSAPGeometry } from './sap-visuals.js';
 import { ReactionVisuals } from './reaction-visuals.js';
 import { NodeDisplacementProbe,displacementLabel } from './node-displacement-probe.js';
@@ -84,10 +85,9 @@ function setResults(results,label){
   $('sap-state').textContent=`Resultados: ${label}`;
   $('num-nodes').textContent=results.nodes.length.toLocaleString('es-ES');
   $('num-frames').textContent=results.frames.length.toLocaleString('es-ES');
-  const modalSelect=$('mode-select');modalSelect.innerHTML='';
-  (results.modes||[]).forEach((m,i)=>modalSelect.add(new Option('Modo '+m.number+' · '+Number(m.frequency_hz).toFixed(3)+' Hz',String(i))));
-  if(!results.modes?.length)modalSelect.add(new Option('Sin modos', ''));
+  populateModes('modes');
   $('analysis-view').value='deformation';
+  applyViewControls('deformation');
   app.sapVisuals.view='deformation';app.sapVisuals.refresh();app.reactionVisuals.refresh();
   $('force-values-controls').hidden=true;
   $('reaction-values-controls').hidden=true;
@@ -98,9 +98,37 @@ function setResults(results,label){
   if(!results.cases.length)cases.add(new Option('Sin deformadas', ''));
   results.cases.forEach(c=>cases.add(new Option(c.name,c.name)));
   const patterns=$('pattern-select');patterns.innerHTML='';patterns.add(new Option('Todos los patrones','all'));
-  for(const pattern of [...new Set(results.loads.map(l=>l.pattern))].sort())patterns.add(new Option(pattern,pattern));
+  for(const pattern of [...new Set([...results.loads,...results.pointLoads??[]].map(l=>l.pattern))].sort())patterns.add(new Option(pattern,pattern));
   const rawFrameCount=results.loads.length;
   status(`${results.cases.length} caso(s) de cálculo disponibles`);
+}
+// The same selector lists vibration modes or buckling modes for the active view.
+function populateModes(kind){
+  const select=$('mode-select');select.innerHTML='';
+  const buckling=kind==='buckling';
+  const list=(buckling?app.results?.bucklingModes:app.results?.modes)??[];
+  list.forEach((m,i)=>select.add(new Option(buckling?
+    'Pandeo '+m.number+' · '+bucklingSummary(m).label:
+    'Modo '+m.number+' · '+Number(m.frequency_hz).toFixed(3)+' Hz',String(i))));
+  if(!list.length)select.add(new Option(buckling?'Sin modos de pandeo':'Sin modos',''));
+  $('mode-select-label').textContent=buckling?'Modo de pandeo':'Modo propio';
+  $('modal-amplitude-label').textContent=buckling?'Amplitud de la forma de pandeo':'Amplitud de vibración';
+}
+// Panel inputs governed by the active results view (see view-controls.mjs).
+const VIEW_INPUTS={case:['case-select'],component:['force-component'],mode:['mode-select','modal-amplitude'],
+  pattern:['pattern-select'],amplification:['amp'],loads:['show-loads'],displaced:['show-displaced']};
+function applyViewControls(view){
+  for(const [control,ids] of Object.entries(VIEW_INPUTS)){
+    const active=isControlActive(view,control);
+    for(const id of ids){
+      const input=$(id);if(!input)continue;
+      input.disabled=!active;
+      const row=input.closest('.control,.range-control,.checkrow');
+      if(!row)continue;
+      row.classList.toggle('is-frozen',!active);
+      row.title=active?'':'No aplica a esta vista de resultados';
+    }
+  }
 }
 const demos={
   frame:{
@@ -203,7 +231,7 @@ $('sap-input').addEventListener('change',async(e)=>{
     if(demoActive||sapGeometryActive||!app.parts.length){
       originalIFC=null;importedIFCName='';
       const geometry=makeSAPGeometry(data);
-      if(!geometry.length)throw Error('El JSON no contiene barras válidas para visualizar.');
+      if(!geometry.length)throw Error('El JSON no contiene barras ni placas válidas para visualizar.');
       app.setResults(null);
       app.setModel(geometry);
       demoActive=false;sapGeometryActive=true;
@@ -214,20 +242,25 @@ $('sap-input').addEventListener('change',async(e)=>{
         $(config.button).classList.remove('is-current');
         $(config.button).setAttribute('aria-pressed','false');
       }
-      setModelLabel('Modelo de barras · '+f.name);
+      setModelLabel((data.areas.length?data.frames.length?'Modelo de barras y placas · ':'Modelo de placas · ':
+        'Modelo de barras · ')+f.name);
       updateStats(0);
     }
     syntheticResults=false;
     if(originalIFC?.length)alignIFC(data,false);
     setResults(data,f.name);
-    info('Resultados cargados: '+data.nodes.length+' nodos y '+data.frames.length+' barras.');
+    info('Resultados cargados: '+data.nodes.length+' nodos'+(data.areas.length?
+      ', '+data.frames.length+' barras y '+data.areas.length+' placas.':' y '+data.frames.length+' barras.'));
   }catch(err){console.error(err);info(`No se pudo leer el archivo de resultados: ${err.message}`,true);}
   e.target.value='';
 });
 $('analysis-view').addEventListener('change',e=>{
   const kind=e.target.value;
-  app.showDeformed=kind==='deformation'||kind==='modes';
-  app.showLoads=kind==='deformation';
+  // The buckling view keeps the loads visible: it shows the reference loads.
+  app.showDeformed=kind==='deformation'||kind==='modes'||kind==='buckling';
+  app.showLoads=kind==='deformation'||kind==='buckling';
+  if(kind==='modes'||kind==='buckling')populateModes(kind);
+  applyViewControls(kind);
   $('show-displaced').checked=app.showDeformed;
   $('show-loads').checked=app.showLoads;
   app.sapVisuals.setView(kind);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {makeBeamFieldSampler} from './beam-field.mjs';
+import {makeDisplacementSampler,modeNodes,areaEdges,bucklingSummary} from './results.mjs';
 import {FORCE_COMPONENTS,readForceStations,forceSegments,characteristicStations,
   makeForcePatchCoordinates,forceReadoutFromPoint} from './force-diagrams.mjs';
 import {forcePalette,forceSignColour,FORCE_PALETTES,cssForceGradient,resultColourHex,cssResultGradient} from './visual-palettes.mjs';
@@ -24,6 +25,28 @@ export function makeSAPGeometry(results){
     const midpoint=a.clone().add(b).multiplyScalar(.5);
     geometry.translate(midpoint.x,midpoint.y,midpoint.z);
     pieces.push({geometry,name:'Barra '+f.id,color:0x9ac8d1,ifcType:'SapFrame'});
+  }
+  // Shell elements: one merged mesh per area section keeps the draw calls
+  // low on Quest. Every plate keeps its own vertices, placed exactly on the
+  // SAP joints, so nodal displacements are reproduced without interpolation.
+  const sections=new Map();
+  for(const area of results.areas??[]){
+    const corners=area.joints.map(id=>nodes.get(id));
+    if(corners.some(p=>!p))continue;
+    const key=area.section??'';
+    if(!sections.has(key))sections.set(key,{positions:[],faceNames:[],count:0});
+    const group=sections.get(key);group.count++;
+    for(let k=1;k<corners.length-1;k++){
+      group.positions.push(...corners[0].toArray(),...corners[k].toArray(),...corners[k+1].toArray());
+      group.faceNames.push('Placa '+area.id+(key?' · '+key:''));
+    }
+  }
+  for(const [section,group] of sections){
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(group.positions,3));
+    geometry.computeVertexNormals();
+    pieces.push({geometry,name:'Placas '+(section||'SAP')+' ('+group.count+')',color:0xb4c6cf,
+      ifcType:'SapArea',faceNames:group.faceNames});
   }
   return pieces;
 }
@@ -65,15 +88,22 @@ export class SAPVisuals{
     if(this.view==='forces')this.refresh();
     this.app.xrControls && (this.app.xrControls.dirty=true);
   }
-  setView(view){this.view=view;this.app.updateVisualization();if(view!=='forces')this.hideXRHover();}
+  setView(view){
+    if(view!==this.view)this.modeIndex=0;
+    this.view=view;this.app.updateVisualization();if(view!=='forces')this.hideXRHover();
+  }
+  // Vibration modes and buckling modes share the shape display.
+  activeModes(r=this.app.results){
+    return (this.view==='buckling'?r?.bucklingModes:this.view==='modes'?r?.modes:null)??[];
+  }
   setComponent(key){if(forceKeys[key]){this.component=key;this.refresh();this.updateLegend();}}
   setMode(index){this.modeIndex=Number(index)||0;this.app.updateVisualization();}
-  setAmplitude(v){this.modalAmplitude=Math.max(0,Number(v)||0);this.updateModalAnimation(performance.now());}
+  setAmplitude(v){this.modalAmplitude=Math.max(0,Number(v)||0);this.updateModalAnimation(performance.now(),true);}
   refresh(){
     this.clear();
     const r=this.app.results;if(!r)return;
     if(this.view==='forces')this.drawForces(r);
-    if(this.view==='modes'){this.drawMode(r);this.prepareModalMeshes(r);}
+    if(this.view==='modes'||this.view==='buckling'){this.drawMode(r);this.prepareModalMeshes(r);}
   }
   updateLegend(){
     const r=this.app.results;if(!r||this.view==='deformation')return;
@@ -98,6 +128,16 @@ export class SAPVisuals{
       if(lo)lo.textContent='Forma relativa';
       if(hi)hi.textContent=m?Number(m.frequency_hz).toFixed(3)+' Hz':'—';
       if(note)note.textContent='Forma normalizada · animación lenta ilustrativa, no tiempo real';
+    }else if(this.view==='buckling'){
+      const bar=document.querySelector('#legend .legend-bar');
+      if(bar)bar.style.background=cssResultGradient(this.palette);
+      const m=this.activeModes(r)[this.modeIndex];
+      const summary=bucklingSummary(m);
+      if(title)title.textContent=m?'PANDEO '+m.number:'SIN MODOS DE PANDEO';
+      if(lo)lo.textContent='Forma relativa';
+      if(hi)hi.textContent=summary?summary.label:'—';
+      if(note)note.textContent=(summary?.critical?summary.critical+' · ':'λ multiplica las cargas de referencia · ')+
+        'forma de amplitud y signo arbitrarios';
     }
   }
   nodePositions(r){
@@ -309,9 +349,21 @@ export class SAPVisuals{
   hideXRHover(){if(this.xrTooltip)this.xrTooltip.visible=false;this.setHoverSection(null);}
 
   drawMode(r){
-    const mode=r.modes?.[this.modeIndex];if(!mode)return;
+    const mode=this.activeModes(r)[this.modeIndex];if(!mode)return;
     this.frequency=Number(mode.frequency_hz)||0;
     const points=this.nodePositions(r);
+    // Shell edges move as a single line set, so a plate model also shows its
+    // shape in the analytical "Solo SAP" view.
+    const edges=areaEdges(r.areas).filter(([i,j])=>points.has(i)&&points.has(j));
+    if(edges.length){
+      const base=edges.flatMap(([i,j])=>[points.get(i),points.get(j)]);
+      const shape=edges.flatMap(ids=>ids.map(id=>new THREE.Vector3(...(mode.jointShape?.[id]??[0,0,0]))));
+      const mesh=new THREE.LineSegments(
+        new THREE.BufferGeometry().setFromPoints(base),
+        new THREE.LineBasicMaterial({color:resultColourHex(.8,this.palette),transparent:true,opacity:.55})
+      );
+      this.group.add(mesh);this.dynamic.push({mesh,base,shape});
+    }
     for(const f of r.frames){
       const a=points.get(f.i),b=points.get(f.j);if(!a||!b)continue;
       const displacements=mode.frameCurves?.[f.id]??[
@@ -325,14 +377,18 @@ export class SAPVisuals{
       );
       this.group.add(mesh);this.dynamic.push({mesh,base,shape});
     }
-    this.updateModalAnimation(0);
+    this.updateModalAnimation(0,true);
   }
   prepareModalMeshes(r){
     this.modalParts=[];
-    const mode=r.modes?.[this.modeIndex];if(!mode)return;
-    const sample=makeBeamFieldSampler(r,{mode,offset:this.app.offset});
+    const mode=this.activeModes(r)[this.modeIndex];if(!mode)return;
+    // Plates (and any model without frames) take the nodal shape directly;
+    // frame meshes keep the beam-curve projection.
+    const nodeSample=makeDisplacementSampler(modeNodes(r,mode,this.app.offset));
+    const beamSample=r.frames.length?makeBeamFieldSampler(r,{mode,offset:this.app.offset}):nodeSample;
     let max=0;
     for(const part of this.app.parts){
+      const sample=part.ifcType==='SapArea'?nodeSample:beamSample;
       const shape=new Float32Array(part.base.length);
       for(let j=0;j<shape.length;j+=3){
         const [ux,uy,uz,mag]=sample(part.base[j],part.base[j+1],part.base[j+2]);
@@ -351,13 +407,15 @@ export class SAPVisuals{
       }
       attr.needsUpdate=true;heat.needsUpdate=true;
     }
-    this.updateModalAnimation(0);
+    this.updateModalAnimation(0,true);
   }
-  updateModalAnimation(ms){
-    if(this.view!=='modes')return;
+  updateModalAnimation(ms,force=false){
+    // A buckling mode is a static bifurcation shape: it is drawn once with
+    // the amplitude slider, not animated by the render loop.
+    if(this.view!=='modes'&&!(this.view==='buckling'&&force))return;
     // Real eigenfrequencies are shown in the legend, while playback is slowed
     // so modes above the headset frame rate do not alias.
-    const sine=Math.sin(2*Math.PI*this.visualHz*ms/1000);
+    const sine=this.view==='buckling'?1:Math.sin(2*Math.PI*this.visualHz*ms/1000);
     for(const {mesh,base,shape} of this.dynamic){
       const attr=mesh.geometry.getAttribute('position');
       for(let i=0;i<base.length;i++){
@@ -373,7 +431,7 @@ export class SAPVisuals{
       const base=part.base,s=this.modalAmplitude*sine;
       for(let j=0;j<shape.length;j++)attr.array[j]=base[j]+s*shape[j];
       attr.needsUpdate=true;
-      if(this.frameNumber%4===0){
+      if(force||this.frameNumber%4===0){
         part.deformed.geometry.computeVertexNormals();
         part.deformed.geometry.computeBoundingSphere();
       }

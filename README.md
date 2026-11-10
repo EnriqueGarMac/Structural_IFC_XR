@@ -4,6 +4,13 @@
   modelo visible completo. Si el terreno se muestra, se incluye en el encuadre;
   si está oculto, se adapta al edificio o nave. El botón de restablecer la vista
   recupera ese encuadre. La orientación y los datos de ingeniería no cambian.
+  Se ajusta la caja del modelo tal como la ve la cámara, no su esfera
+  envolvente, de modo que los modelos esbeltos (una viga de 18 m) llenan el visor.
+- **Controles según la vista:** los controles que no afectan a la vista de
+  resultados activa quedan atenuados y desactivados, sin cambiar de sitio.
+  Por ejemplo, el caso, el patrón de carga y la amplificación de la deformada
+  en los modos de vibración o de pandeo. El menú de Meta Quest sigue el mismo
+  criterio.
 - **Cristales IFC:** las ventanas comienzan con una opacidad de aproximadamente
   **60 %** (40 % de transparencia), incluso si el resto del IFC es opaco.
   El control general de transparencia permite reducirla todavía más.
@@ -138,7 +145,8 @@ El visor dispone de dos experiencias independientes para Meta Quest:
    carga un IFC y su JSON SAP2000, o escoge una demostración.
 2. Pulsa **Quest 3 VR** y acepta entrar en realidad virtual.
 3. Utiliza el menú flotante **Análisis y deformadas** para elegir caso,
-   cargas, diagramas de esfuerzos y formas modales.
+   cargas, diagramas de esfuerzos, formas modales y modos de pandeo. En los
+   modos de vibración y de pandeo, los botones −/+ ajustan la amplitud de la forma.
 4. Apunta al modelo con el gatillo para girarlo, usa el botón lateral para
    desplazarlo, el joystick izquierdo para rotarlo y el derecho para ajustar
    el tamaño. En **Mover modelo en VR** puedes recentrarlo delante de ti.
@@ -161,29 +169,95 @@ automáticamente, pero la experiencia física requiere pruebas en las gafas.
 
 ---
 
-## Importar directamente un JSON de SAP2000 (nuevo esquema IMIS)
+## De SAP2000 a la web: exportar a Excel y convertir a JSON
 
-La aplicación admite tanto los archivos clásicos `{nodes, frames, loads, cases}` como
-el JSON enriquecido `imis.sap2000.xr/1` generado por el conversor Excel de SAP2000.
+Es la vía recomendada para cargar un modelo propio. No necesita SAP2000
+abierto ni librerías de Python adicionales.
 
-1. Abre el visor y pulsa **Cargar SAP**.
-2. Selecciona `Modelo_XR.json`. No hace falta importar un IFC: se crea una
-   representación analítica de las barras con geometría cilíndrica simplificada.
-3. En **Vista de resultados**, elige **Desplazamientos**, **Esfuerzos internos**
-   o **Modos de vibración**.
-4. Para esfuerzos, selecciona el caso y el componente local
-   `P, V2, V3, T, M2, M3`. Los diagramas tienen escala visual normalizada.
-5. Para modos, selecciona el modo propio y una amplitud ilustrativa. La
-   frecuencia de animación corresponde al autovalor exportado.
+1. En SAP2000, con el modelo **ya calculado**, usa **File > Export > SAP2000 MS
+   Excel Spreadsheet** y marca las tablas que vayas a usar:
+
+   | Para… | Tablas |
+   |---|---|
+   | Geometría (imprescindible) | `Joint Coordinates`, `Connectivity - Frame` y/o `Connectivity - Area` |
+   | Casos y deformadas | `Joint Displacements` (la lista de casos de la web sale de esta tabla) |
+   | Esfuerzos en barras | `Element Forces - Frames` |
+   | Apoyos y reacciones | `Joint Restraint Assignments`, `Joint Reactions` |
+   | Modos de vibración | `Modal Periods And Frequencies`, `Modal Participating Mass Ratios` |
+   | Pandeo lineal | `Buckling Factors`, `Case - Buckling 2 - Loads` |
+   | Cargas | `Load Pattern Definitions`, `Joint Loads - Force`, `Frame Loads - Distributed`, `Frame Loads - Point` |
+   | Peso propio | `Frame Props 01 - General`, `Frame Section Assignments`, `Area Section Properties`, `Area Section Assignments`, `MatProp 01 - General`, `MatProp 02 - Basic Mech Props` |
+
+   Las tablas de tensiones, deformaciones y fuerzas de placas
+   (`Element Stresses`, `Element Strains`, `Element Forces - Area Shells`,
+   `Element Joint Forces - Areas`) todavía no se usan y pueden ocupar
+   decenas de MB, así que es mejor no exportarlas.
+2. Convierte el Excel con Python 3.10 o superior:
+
+   ```powershell
+   py scripts\sap2000_to_xr.py Modelo.xlsx -o Modelo_XR.json
+   ```
+
+   El conversor acepta las unidades de SAP2000 (N, kN, MN, Kgf, tonf, lb, kip;
+   mm, cm, m, in, ft) y escribe siempre m, kN y kN·m. Al terminar resume lo
+   exportado y avisa de lo que no ha podido representar, sin inventarlo.
+   Con `--format rich` genera el esquema anidado `imis.sap2000.xr/1`; la web
+   lee ambos formatos.
+3. En la web, pulsa **Cargar resultados** y elige el JSON. Si no hay IFC, se
+   crean barras cilíndricas y placas planas a partir del modelo de cálculo.
+4. En **Vista de resultados**, elige **Desplazamientos**, **Esfuerzos internos**
+   (componentes locales `P, V2, V3, T, M2, M3`), **Reacciones en apoyos**,
+   **Modos de vibración** o **Modos de pandeo**.
+
+Tratamiento de las cargas en el conversor:
+
+- **Distribuidas en barras:** las globales X/Y/Z y *Gravity* (−Z) se dibujan
+  con flechas; las proyectadas se convierten a intensidad por longitud real;
+  las locales 1/2/3 se dibujan como bandas, sin dirección global.
+- **Puntuales**, en nudos y en barras: flecha en el punto de aplicación.
+- **Cargas de superficie** (`Area Loads`), momentos repartidos y otras
+  asignaciones: se conservan en el JSON (`loadAssignments`), pero no se dibujan.
+- **Envolventes de combinaciones:** los valores *Max* y *Min* se cargan como
+  dos casos, `COMB (Max)` y `COMB (Min)`.
 
 En **Meta Quest**, abre **Análisis y deformadas** y utiliza el botón
-**VISTA** para alternar entre desplazamientos, diagramas y vibraciones.
-Las flechas del campo de detalle cambian el esfuerzo o el modo.
+**VISTA** para alternar entre desplazamientos, diagramas, reacciones,
+vibraciones y pandeo. Las flechas del campo de detalle cambian el esfuerzo o el modo.
 
-**Importante:** las formas modales están normalizadas: sus amplitudes
-no equivalen a desplazamientos físicos. Las barras generadas a partir del JSON
-son aproximaciones analíticas, no la geometría exacta IFC. El visor no realiza
-un cálculo FEM ni transforma esfuerzos locales a globales.
+**Importante:** las formas modales y de pandeo están normalizadas: sus amplitudes
+no equivalen a desplazamientos físicos. Las barras y placas generadas a partir
+del JSON son aproximaciones analíticas, no la geometría exacta IFC. El visor no
+realiza un cálculo FEM ni transforma esfuerzos locales a globales.
+
+---
+
+## Modelos de placas y pandeo lineal
+
+El visor también carga modelos con elementos de área (*Shell*) de SAP2000 y
+casos de **pandeo lineal** (*Linear Buckling*). Como ejemplo se incluye
+`sap2000/test_lateral_buckling_XR.json`: una viga en I de 18 m modelada con
+480 placas, con pandeo lateral.
+
+- **Placas:** se dibujan como superficies planas, con una malla por sección y
+  los vértices sobre los nudos de SAP2000. Desplazamientos y formas modales
+  coinciden con SAP en los nudos y varían linealmente dentro de cada placa.
+  Al hacer clic se identifica la placa (`Placa 1205 · sección`). En
+  **Solo modelo de cálculo** se ven sus aristas.
+- **Modos de pandeo:** la leyenda muestra el factor **λ** de cada modo y, si el
+  conversor ha podido sumar las cargas de referencia del caso, la carga crítica
+  **Pcr = λ · P_ref**. Un λ **negativo** significa que la estructura pandea con
+  las cargas de referencia **invertidas**.
+- **Forma de pandeo:** es **fija**, porque se trata de una bifurcación y no de
+  una vibración, y se escala con el deslizador de amplitud. Su amplitud y su
+  signo son arbitrarios. La vista dibuja además las cargas de referencia del caso.
+- En **Meta Quest**: **VISTA → Modos de pandeo**; los botones −/+ ajustan la amplitud.
+
+Límites actuales:
+- aún no hay mapas de tensiones en placas;
+- Pcr no se calcula si las cargas de referencia incluyen cargas que el
+  conversor no sabe sumar, como las de superficie (en ese caso solo se da λ);
+- la alineación automática con un IFC y la exportación USDZ en
+  **Solo modelo de cálculo** necesitan barras.
 
 ---
 🌐 **[Abrir Structural IFC XR — aplicación web](https://enriquegarmac.github.io/Structural_IFC_XR/)**
@@ -192,7 +266,7 @@ un cálculo FEM ni transforma esfuerzos locales a globales.
 
 # IMIS Structural XR — IFC + SAP2000 + Meta Quest 3
 
-Prototipo abierto para visualizar **geometría IFC**, **cargas distribuidas aplicadas a barras** y **deformadas nodales de SAP2000** en escritorio, webcam y realidad mixta en Meta Quest 3.
+Prototipo abierto para visualizar **geometría IFC** y **resultados de SAP2000** (modelos de barras y placas: cargas, deformadas, esfuerzos, reacciones, modos de vibración y de pandeo) en escritorio, webcam, móvil y realidad mixta o virtual en Meta Quest 3.
 
 **Estado:** prototipo docente. Incluye un calculador matricial 2D para ejemplos y un visor de resultados externos SAP2000; no está destinado a dimensionamiento normativo. La conexión COM con SAP2000 sigue siendo una vía independiente.
 
@@ -322,7 +396,9 @@ Esta distribución incluye `.github/workflows/ci.yml` para verificar la compilac
 
 ## 3. Obtener resultados reales de SAP2000
 
-SAP2000 debe estar **instalado y abierto en el mismo PC Windows**, con el modelo analizado y guardado. La web **no ejecuta SAP2000**, solo lee su exportación.
+La vía recomendada es exportar a Excel y usar el conversor (sección **De SAP2000 a la web**, más arriba). Como alternativa, más limitada, existe un exportador por COM que solo obtiene los desplazamientos de un caso y las cargas distribuidas en barras.
+
+Para el exportador COM, SAP2000 debe estar **instalado y abierto en el mismo PC Windows**, con el modelo analizado y guardado. La web **no ejecuta SAP2000**, solo lee su exportación.
 
 1. Instala Python y la dependencia COM (solo para el exportador):
 
@@ -337,8 +413,8 @@ SAP2000 debe estar **instalado y abierto en el mismo PC Windows**, con el modelo
    py scripts\exportar_sap2000.py --case DEAD --out resultado_sap.json
    ```
 
-4. Si se creó `resultado_sap.json`, vuelve a la web y pulsa **Cargar SAP** para seleccionarlo. Usa los controles de caso y amplificación.
-5. Comprueba que las barras analíticas y los nudos coinciden visualmente con el IFC. Si difieren en el **origen** pero no en rotación, introduce los offsets ΔX, ΔY, ΔZ (metros) y pulsa **Aplicar alineación**.
+4. Si se creó `resultado_sap.json`, vuelve a la web y pulsa **Cargar resultados** para seleccionarlo. Usa los controles de caso y amplificación.
+5. Comprueba que las barras analíticas y los nudos coinciden visualmente con el IFC (ver **Alineación con el IFC**).
 
 El exportador recopila:
 
@@ -351,11 +427,9 @@ El script usa el **CSI OAPI/COM**; es un punto de partida con pruebas frente a d
 
 **Análisis estáticos:** recomendado para la primera versión. En resultados con múltiples pasos, el exportador selecciona el último resultado devuelto por nudo; **no** reconstruye ni reproduce una historia temporal y no debe usarse para interpretar envolventes.
 
-Si tu IFC y SAP tienen distinta orientación de ejes, distinta escala u otros cambios geométricos, **los offsets NO bastan**: requiere una transformación de coordenadas (rotación + traslación) que aún no está implementada.
+### Alineación con el IFC
 
-### Alternativa sin COM
-
-SAP2000 permite exportar tablas de análisis a Excel desde **File > Export > SAP2000 MS Excel Spreadsheet**. Se pueden convertir después al contrato JSON descrito abajo. La aplicación no interpreta directamente los formatos de tablas Excel de CSI.
+Al cargar un IFC y un JSON con barras, el visor prueba las **24 orientaciones ortogonales** del IFC: en cada una centra ambos modelos y mide cuánto se alejan las barras de SAP2000 de la geometría IFC, y se queda con la que mejor coincide. El selector **Orientación del modelo IFC** permite fijar una rotación concreta. Los offsets ΔX, ΔY, ΔZ (metros) y **Aplicar alineación** sirven para el ajuste fino del origen. No se corrigen escalas distintas ni rotaciones que no sean múltiplos de 90°, y con modelos solo de placas la alineación automática aún no está disponible.
 
 ## 4. Entrar en realidad mixta con Quest 3
 
@@ -376,7 +450,8 @@ No se puede usar `http://IP-DEL-PC:5173` para la sesión inmersiva WebXR a trav�
 - **Deformada (color):** campo de magnitud |u| obtenido por interpolación inversa de distancias de los desplazamientos nodales; escala en **mm reales**.
 - **Deformada (forma):** desplazamientos multiplicados por el factor de amplificación. **No representa la geometría deformada FEM exacta.** No emplea funciones de forma de los elementos originales, giros nodales ni curvaturas de barras.
 - **Distribución de cargas:** bandas coloreadas sobre **barras analíticas** por intensidad de carga aplicada (kN/m). Solo aparecen flechas con sentido físico para direcciones **globales X/Y/Z (4/5/6)**. Las cargas locales se muestran como bandas sin atribuirles una dirección global.
-- **No es un mapa de tensiones, deformaciones unitarias, momentos, cortantes ni esfuerzos internos.** No incluye por ahora cargas superficiales de `AreaObj`, cargas puntuales ni presión sobre forjados.
+- **Cargas puntuales:** flechas en nudos y barras, con la punta en el punto de aplicación y longitud ilustrativa.
+- **No es un mapa de tensiones, deformaciones unitarias, momentos, cortantes ni esfuerzos internos.** No incluye por ahora cargas superficiales de `AreaObj` ni presión sobre forjados.
 
 ## 6. Datos JSON
 
@@ -397,14 +472,23 @@ Puedes probar el formato con `samples/sap_example.json`. Ojo: ese JSON contiene 
 - Un `case` puede contener desplazamientos por nudo y puede cargarse más de uno en el mismo JSON.
 - `w1` y `w2` son las intensidades en ambos extremos del tramo de carga.
 
+El conversor `scripts/sap2000_to_xr.py` añade campos opcionales que la web también lee:
+
+- `areas`: placas, con sus nudos (3 o más), sección y espesor.
+- `pointLoads`: cargas puntuales con posición `xyz_m` y vector `force_kN` globales.
+- `forces`, `jointReactions`, `frameCurves`: esfuerzos de barras, reacciones y curvas de deformada por caso.
+- `modes`: modos de vibración (`frequency_hz`, forma normalizada `jointShape`).
+- `bucklingModes` y `bucklingReference`: factores λ, formas de pandeo, cargas de referencia y, cuando se pueden calcular, cargas críticas.
+
 ## 7. Pruebas incluidas
 
 ```sh
 npm test
 python tests/test_sap_export.py
+python tests/test_sap2000_to_xr.py
 ```
 
-Las pruebas cubren parsing/validación de JSON, filtrado por patrón, desplazamientos, offsets y salidas OAPI simuladas. **No sustituyen pruebas end-to-end** de importación IFC, WebGL, permisos de cámara, SAP2000 y Quest 3.
+Las pruebas cubren parsing/validación de JSON, filtrado por patrón, desplazamientos, offsets, salidas OAPI simuladas y el conversor Excel → JSON con libros sintéticos (barras, placas, pandeo, unidades y envolventes). **No sustituyen pruebas end-to-end** de importación IFC, WebGL, permisos de cámara, SAP2000 y Quest 3.
 
 ## 8. Tecnologías
 

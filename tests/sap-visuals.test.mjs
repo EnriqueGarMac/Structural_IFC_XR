@@ -92,3 +92,35 @@ test('hover and click draw the exact force-section cut without changing values',
   assert.equal(visuals.pinnedMarker.visible,false);
   visuals.clear();
 });
+test('plates become one merged mesh on the SAP joints and show a static buckling shape',async()=>{
+  const {makeSAPGeometry}=await import('../src/sap-visuals.js');
+  const {normalizeResults}=await import('../src/results.mjs');
+  const plates=normalizeResults({
+    nodes:[[1,0,0],[2,1,0],[3,2,0],[4,0,1],[5,1,1],[6,2,1]].map(([id,x,y])=>({id:String(id),x,y,z:0})),
+    frames:[],areas:[{id:'10',joints:['1','2','5','4'],section:'PL'},{id:'11',joints:['2','3','6','5'],section:'PL'}],
+    cases:[],bucklingModes:[{number:1,case:'B',factor:-2,jointShape:{'3':[0,0,1]}}]
+  });
+  const [piece]=makeSAPGeometry(plates);
+  assert.equal(piece.ifcType,'SapArea');
+  assert.equal(piece.faceNames.length,4);
+  assert.equal(piece.faceNames[2],'Placa 11 · PL');
+  const g=piece.geometry.clone(),count=g.getAttribute('position').count;
+  assert.equal(count,12);
+  g.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(count*3),3));
+  g.setAttribute('heat',new THREE.Float32BufferAttribute(new Float32Array(count),1));
+  const app=makeApp();
+  app.results=plates;
+  app.parts=[{base:piece.geometry.getAttribute('position').array.slice(),ifcType:'SapArea',
+    deformed:new THREE.Mesh(g,new THREE.MeshStandardMaterial())}];
+  const visuals=new SAPVisuals(app);
+  visuals.view='buckling';visuals.modalAmplitude=.5;
+  visuals.prepareModalMeshes(plates);
+  const position=g.getAttribute('position'),base=app.parts[0].base;
+  const lifted=[...Array(count).keys()].filter(i=>Math.abs(position.getZ(i)-.5)<1e-9);
+  // Joint 3 (2,0,0) is a corner of one triangle (2,3,6) of plate 11, raised by the full amplitude.
+  assert.equal(lifted.length,1);
+  assert.ok(lifted.every(i=>base[3*i]===2&&base[3*i+1]===0));
+  // The render loop does not animate a buckling shape.
+  visuals.updateModalAnimation(250);
+  assert.equal(position.getZ(lifted[0]),.5);
+});

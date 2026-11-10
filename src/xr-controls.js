@@ -3,12 +3,15 @@ import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniqu
   amplificationFromSliderX,sliderXFromAmplification} from './xr-logic.mjs';
 import {nextXRIFCOpacity} from './ifc-opacity.mjs';
 import {formatAmplification} from './deformation-scale.mjs';
+import {bucklingSummary} from './results.mjs';
+import {isControlActive} from './view-controls.mjs';
 import {FORCE_PALETTES,nextPalette} from './visual-palettes.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
 const W=768,H=1100;
-const uiColour={bg:'#0a1c29',surface:'#163345',edge:'#467083',text:'#e8fbfc',muted:'#9fc7d4',accent:'#71f3dc'};
+const uiColour={bg:'#0a1c29',surface:'#163345',edge:'#467083',text:'#e8fbfc',muted:'#9fc7d4',accent:'#71f3dc',
+  dim:'#55707c'};
 function rounded(ctx,x,y,w,h,r,fill,stroke){
   ctx.beginPath();ctx.roundRect(x,y,w,h,r);
   if(fill){ctx.fillStyle=fill;ctx.fill();}
@@ -244,12 +247,13 @@ export class StructuralXRControls {
   }
   _buttons(){
     const c=this.ctx;
-    const btn=(id,label,x,y,w,h,accent=false)=>{
-      this.hits.push({id,x,y,w,h});
-      const active=id===this.hoverId;
-      rounded(c,x,y,w,h,13,active?'#356c76':accent?'#1f6670':uiColour.surface,
-        active?'#90ffdc':uiColour.edge);
-      c.fillStyle='#f0fcff';c.font=(accent?'bold 24px':'22px')+' system-ui';
+    // A disabled button is drawn dimmed and registers no hit area.
+    const btn=(id,label,x,y,w,h,accent=false,enabled=true)=>{
+      if(enabled)this.hits.push({id,x,y,w,h});
+      const active=enabled&&id===this.hoverId;
+      rounded(c,x,y,w,h,13,!enabled?'#112633':active?'#356c76':accent?'#1f6670':uiColour.surface,
+        active?'#90ffdc':enabled?uiColour.edge:'#253c49');
+      c.fillStyle=enabled?'#f0fcff':uiColour.dim;c.font=(accent?'bold 24px':'22px')+' system-ui';
       c.textAlign='center';c.textBaseline='middle';c.fillText(label,x+w/2,y+h/2,w-22);
     };
     const txt=(str,x,y,size=21,color=uiColour.muted,align='left')=>{
@@ -286,34 +290,49 @@ export class StructuralXRControls {
       btn('demo-roof','NAVE INDUSTRIAL',395,880,335,67,true);
       btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,979,692,77);
     }else if(this.page==='results'){
+      // Controls that do not apply to the active view are drawn frozen,
+      // as in the desktop panel (see view-controls.mjs).
+      const view=app.sapVisuals?.view||'deformation';
+      const on=control=>isControlActive(view,control);
       btn('back','‹ Volver',38,117,230,66);
       txt('RESULTADOS ESTRUCTURALES',38,225,28,'#e6f6fc');
-      txt('Caso / combinación',38,283,22);
-      btn('case:-','‹',38,321,126,70);
-      txt(textFit(app.caseName||'Sin casos',37),385,356,23,'#edffff','center');
-      btn('case:+','›',606,321,124,70);
-      txt('Patrón de cargas',38,438,22);
-      btn('pattern:-','‹',38,473,126,68);
-      txt(textFit(app.pattern==='all'?'Todos':app.pattern,28),385,506,23,'#edffff','center');
-      btn('pattern:+','›',606,473,124,68);
-      txt('AMPLIFICACIÓN DE LA DEFORMADA',38,584,21);
-      txt(formatAmplification(app.amp),712,584,29,'#8bf6df','right');
-      const left=163,right=604,y=660;
-      rounded(c,left-7,y-8,right-left+14,16,8,'#254859');
-      const x=sliderXFromAmplification(app.amp,163,604,app.ampMax??150);
-      rounded(c,left-7,y-8,Math.max(10,x-left+7),16,8,'#45c6ae');
-      c.beginPath();c.arc(x,y,21,0,Math.PI*2);c.fillStyle='#e8ffff';c.fill();
-      c.strokeStyle='#72eed9';c.lineWidth=4;c.stroke();
-      this.hits.push({id:'amp-slider',x:153,y:619,w:461,h:82});
-      btn('amp:-','−',38,622,102,75);
-      btn('amp:+','+',629,622,101,75);
-      txt('×0',157,713,18,'#a2c6d1');
-      txt(formatAmplification(app.ampMax??150),613,713,18,'#a2c6d1','right');
-      const view=app.sapVisuals?.view||'deformation';
+      txt('Caso / combinación',38,283,22,on('case')?uiColour.muted:uiColour.dim);
+      btn('case:-','‹',38,321,126,70,false,on('case'));
+      txt(textFit(app.caseName||'Sin casos',37),385,356,23,on('case')?'#edffff':uiColour.dim,'center');
+      btn('case:+','›',606,321,124,70,false,on('case'));
+      txt('Patrón de cargas',38,438,22,on('pattern')?uiColour.muted:uiColour.dim);
+      btn('pattern:-','‹',38,473,126,68,false,on('pattern'));
+      txt(textFit(app.pattern==='all'?'Todos':app.pattern,28),385,506,23,on('pattern')?'#edffff':uiColour.dim,'center');
+      btn('pattern:+','›',606,473,124,68,false,on('pattern'));
+      if(on('mode')){
+        // Vibration and buckling shapes have their own display amplitude.
+        txt(view==='buckling'?'AMPLITUD DE LA FORMA DE PANDEO':'AMPLITUD DE VIBRACIÓN',38,584,21);
+        btn('shape-amp:-','−',38,622,126,75);
+        txt(Number(app.sapVisuals?.modalAmplitude??0).toFixed(2)+' m',385,660,29,'#8bf6df','center');
+        btn('shape-amp:+','+',606,622,124,75);
+        txt('Solo cambia la representación, no los resultados.',38,713,18,'#a2c6d1');
+      }else{
+        const enabled=on('amplification');
+        txt('AMPLIFICACIÓN DE LA DEFORMADA',38,584,21,enabled?uiColour.muted:uiColour.dim);
+        txt(formatAmplification(app.amp),712,584,29,enabled?'#8bf6df':uiColour.dim,'right');
+        const left=163,right=604,y=660;
+        rounded(c,left-7,y-8,right-left+14,16,8,'#254859');
+        const x=sliderXFromAmplification(app.amp,163,604,app.ampMax??150);
+        rounded(c,left-7,y-8,Math.max(10,x-left+7),16,8,enabled?'#45c6ae':'#2b4651');
+        c.beginPath();c.arc(x,y,21,0,Math.PI*2);c.fillStyle=enabled?'#e8ffff':'#4a626d';c.fill();
+        c.strokeStyle=enabled?'#72eed9':'#38525d';c.lineWidth=4;c.stroke();
+        if(enabled)this.hits.push({id:'amp-slider',x:153,y:619,w:461,h:82});
+        btn('amp:-','−',38,622,102,75,false,enabled);
+        btn('amp:+','+',629,622,101,75,false,enabled);
+        txt('×0',157,713,18,enabled?'#a2c6d1':uiColour.dim);
+        txt(formatAmplification(app.ampMax??150),613,713,18,enabled?'#a2c6d1':uiColour.dim,'right');
+      }
       const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',
-        reactions:'Reacciones en apoyos',modes:'Modos de vibración'};
+        reactions:'Reacciones en apoyos',modes:'Modos de vibración',buckling:'Modos de pandeo'};
       btn('view:next','VISTA: '+viewLabel[view],38,756,692,73,true);
+      const buckled=(app.results?.bucklingModes||[])[app.sapVisuals?.modeIndex||0];
       const detail=view==='forces'?'Esfuerzo: '+(app.sapVisuals?.component||'M3'):
+        view==='buckling'?'Pandeo '+(buckled?.number??'—')+' · '+(bucklingSummary(buckled)?.label??'—'):
         view==='modes'?'Modo '+((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.number??'—')+
           ' · '+Number((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.frequency_hz||0).toFixed(2)+' Hz':
           'Patrón: '+(app.pattern==='all'?'Todos':app.pattern);
@@ -470,7 +489,7 @@ export class StructuralXRControls {
       }
     }
     else if(id==='view:next'){
-      const choices=['deformation','forces','reactions','modes'];
+      const choices=['deformation','forces','reactions','modes','buckling'];
       const active=app.sapVisuals?.view||'deformation';
       const next=choices[(choices.indexOf(active)+1)%choices.length];
       const el=$('analysis-view');if(el){el.value=next;el.dispatchEvent(new Event('change'));}
@@ -481,8 +500,8 @@ export class StructuralXRControls {
         const options=['P','V2','V3','T','M2','M3'],i=options.indexOf(app.sapVisuals.component);
         const selected=options[rotateIndex(Math.max(0,i),step,options.length)];
         $('force-component').value=selected;$('force-component').dispatchEvent(new Event('change'));
-      }else if(kind==='modes'){
-        const n=app.results?.modes?.length||0;
+      }else if(kind==='modes'||kind==='buckling'){
+        const n=app.sapVisuals.activeModes().length;
         if(n){
           const selected=rotateIndex(app.sapVisuals.modeIndex,step,n);
           $('mode-select').value=String(selected);$('mode-select').dispatchEvent(new Event('change'));
@@ -504,6 +523,15 @@ export class StructuralXRControls {
     else if(id==='pattern:+'||id==='pattern:-'){
       const p=nextUniquePattern(app.results?.loads,app.pattern,id==='pattern:+'?1:-1);
       app.setPattern(p);$('pattern-select').value=p;
+    }
+    else if(id==='shape-amp:+'||id==='shape-amp:-'){
+      // Same slider as the desktop panel; 0.1 m steps stay on its 0.02 m grid.
+      const input=$('modal-amplitude');
+      if(input){
+        const next=clamp(Number(input.value)+(id==='shape-amp:+'?.1:-.1),Number(input.min)||0,Number(input.max)||1);
+        input.value=String(Math.round(next*100)/100);
+        input.dispatchEvent(new Event('input'));
+      }
     }
     else if(id==='amp:+'||id==='amp:-'){
       const delta=Math.max(this.app.ampStep??1,(this.app.ampMax??150)/80);

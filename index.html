@@ -45,6 +45,7 @@
             <option value="forces">Esfuerzos internos</option>
             <option value="reactions">Reacciones en apoyos</option>
             <option value="modes">Modos de vibración</option>
+            <option value="buckling">Modos de pandeo</option>
           </select></div>
         <div class="control"><label for="case-select">Caso / combinación</label><select id="case-select"><option value="">Sin resultados</option></select></div>
         <div class="control"><label for="force-component">Componente de esfuerzo (ejes locales)</label>
@@ -61,8 +62,8 @@
           <p class="field-help">Reacciones calculadas en los nudos · F (kN) y M (kN·m) en ejes globales XYZ. Las longitudes de las flechas son ilustrativas.</p>
         </div>
         <div id="force-values-controls" class="force-values-controls" hidden><button id="toggle-force-values" type="button" class="secondary-btn force-values-btn" aria-pressed="false">Mostrar valores característicos</button><p class="field-help">Valores máximos, mínimos y de extremo de barra.</p></div>
-        <div class="control"><label for="mode-select">Modo propio</label><select id="mode-select"><option value="">Sin modos</option></select></div>
-        <div class="range-control"><div class="range-head"><label for="modal-amplitude">Amplitud de vibración</label><output id="modal-amplitude-value">0.30 m · visualización</output></div>
+        <div class="control"><label id="mode-select-label" for="mode-select">Modo propio</label><select id="mode-select"><option value="">Sin modos</option></select></div>
+        <div class="range-control"><div class="range-head"><label id="modal-amplitude-label" for="modal-amplitude">Amplitud de vibración</label><output id="modal-amplitude-value">0.30 m · visualización</output></div>
           <input id="modal-amplitude" type="range" min="0" max="1" value="0.30" step="0.02" />
         </div>
         <div class="control"><label for="pattern-select">Patrón de carga</label><select id="pattern-select"><option value="all">Todos</option></select></div>

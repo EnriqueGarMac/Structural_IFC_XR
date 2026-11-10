@@ -1,0 +1,6 @@
+# Solo se versionan los JSON para XR (ligeros). Los Excel exportados de
+# SAP2000, los .sdb y los ficheros de análisis (.$2k, .LOG, .OUT, .Y*...) se ignoran.
+*
+!.gitignore
+!*/
+!*.json

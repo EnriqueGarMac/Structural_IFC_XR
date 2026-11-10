@@ -139,3 +139,6 @@
   .viewer-controls-row .mode-tabs{max-width:calc(100% - 54px)}
   .legend{z-index:10}
 }
+/* Controls that do not apply to the active results view stay in place, frozen. */
+.is-frozen{opacity:.38;filter:saturate(.3);cursor:not-allowed;transition:opacity .15s}
+.is-frozen select,.is-frozen input,.is-frozen label{cursor:not-allowed}

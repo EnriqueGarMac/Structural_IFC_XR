@@ -12,12 +12,15 @@ for the original nested schema imis.sap2000.xr/1.
 Pure Python 3.10+: no SAP2000 installation or third-party modules required.
 Reads the *complete SAP2000 database export* with one table per worksheet.
 For a new model, export model definition AND analysis results, with all
-joints/frames and requested load cases, from SAP2000.
+joints/frames/areas and requested load cases, from SAP2000.
 
-WARNING: Modal displacements are eigenvectors with arbitrary scale. Use
-normalized_shape for animation, NOT raw_shape_m as physical displacements.
-Frame forces are in SAP2000 LOCAL 1/2/3 axes. If their orientation is not
-exported, do not assume they coincide with global XYZ.
+Supports frame (Connectivity - Frame) and shell/plate (Connectivity - Area)
+models, modal cases and linear buckling cases (Buckling Factors).
+
+WARNING: Modal and buckling displacements are eigenvectors with arbitrary
+scale. Use normalized_shape for display, NOT raw_shape_m as physical
+displacements. Frame forces are in SAP2000 LOCAL 1/2/3 axes. If their
+orientation is not exported, do not assume they coincide with global XYZ.
 """
 
 from __future__ import annotations
@@ -40,7 +43,8 @@ PKG_REL = '{http://schemas.openxmlformats.org/package/2006/relationships}'
 # Canonical SI display units: m, kN, kN*m, rad, Hz, kN/m, kN/m^3.
 LENGTH = {'mm': .001, 'cm': .01, 'm': 1., 'in': .0254, 'ft': .3048}
 FORCE = {'n': .001, 'kn': 1., 'mn': 1000., 'lb': .0044482216152605,
-         'lbf': .0044482216152605, 'kip': 4.4482216152605, 'tonf': 9.80665}
+         'lbf': .0044482216152605, 'kip': 4.4482216152605,
+         'kgf': .00980665, 'tonf': 9.80665}
 
 
 def num(value, default=None):
@@ -237,8 +241,12 @@ def result_key(row):
     case = text(row.get('OutputCase') or row.get('Case'))
     step = text(row.get('StepType'))
     stepnum = row.get('StepNum')
-    if not step or stepnum is None:
+    if not step:
         return case
+    if stepnum is None or stepnum == '':
+        # Combination envelopes (Max/Min) carry no step number. Keep them as
+        # separate cases instead of letting the last row overwrite the first.
+        return f'{case} ({step})'
     return f'{case}|{step}|{stepnum}'
 
 
@@ -319,10 +327,130 @@ def frame_curves(frames, nodal, count=17, normalizer=1.):
     return curves
 
 
-def load_categories(db):
-    """Find explicit assignments in SAP Excel, without inventing missing loads."""
+def global_direction(direction):
+    """SAP load direction text -> (global axis index, sign, projected) or None.
+
+    Gravity acts along -Z in the standard SAP2000 global system. Local
+    directions 1/2/3 are not global and return None.
+    """
+    d = re.sub(r'\s+', ' ', text(direction)).strip().lower()
+    base = d.split(' ')[0] if d else ''
+    projected = 'proj' in d
+    if base.startswith('grav'):
+        return 2, -1., projected
+    if base in ('x', 'y', 'z'):
+        return 'xyz'.index(base), 1., projected
+    return None
+
+
+def local_direction(direction):
+    """SAP local load direction 1/2/3 (text or number) -> int, else None."""
+    n = num(direction)
+    return int(n) if n in (1., 2., 3.) else None
+
+
+def frame_length(frame):
+    if frame.get('length_m'):
+        return frame['length_m']
+    d = [b - a for a, b in zip(frame['start_xyz_m'], frame['end_xyz_m'])]
+    return math.sqrt(dot(d, d))
+
+
+def projection_factor(frame, axis):
+    """Load per projected length -> intensity per actual member length."""
+    d = [b - a for a, b in zip(frame['start_xyz_m'], frame['end_xyz_m'])]
+    length = math.sqrt(dot(d, d))
+    return math.sqrt(max(length * length - d[axis] ** 2, 0.)) / length if length else 0.
+
+
+def joint_force_load(row, units, joints, frames):
+    jid = text(row.get('Joint'))
+    if jid not in joints:
+        return None, 'joint not exported'
+    if text(row.get('CoordSys')).upper() not in ('GLOBAL', ''):
+        return None, 'non-global coordinate system'
+    return {'pattern': text(row.get('LoadPat')), 'joint': jid,
+            'xyz_m': joints[jid]['xyz_m'],
+            'force_kN': [converted(row, units, k, 'force', 0.) for k in ('F1', 'F2', 'F3')],
+            'moment_kNm': [converted(row, units, k, 'moment', 0.) for k in ('M1', 'M2', 'M3')]}, None
+
+
+def frame_point_load(row, units, joints, frames):
+    fid = text(row.get('Frame'))
+    frame = frames.get(fid)
+    if frame is None:
+        return None, 'frame not exported'
+    if text(row.get('Type')).lower() not in ('force', ''):
+        return None, 'concentrated moments are not displayed'
+    rel = num(row.get('RelDist'))
+    magnitude = converted(row, units, 'Force', 'force')
+    if rel is None or magnitude is None:
+        return None, 'incomplete distance or force'
+    k = local_direction(row.get('Dir'))
+    if k is not None:
+        if frame['local_axes']['advanced_unresolved']:
+            return None, 'advanced local axes'
+        axis = frame['local_axes']['basis_global'][k - 1]
+    else:
+        if text(row.get('CoordSys')).upper() != 'GLOBAL':
+            return None, 'non-global coordinate system'
+        resolved = global_direction(row.get('Dir'))
+        if resolved is None:
+            return None, 'unsupported direction'
+        axis = [0., 0., 0.]
+        axis[resolved[0]] = resolved[1]
+    a, b = frame['start_xyz_m'], frame['end_xyz_m']
+    return {'pattern': text(row.get('LoadPat')), 'frame': fid, 'relative_position': rel,
+            'xyz_m': [x + rel * (y - x) for x, y in zip(a, b)],
+            'force_kN': [magnitude * c for c in axis], 'moment_kNm': [0., 0., 0.]}, None
+
+
+def distributed_frame_load(row, units, joints, frames):
+    """Frame Loads - Distributed row -> viewer load in kN/m.
+
+    Global X/Y/Z and Gravity map to viewer directions 4/5/6, with the sign of
+    the global axis. Projected loads become intensity per actual length.
+    Local 1/2/3 loads keep their local direction (not rotated to global).
+    """
+    fid = text(row.get('Frame'))
+    frame = frames.get(fid)
+    if frame is None:
+        return None, 'frame not exported'
+    if text(row.get('Type')).lower() not in ('force', ''):
+        return None, 'distributed moments are not displayed'
+    start, end = num(row.get('RelDistA')), num(row.get('RelDistB'))
+    w1 = converted(row, units, 'FOverLA', 'line_force')
+    w2 = converted(row, units, 'FOverLB', 'line_force')
+    if None in (start, end, w1, w2):
+        return None, 'incomplete distance or intensity'
+    load = {'pattern': text(row.get('LoadPat')), 'frame': fid, 'start': start, 'end': end,
+            'source_dir': text(row.get('Dir')), 'source_csys': text(row.get('CoordSys'))}
+    k = local_direction(row.get('Dir'))
+    if k is not None:
+        return {**load, 'csys': 'Local', 'dir': k, 'w1_kN_per_m': w1, 'w2_kN_per_m': w2}, None
+    if text(row.get('CoordSys')).upper() != 'GLOBAL':
+        return None, 'non-global coordinate system'
+    resolved = global_direction(row.get('Dir'))
+    if resolved is None:
+        return None, 'unsupported direction'
+    axis, sign, projected = resolved
+    factor = sign * (projection_factor(frame, axis) if projected else 1.)
+    return {**load, 'csys': 'Global', 'dir': axis + 4,
+            'w1_kN_per_m': w1 * factor, 'w2_kN_per_m': w2 * factor}, None
+
+
+def load_categories(db, joints, frames, warnings):
+    """Find explicit assignments in SAP Excel, without inventing missing loads.
+
+    Joint forces, frame point forces and frame distributed forces are
+    converted to SI and, when SAP gives an unambiguous direction, to global
+    axes. Anything else is preserved raw in other_assignments.
+    """
     loads = {'joint_forces': [], 'frame_distributed': [], 'frame_point': [],
              'other_assignments': [], 'self_weight': []}
+    normalizers = {'joint_forces': joint_force_load, 'frame_distributed': distributed_frame_load,
+                   'frame_point': frame_point_load}
+    skipped = {}
     for name in db.sheets:
         low = name.casefold()
         if not ('load' in low and (('joint' in low or 'frame' in low or 'area' in low)
@@ -338,10 +466,79 @@ def load_categories(db):
         else:
             group = 'other_assignments'
         for row in rows:
-            loads[group].append({'table': name, 'data': row,
-                                 'si': transfer_raw_si(row, units),
-                                 'source_units': units})
+            if group in normalizers:
+                entry, reason = normalizers[group](row, units, joints, frames)
+                if entry is not None:
+                    loads[group].append({**entry, 'table': name})
+                    continue
+                skipped[(name, reason)] = skipped.get((name, reason), 0) + 1
+            loads['other_assignments'].append({'table': name, 'data': row,
+                                               'si': transfer_raw_si(row, units),
+                                               'source_units': units})
+    for (name, reason), count in skipped.items():
+        warnings.append(f'{name}: {count} row(s) kept only as raw data ({reason})')
     return loads
+
+
+def normalized_shape(raw):
+    """Eigenvector scaled so that the largest nodal translation has length 1."""
+    norm = max((math.sqrt(dot(v['translation_m'], v['translation_m'])) for v in raw.values()),
+               default=0.)
+    shape = {jid: [x / norm for x in v['translation_m']] if norm else [0., 0., 0.]
+             for jid, v in raw.items()}
+    return shape, norm
+
+
+def pattern_resultants(loads, load_patterns, frames, areas, area_sections, materials):
+    """Total applied force vector of each load pattern (kN, global axes).
+
+    'unresolved' lists contributions that could not be summed, so a critical
+    buckling load is never reported from an incomplete reference load.
+    """
+    result = {}
+
+    def entry(pattern):
+        return result.setdefault(pattern, {'force_kN': [0., 0., 0.], 'unresolved': set()})
+
+    def add(pattern, vector):
+        e = entry(pattern)
+        e['force_kN'] = [a + b for a, b in zip(e['force_kN'], vector)]
+
+    for q in loads['joint_forces'] + loads['frame_point']:
+        add(q['pattern'], q['force_kN'])
+        if any(abs(m) > 1e-12 for m in q['moment_kNm']):
+            entry(q['pattern'])['unresolved'].add('applied moments')
+    for q in loads['frame_distributed']:
+        frame = frames[q['frame']]
+        total = .5 * (q['w1_kN_per_m'] + q['w2_kN_per_m']) * (q['end'] - q['start']) * frame_length(frame)
+        if q['csys'] == 'Global':
+            axis = [0., 0., 0.]
+            axis[q['dir'] - 4] = 1.
+        elif frame['local_axes']['advanced_unresolved']:
+            entry(q['pattern'])['unresolved'].add('distributed load in advanced local axes')
+            continue
+        else:
+            axis = frame['local_axes']['basis_global'][q['dir'] - 1]
+        add(q['pattern'], [total * c for c in axis])
+    for q in loads['self_weight']:
+        add(q['load_pattern'], [c * frame_length(frames[q['frame']]) for c in q['q_global_kN_per_m']])
+    for pattern, config in load_patterns.items():
+        factor = config['self_weight_multiplier']
+        if not factor or not areas:
+            continue
+        weight = 0.
+        for area in areas.values():
+            section = area_sections.get(area['section'], {})
+            unit_weight = materials.get(area.get('material'), {}).get('unit_weight_kN_per_m3')
+            if None in (area.get('area_m2'), area.get('thickness_m'), unit_weight):
+                entry(pattern)['unresolved'].add('self-weight of areas')
+                break
+            weight += area['area_m2'] * area['thickness_m'] * unit_weight * section.get('weight_modifier', 1.)
+        else:
+            add(pattern, [0., 0., -factor * weight])
+    for q in loads['other_assignments']:
+        entry(text(q['data'].get('LoadPat')))['unresolved'].add(q['table'])
+    return result
 
 
 def export_xr(db, curve_points=17):
@@ -349,8 +546,10 @@ def export_xr(db, curve_points=17):
     program, _ = db.get('Program Control')
     prog = program[0] if program else {}
     source_units = text(prog.get('CurrUnits') or 'unknown')
-    if not {'Joint Coordinates', 'Connectivity - Frame'}.issubset(db.sheets):
-        raise ValueError('Missing essential SAP tables: Joint Coordinates and/or Connectivity - Frame')
+    if ('Joint Coordinates' not in db.sheets or
+            not {'Connectivity - Frame', 'Connectivity - Area'} & set(db.sheets)):
+        raise ValueError('Missing essential SAP tables: Joint Coordinates and '
+                         'Connectivity - Frame and/or Connectivity - Area')
 
     coords, cu = db.get('Joint Coordinates')
     restraints, _ = db.get('Joint Restraint Assignments')
@@ -437,13 +636,43 @@ def export_xr(db, curve_points=17):
                            'advanced_unresolved': bool(assigned_axes.get('advanced'))},
         }
 
+    area_props, apu = db.get('Area Section Properties')
+    area_sections = {}
+    for r in area_props:
+        section = {'material': r.get('Material'), 'area_type': r.get('AreaType'), 'type': r.get('Type')}
+        for fld, key in (('Thickness', 'thickness_m'), ('BendThick', 'bending_thickness_m')):
+            v = converted(r, apu, fld, 'length')
+            if v is not None:
+                section[key] = v
+        if num(r.get('WMod')) is not None:
+            section['weight_modifier'] = num(r.get('WMod'))
+        area_sections[text(r['Section'])] = section
+    area_assigns, _ = db.get('Area Section Assignments')
+    area_section = {text(r['Area']): r for r in area_assigns}
+    area_conns, au = db.get('Connectivity - Area')
+    areas = {}
+    for r in area_conns:
+        aid = text(r.get('Area'))
+        ids = [text(r.get(f'Joint{i}')) for i in range(1, integer(r.get('NumJoints'), 0) + 1)]
+        if len(ids) < 3 or any(j not in joints for j in ids):
+            warnings.append(f'Area {aid}: missing or invalid joints')
+            continue
+        assign = area_section.get(aid, {})
+        name = text(assign.get('Section'))
+        section = area_sections.get(name, {})
+        material = text(assign.get('MatProp'))
+        areas[aid] = {'joints': ids, 'section': name,
+                      'material': material if material and material != 'Default' else section.get('material'),
+                      'thickness_m': section.get('thickness_m'),
+                      'area_m2': converted(r, au, 'AreaArea', 'area')}
+
     patterns, _ = db.get('Load Pattern Definitions')
     load_patterns = {text(r['LoadPat']): {'type': r.get('DesignType'),
                       'self_weight_multiplier': num(r.get('SelfWtMult'), 0)} for r in patterns}
     load_cases, _ = db.get('Load Case Definitions')
     case_defs = {text(r['Case']): {'type': r.get('Type'), 'status': r.get('CaseStatus')}
                  for r in load_cases}
-    loads = load_categories(db)
+    loads = load_categories(db, joints, frames, warnings)
     for pattern, config in load_patterns.items():
         factor = config['self_weight_multiplier']
         if not factor:
@@ -519,10 +748,8 @@ def export_xr(db, curve_points=17):
         if no is None:
             continue
         raw = eigenvectors.get((case, no), {})
-        max_disp = max((math.sqrt(sum(x*x for x in v['translation_m'])) for v in raw.values()), default=0.)
-        normalized = {jid: [x/max_disp for x in v['translation_m']] if max_disp else [0., 0., 0.]
-                      for jid, v in raw.items()}
         # The maximum translational modal shape vector is exactly length 1.
+        normalized, _ = normalized_shape(raw)
         mode = {'case': case, 'number': no, 'frequency_hz': num(r.get('Frequency')),
                 'period_s': num(r.get('Period')),
                 'omega_rad_per_s': num(r.get('CircFreq')),
@@ -537,14 +764,60 @@ def export_xr(db, curve_points=17):
             warnings.append(f'Mode {case} #{no}: {len(raw)}/{len(joints)} nodal eigenvectors found')
         modes.append(mode)
 
+    # Linear buckling: factor lambda multiplies the reference loads of the case.
+    # A negative factor means buckling occurs with the reference loads reversed.
+    resultants = pattern_resultants(loads, load_patterns, frames, areas, area_sections, materials)
+    buckling_loads, _ = db.get('Case - Buckling 2 - Loads')
+    references = {}
+    for r in buckling_loads:
+        case, name, scale = text(r.get('Case')), text(r.get('LoadName')), num(r.get('LoadSF'), 1.)
+        ref = references.setdefault(case, {'load_patterns': [], 'force_resultant_kN': [0., 0., 0.],
+                                           'notes': set()})
+        ref['load_patterns'].append({'type': r.get('LoadType'), 'name': name, 'scale': scale})
+        if text(r.get('LoadType')).lower() != 'load pattern' or name not in load_patterns:
+            ref['notes'].add(f'{r.get("LoadType")} {name}: not summed')
+            continue
+        pattern = resultants.get(name, {'force_kN': [0., 0., 0.], 'unresolved': set()})
+        ref['force_resultant_kN'] = [a + scale * b for a, b in
+                                     zip(ref['force_resultant_kN'], pattern['force_kN'])]
+        ref['notes'].update(f'{name}: {item} not summed' for item in pattern['unresolved'])
+    for case, ref in references.items():
+        ref['complete'] = not ref['notes']
+        ref['notes'] = sorted(ref['notes'])
+        if not ref['complete']:
+            warnings.append(f'Buckling case {case}: reference load incomplete, '
+                            'critical loads not reported (only factors)')
+    buckling_rows, _ = db.get('Buckling Factors')
+    buckling_modes = []
+    for r in buckling_rows:
+        case, no, factor = text(r.get('OutputCase')), integer(r.get('StepNum')), num(r.get('ScaleFactor'))
+        if no is None or factor is None:
+            continue
+        raw = eigenvectors.get((case, no), {})
+        normalized, _ = normalized_shape(raw)
+        mode = {'case': case, 'number': no, 'factor': factor,
+                'normalized_shape': normalized, 'raw_shape': raw,
+                'normalization': 'maximum nodal translation vector magnitude = 1; arbitrary scale and sign'}
+        ref = references.get(case)
+        if ref and ref['complete']:
+            mode['critical_force_resultant_kN'] = [factor * x + 0. for x in ref['force_resultant_kN']]
+        if len(raw) != len(joints):
+            warnings.append(f'Buckling mode {case} #{no}: {len(raw)}/{len(joints)} nodal eigenvectors found')
+        buckling_modes.append(mode)
+
     # Precomputed deformed centerlines: 17 samples per frame, for direct XR
     # display at arbitrary amplification. Nodal displacements remain definitive.
-    for mode in modes:
-        norm = max((math.sqrt(sum(x*x for x in v['translation_m']))
-                    for v in mode['raw_shape'].values()), default=0.)
+    for mode in modes + buckling_modes:
+        _, norm = normalized_shape(mode['raw_shape'])
         mode['frame_curve_normalized'] = frame_curves(frames, mode['raw_shape'],
                                                        curve_points, norm) if norm else {}
-    static_curves = {case: frame_curves(frames, v, curve_points) for case,v in displacements.items()}
+    # Shell-only models have no frame curves. Omit empty entries: the viewer
+    # takes any entry as beam curves and would ignore the nodal displacements.
+    static_curves = {}
+    for case, v in displacements.items():
+        curves = frame_curves(frames, v, curve_points)
+        if curves:
+            static_curves[case] = curves
 
     max_disp = {case: max((math.sqrt(sum(d*d for d in v['translation_m']))
                         for v in nodes.values()), default=0.)
@@ -560,19 +833,23 @@ def export_xr(db, curve_points=17):
                   'distributed_load': 'kN/m'},
         'coordinate_system': {'name': 'SAP2000_GLOBAL', 'vertical_axis': 'Z',
                               'frame_internal_force_axes': 'LOCAL_1_2_3'},
-        'geometry': {'joints': joints, 'frames': frames,
-                     'sections': sections, 'materials': materials},
+        'geometry': {'joints': joints, 'frames': frames, 'areas': areas,
+                     'sections': sections, 'area_sections': area_sections,
+                     'materials': materials},
         'loads': {'patterns': load_patterns, **loads},
         'results': {'cases': case_defs, 'joint_displacements': displacements,
                     'frame_forces': frame_forces,
                     'modal_frame_forces_arbitrary_scale': modal_frame_forces,
                     'joint_reactions': reactions,
-                    'modes': modes, 'frame_curves_m': static_curves,
+                    'modes': modes, 'buckling_modes': buckling_modes,
+                    'buckling_reference': references,
+                    'frame_curves_m': static_curves,
                     'curve_sampling': {'samples_per_frame': curve_points, 'method': 'cubic Hermite from nodal 6-DOF, visualization approximation'},
                     'max_joint_displacement_m': max_disp},
         'coverage': {'input_worksheets': len(db.sheets),
                      'num_joints': len(joints), 'num_frames': len(frames),
-                     'num_modes': len(modes),
+                     'num_areas': len(areas),
+                     'num_modes': len(modes), 'num_buckling_modes': len(buckling_modes),
                      'num_static_force_samples': sum(len(samples) for per_case in frame_forces.values()
                                                     for samples in per_case.values()),
                      'num_explicit_loads': sum(len(loads[k]) for k in ('joint_forces', 'frame_distributed', 'frame_point'))},
@@ -605,8 +882,15 @@ def to_compatible(rich: dict) -> dict:
          'length_m': frame.get('length_m')}
         for frame_id, frame in geom['frames'].items()
     ]
+    areas = [
+        {'id': str(area_id), 'joints': [str(j) for j in area['joints']],
+         'section': area.get('section'), 'material': area.get('material'),
+         'thickness_m': area.get('thickness_m')}
+        for area_id, area in geom.get('areas', {}).items()
+    ]
 
-    # The existing viewer draws only GLOBAL axis-aligned distributed forces.
+    # The viewer draws arrows only for GLOBAL axis-aligned distributed forces;
+    # LOCAL 1/2/3 loads are shown as bands without a global direction.
     # Preserve all other assignments separately rather than misrepresenting them.
     loads = []
     for q in load_db.get('self_weight', []):
@@ -619,18 +903,24 @@ def to_compatible(rich: dict) -> dict:
                     'w1': value, 'w2': value
                 })
     for q in load_db.get('frame_distributed', []):
-        # Only explicit, resolved GLOBAL loads in the viewer's native units.
-        if (str(q.get('csys', '')).lower() == 'global'
-                and integer(q.get('dir')) in (4, 5, 6)
+        # Only explicit, resolved loads in the viewer's native units.
+        csys = str(q.get('csys', '')).lower()
+        if ((csys == 'global' and integer(q.get('dir')) in (4, 5, 6)
+                or csys == 'local' and integer(q.get('dir')) in (1, 2, 3))
                 and num(q.get('w1_kN_per_m')) is not None
                 and num(q.get('w2_kN_per_m')) is not None):
             loads.append({
                 'frame': str(q['frame']), 'pattern': str(q['pattern']),
-                'type': 'force_per_length', 'csys': 'Global',
+                'type': 'force_per_length', 'csys': 'Global' if csys == 'global' else 'Local',
                 'dir': integer(q['dir']), 'start': num(q.get('start'), 0),
                 'end': num(q.get('end'), 1),
                 'w1': num(q['w1_kN_per_m']), 'w2': num(q['w2_kN_per_m'])
             })
+    point_loads = [
+        {key: q[key] for key in ('pattern', 'joint', 'frame', 'xyz_m', 'force_kN', 'moment_kNm')
+         if key in q}
+        for q in load_db.get('joint_forces', []) + load_db.get('frame_point', [])
+    ]
 
     cases = [
         {'name': case, 'displacements': [
@@ -651,16 +941,29 @@ def to_compatible(rich: dict) -> dict:
          'participating_mass_ratios': m.get('participating_mass_ratios', {})}
         for m in res['modes']
     ]
+    buckling_modes = [
+        {key: value for key, value in (
+            ('number', m['number']), ('case', m.get('case')), ('factor', m['factor']),
+            ('jointShape', m['normalized_shape']), ('frameCurves', m['frame_curve_normalized']),
+            ('normalization', m.get('normalization')),
+            ('critical_force_resultant_kN', m.get('critical_force_resultant_kN'))) if value is not None}
+        for m in res.get('buckling_modes', [])
+    ]
     compatible = {
         'schema': 'imis.sap2000.xr/compatible-1',
         'meta': {
             'source': 'SAP2000 Excel', 'units': 'm, kN',
             'name': rich['source']['workbook'],
-            'note': 'Los esfuerzos son LOCALES. Las formas modales son relativas, no desplazamientos físicos.',
+            'note': 'Los esfuerzos son LOCALES. Las formas modales y de pandeo son relativas, '
+                    'no desplazamientos físicos.',
         },
-        'nodes': nodes, 'frames': frames, 'loads': loads, 'cases': cases,
+        'nodes': nodes, 'frames': frames, 'areas': areas, 'loads': loads,
+        'pointLoads': point_loads, 'cases': cases,
         'forces': res['frame_forces'], 'modes': modes,
-        'sections': geom['sections'], 'materials': geom['materials'],
+        'bucklingModes': buckling_modes,
+        'bucklingReference': res.get('buckling_reference', {}),
+        'sections': geom['sections'], 'areaSections': geom.get('area_sections', {}),
+        'materials': geom['materials'],
         'frameCurves': res['frame_curves_m'],
         'jointReactions': res['joint_reactions'],
         'loadAssignments': load_db,
@@ -669,7 +972,7 @@ def to_compatible(rich: dict) -> dict:
         'warnings': rich['warnings'],
         'coverage': rich['coverage'],
     }
-    if not compatible['nodes'] or not compatible['frames']:
+    if not compatible['nodes'] or not (compatible['frames'] or compatible['areas']):
         raise ValueError('No valid SAP geometry available')
     return compatible
 
@@ -704,6 +1007,8 @@ def main():
     print('Counts:', json.dumps(coverage, ensure_ascii=False))
     print('Analysis cases:', ', '.join(payload['results']['cases']))
     print('Modes (Hz):', ', '.join(f"{m['frequency_hz']:.3f}" for m in payload['results']['modes']))
+    if payload['results']['buckling_modes']:
+        print('Buckling factors:', ', '.join(f"{m['factor']:.3f}" for m in payload['results']['buckling_modes']))
     if payload['warnings']:
         print('Warnings:')
         for warning in payload['warnings']:

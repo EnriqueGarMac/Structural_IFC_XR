@@ -38,16 +38,30 @@ export function unpackRichSAP(input) {
     });
   }
   // Preserve explicit distributed loads only when already unambiguously resolved
-  // to global components; avoid inventing directions for unresolved SAP assignments.
+  // to global components, or explicitly local 1/2/3 (drawn without a global
+  // direction); avoid inventing directions for unresolved SAP assignments.
   for(const q of l?.frame_distributed??[]){
-    if(q.csys==='Global' && [4,5,6].includes(Number(q.dir)) &&
+    const global=q.csys==='Global' && [4,5,6].includes(Number(q.dir));
+    const local=q.csys==='Local' && [1,2,3].includes(Number(q.dir));
+    if((global||local) &&
        Number.isFinite(q.w1_kN_per_m)&&Number.isFinite(q.w2_kN_per_m)){
       loads.push({frame:String(q.frame),pattern:String(q.pattern),
-        type:'force_per_length',csys:'Global',dir:Number(q.dir),
+        type:'force_per_length',csys:q.csys,dir:Number(q.dir),
         start:Number(q.start??0),end:Number(q.end??1),
         w1:q.w1_kN_per_m,w2:q.w2_kN_per_m});
     }
   }
+  const pointLoads=[...(l?.joint_forces??[]),...(l?.frame_point??[])].map(p=>({
+    pattern:p.pattern,joint:p.joint,frame:p.frame,xyz_m:p.xyz_m,force_kN:p.force_kN
+  }));
+  const areas=Object.entries(g.areas??{}).map(([id,a])=>({
+    id,joints:(a.joints??[]).map(String),section:a.section,material:a.material,thickness_m:a.thickness_m
+  }));
+  const bucklingModes=(r.buckling_modes??[]).map(m=>({
+    number:m.number,case:m.case,factor:m.factor,jointShape:m.normalized_shape??{},
+    frameCurves:m.frame_curve_normalized??{},normalization:m.normalization,
+    critical_force_resultant_kN:m.critical_force_resultant_kN
+  }));
   const cases=Object.entries(r.joint_displacements??{}).map(([name,rows])=>({
     name,displacements:Object.entries(rows).map(([node,d])=>{
       const [ux,uy,uz]=vec(d.translation_m,'desplazamiento '+name+'/'+node);
@@ -63,8 +77,10 @@ export function unpackRichSAP(input) {
     meta:{source:'SAP2000 Excel',units:'m, kN',schema:input.schema,
       name:input.source?.workbook??'Modelo SAP2000',
       note:(input.warnings??[]).join(' ')},
-    nodes,frames,loads,cases,modes,
-    forces:r.frame_forces??{},sections:g.sections??{},frameCurves:r.frame_curves_m??{},
+    nodes,frames,areas,loads,pointLoads,cases,modes,bucklingModes,
+    bucklingReference:r.buckling_reference??{},
+    forces:r.frame_forces??{},sections:g.sections??{},areaSections:g.area_sections??{},
+    frameCurves:r.frame_curves_m??{},
     jointReactions:r.joint_reactions??r.jointReactions??{}
   };
 }

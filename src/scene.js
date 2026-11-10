@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions } from './results.mjs';
+import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions, areaEdges } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
 import {isTerrainElement,displayModeVisibility} from './view-filters.mjs';
 import {makeStructuralGroundGrid,makeColumnFootMarkers} from './ground-reference.js';
@@ -119,7 +119,8 @@ export class StructuralScene {
       const origMat=new THREE.MeshStandardMaterial({color:piece.color??0xb2c7d1,side:THREE.DoubleSide,roughness:.77,transparent:true,opacity:1,depthWrite:true});
       const displacedMat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,side:THREE.DoubleSide,roughness:.54,metalness:.04});
       const a=new THREE.Mesh(originalGeom,origMat),b=new THREE.Mesh(copiedGeom,displacedMat);
-      a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType};
+      a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType,
+        faceNames:piece.faceNames};
       b.userData=a.userData;
       a.castShadow=b.castShadow=false;
       this.originalGroup.add(a);this.deformedGroup.add(b);
@@ -212,7 +213,7 @@ export class StructuralScene {
 
   setSAPOnly(enabled){
     // Avoid showing an empty environment if SAP geometry has not been imported.
-    if(enabled&&(!this.results?.frames?.length||!this.parts.length))return false;
+    if(enabled&&(!(this.results?.frames?.length||this.results?.areas?.length)||!this.parts.length))return false;
     this.showSAPOnly=!!enabled;
     if(enabled)this.showFrames=true;
     this.updateVisualization();
@@ -223,11 +224,14 @@ export class StructuralScene {
     const nodes=hasCases?caseNodes(this.results,this.caseName,this.offset):[];
     this.maxU=maxDisplacement(nodes);
     const view=this.sapVisuals?.view||'deformation';
-    const isModal=view==='modes'&&Boolean(this.results?.modes?.length);
+    const shapes=view==='buckling'?this.results?.bucklingModes:view==='modes'?this.results?.modes:null;
+    const isModal=Boolean(shapes?.length);
     const hasBeamCurves=Boolean(this.results?.frameCurves?.[this.caseName]);
-    const sample=hasCases&&hasBeamCurves?
+    // Plates sit exactly on the SAP joints: they always take nodal values.
+    const nodeSample=makeDisplacementSampler(nodes);
+    const beamSample=hasCases&&hasBeamCurves?
       makeBeamFieldSampler(this.results,{caseName:this.caseName,offset:this.offset}):
-      makeDisplacementSampler(nodes);
+      nodeSample;
     const deform=hasCases&&this.showDeformed&&view==='deformation';
     this.axes.visible=this.showAxes&&!this.showSAPOnly;
     this.grid.visible=this.showAxes&&!this.isXR&&!this.showSAPOnly;
@@ -274,6 +278,7 @@ export class StructuralScene {
         continue;
       }
       if(!deform)continue;
+      const sample=part.ifcType==='SapArea'?nodeSample:beamSample;
       const attrs=part.deformed.geometry.getAttribute('position');
       const cs=part.deformed.geometry.getAttribute('color');
       const hs=part.deformed.geometry.getAttribute('heat');
@@ -294,6 +299,9 @@ export class StructuralScene {
       part.deformed.geometry.computeBoundingSphere();
     }
     if(rebuildOverlays){this.updateOverlays();this.sapVisuals?.refresh();this.reactionVisuals?.refresh();this.nodeProbe?.refresh();}
+    // The loop above reset modal meshes; a static buckling shape is not
+    // redrawn by the render loop, so restore it here.
+    else if(isModal)this.sapVisuals?.updateModalAnimation(0,true);
     $('legend-title').textContent=deform?'DESPLAZAMIENTO |u|':'INTENSIDAD DE CARGA';
     $('legend-min').textContent=deform?'0 mm':'0 kN/m';
     const visibleLoads=this.results?selectedLoads(this.results,this.pattern):[];
@@ -333,6 +341,12 @@ export class StructuralScene {
         points.push(...a.toArray(),...b.toArray());
         colors.push(...heat.get(f.i).toArray(),...heat.get(f.j).toArray());
       }
+      for(const [i,j] of areaEdges(this.results.areas)){
+        const a=nodeMap.get(i),b=nodeMap.get(j);
+        if(!a||!b)continue;
+        points.push(...a.toArray(),...b.toArray());
+        colors.push(...heat.get(i).toArray(),...heat.get(j).toArray());
+      }
       if(points.length){
         const g=new THREE.BufferGeometry();
         g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
@@ -340,19 +354,44 @@ export class StructuralScene {
         this.framesGroup.add(new THREE.LineSegments(g,
           new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.9})));
       }
+      // Plate meshes have hundreds of joints: their edges already show them,
+      // and one sphere per joint would multiply the draw calls on Quest.
+      const plateOnly=new Set((this.results.areas??[]).flatMap(a=>a.joints));
+      for(const f of this.results.frames){plateOnly.delete(f.i);plateOnly.delete(f.j);}
       for(const n of displayedNodes){
+        if(plateOnly.has(n.id))continue;
         const dot=new THREE.Mesh(new THREE.SphereGeometry(this.maxSize*.008,7,5),
           new THREE.MeshBasicMaterial({color:heat.get(n.id)}));
         dot.position.copy(vector(n));this.framesGroup.add(dot);
       }
     }
-    this.framesGroup.visible=this.showFrames&&this.sapVisuals?.view!=='modes';
+    this.framesGroup.visible=this.showFrames&&!['modes','buckling'].includes(this.sapVisuals?.view);
     if(this.mobileAR){
       this.enableMobileCastShadows();
       this.updateMobileSAPShadowCasters();
     }
     if(!this.showLoads)return;
-    const loads=selectedLoads(this.results,this.pattern).filter(l=>l.type==='force_per_length');
+    // In the buckling view, show the reference loads of the selected mode.
+    const buckling=this.sapVisuals?.view==='buckling'?
+      this.sapVisuals.activeModes(this.results)[this.sapVisuals.modeIndex]:null;
+    const reference=buckling?new Set((this.results.bucklingReference?.[buckling.case]?.load_patterns??[])
+      .map(p=>p.name)):null;
+    const inPattern=l=>reference?reference.has(l.pattern):this.pattern==='all'||l.pattern===this.pattern;
+    // Concentrated forces (joint and frame point loads): the arrow tip touches
+    // the loaded point. Length is illustrative; colour follows the magnitude.
+    const pointLoads=(this.results.pointLoads??[]).filter(inPattern);
+    const maxP=Math.max(1e-9,...pointLoads.map(p=>Math.hypot(...p.force_kN)));
+    for(const p of pointLoads){
+      const magnitude=Math.hypot(...p.force_kN);if(magnitude<1e-9)continue;
+      const dir=new THREE.Vector3(...p.force_kN).normalize();
+      const tip=new THREE.Vector3(...p.xyz_m).add(new THREE.Vector3(...this.offset));
+      const length=this.maxSize*(.08+.1*magnitude/maxP);
+      const c=colorMap(magnitude/maxP,this.sapVisuals?.palette);
+      this.loadsGroup.add(new THREE.ArrowHelper(dir,tip.clone().addScaledVector(dir,-length),length,
+        c.getHex(),length*.28,length*.12));
+    }
+    const loads=(reference?this.results.loads.filter(inPattern):selectedLoads(this.results,this.pattern))
+      .filter(l=>l.type==='force_per_length');
     const maxW=Math.max(1,...loads.map(loadMagnitude));
     let arrowCount=0;
     for(const l of loads){
@@ -390,7 +429,8 @@ export class StructuralScene {
     if(this.sapVisuals?.view==='deformation'&&this.nodeProbe?.pick(this.pickRaycaster))return;
     const hit=this.pickRaycaster.intersectObjects([...this.originalGroup.children,...this.deformedGroup.children],false)[0];
     if(hit){const u=hit.object.userData;const id=u.guid?` · GUID ${u.guid}`:'';
-      this.onSelection?.(`${u.name}${id}`);}
+      // Merged plate meshes name each triangle after its SAP area.
+      this.onSelection?.(`${u.faceNames?.[hit.faceIndex]??u.name}${id}`);}
   }
   updateMobileSAPShadowCasters(){
     // SAP analytical elements are Three.js lines (which cannot cast mesh
