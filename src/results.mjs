@@ -89,7 +89,8 @@ export function areaEdges(areas) {
   return edges;
 }
 // Legend text for a buckling mode. A negative factor means that buckling
-// occurs with the reference loads reversed.
+// occurs with the reference loads reversed; the direction is reported apart
+// so that the short legend fields stay legible.
 export function bucklingSummary(mode) {
   if (!mode) return null;
   const factor=Number(mode.factor);
@@ -97,8 +98,8 @@ export function bucklingSummary(mode) {
   const p=mode.critical_force_resultant_kN;
   const magnitude=Array.isArray(p)&&p.length===3?Math.hypot(...p.map(Number)):null;
   return {factor, label:'λ = '+fmt(factor),
-    critical:magnitude===null?null:
-      'Pcr = '+fmt(magnitude)+' kN'+(factor<0?' con las cargas de referencia invertidas':'')};
+    critical:magnitude===null?null:'Pcr = '+fmt(magnitude)+' kN',
+    direction:factor<0?'sentido inverso':'mismo sentido'};
 }
 export function caseNodes(results, selectedCase, offset=[0,0,0]) {
   const c = results.cases.find(v=>v.name===selectedCase) || results.cases[0];

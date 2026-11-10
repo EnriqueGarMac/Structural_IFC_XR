@@ -59,9 +59,11 @@ test('shared plate edges are drawn once',()=>{
 test('buckling legend reports the factor and the sign of the critical load',()=>{
   const reversed=bucklingSummary({factor:-59.496,critical_force_resultant_kN:[0,0,59.496]});
   assert.equal(reversed.label,'λ = -59,50');
-  assert.equal(reversed.critical,'Pcr = 59,50 kN con las cargas de referencia invertidas');
+  assert.equal(reversed.critical,'Pcr = 59,50 kN');
+  assert.equal(reversed.direction,'sentido inverso');
   const direct=bucklingSummary({factor:71.144,critical_force_resultant_kN:[0,0,-71.144]});
   assert.equal(direct.critical,'Pcr = 71,14 kN');
+  assert.equal(direct.direction,'mismo sentido');
   // Without a complete reference load only the factor is shown.
   assert.equal(bucklingSummary({factor:3}).critical,null);
 });

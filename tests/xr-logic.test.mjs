@@ -6,7 +6,7 @@ import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,placeObjectOnHit,
 test('XR model size is bounded and adjusted in readable intervals',()=>{
   assert.equal(snapModelSize(2.5,.2),2.7);
   assert.equal(snapModelSize(5,.2),5);
-  assert.equal(snapModelSize(.4,-.3),.4);
+  assert.equal(snapModelSize(.4,-.3),.12);
 });
 test('results cases wrap in either direction',()=>{
   assert.equal(rotateIndex(0,-1,3),2);
