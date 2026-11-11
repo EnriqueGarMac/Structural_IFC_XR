@@ -1,4 +1,6 @@
 import './style.css';
+import './studio-theme.css';
+import {setupWorkspaceTabs} from './workspace-tabs.js';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults, buildingTeaching } from './demo.js';
@@ -14,6 +16,7 @@ import * as THREE from 'three';
 import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
 import {deformationScale,clampAmplification,formatAmplification} from './deformation-scale.mjs';
 const $=(id)=>document.getElementById(id);
+setupWorkspaceTabs();
 const app=new StructuralScene($('canvas-wrap'));
 app.sapVisuals=new SAPVisuals(app);
 app.reactionVisuals=new ReactionVisuals(app);
@@ -474,7 +477,7 @@ $('btn-vr').addEventListener('click',()=>startQuestXR('vr'));
 app.onXREnd=()=>{
   $('btn-xr').textContent='◉ Quest 3 RM';
   $('btn-vr').textContent='◉ Quest 3 VR';
-  $('btn-mobile-ar').textContent='▣ AR móvil';
+  $('btn-mobile-ar').textContent='AR móvil';
 };
 $('mobile-ar-overlay').addEventListener('beforexrselect',e=>e.preventDefault());
 $('mobile-ar-place').addEventListener('click',()=>{
@@ -531,7 +534,7 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
     $('mobile-ar-sap-only').textContent='Solo estructura: '+(app.showSAPOnly?'SÍ':'NO');
     if(app.xrSession)await app.xrSession.end();
     await app.enterXR({mobile:true});
-    $('btn-mobile-ar').textContent='▣ Salir de AR móvil';
+    $('btn-mobile-ar').textContent='Salir de AR';
   }catch(e){info('AR móvil: '+e.message,true);}
 });
 
