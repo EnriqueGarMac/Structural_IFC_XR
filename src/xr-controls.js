@@ -408,12 +408,18 @@ export class StructuralXRControls {
         const modeName={axial:'ESFUERZO AXIAL',stress:'TENSIÓN NORMAL',
           strain:'DEFORMACIÓN UNITARIA',displacement:'DESPLAZAMIENTOS'};
         btn('truss-mode','REPRESENTAR: '+modeName[lesson.mode],38,778,692,74,true);
-        txt('Rz izquierda = '+lesson.result.reactions[0].rz_kN.toFixed(2)+
-          ' kN · Rz derecha = '+lesson.result.reactions.at(-1).rz_kN.toFixed(2)+' kN',
-          38,893,19,'#c6ebec');
-        btn('truss-reset','RESTAURAR',38,933,333,70);
-        btn('truss-clear','QUITAR CARGAS',396,933,334,70);
-        txt(textFit(this.selected,46),38,1056,19,'#85d9d5');
+        const member=lesson.model.bars.find(b=>b.id===lesson.selectedBarId);
+        txt(member?'ÁREA '+member.id+': '+((member.A_m2??lesson.model.A_m2)*1e6).toFixed(0)+' mm²':
+          'SEÑALA UNA BARRA PARA EDITAR SU SECCIÓN',38,870,19,'#c6ebec');
+        btn('truss-area:-','− ÁREA',38,890,210,58,false,Boolean(member));
+        btn('truss-area:+','+ ÁREA',265,890,210,58,false,Boolean(member));
+        btn('truss-labels',lesson.showAxialLabels?'AXILES: SÍ':'AXILES: NO',
+          492,890,238,58);
+        btn('truss-amp:-','− DEFORMADA',38,957,210,52);
+        txt('×'+lesson.ampFactor.toFixed(1),385,985,23,'#e9ffff','center');
+        btn('truss-amp:+','+ DEFORMADA',520,957,210,52);
+        btn('truss-reset','RESTAURAR',38,1017,333,48);
+        btn('truss-clear','QUITAR CARGAS',396,1017,334,48);
       }
     }else if(this.page==='results'){
       // Controls that do not apply to the active view are drawn frozen,
@@ -604,6 +610,15 @@ export class StructuralXRControls {
       }else if(id==='truss-fz:-'||id==='truss-fz:+'){
         lesson.adjustSelected('z',id.endsWith(':+')?5:-5);
         this.selected='Carga vertical actualizada';
+      }else if(id==='truss-area:+'||id==='truss-area:-'){
+        try{
+          lesson.adjustMemberArea(lesson.selectedBarId,id.endsWith(':+')?250:-250);
+          this.selected='Área de '+lesson.selectedBarId+' modificada';
+        }catch(error){this.notice=error.message;}
+      }else if(id==='truss-amp:+'||id==='truss-amp:-'){
+        lesson.setAmplification(clamp(lesson.ampFactor+(id.endsWith(':+')?.25:-.25),0,10));
+      }else if(id==='truss-labels'){
+        lesson.setAxialLabels(!lesson.showAxialLabels);
       }else if(id==='truss-reset'){lesson.reset();this.selected='Cargas iniciales';}
       else if(id==='truss-clear'){lesson.clearLoads();this.selected='Sin cargas';}
       else if(id==='truss-mode'){
