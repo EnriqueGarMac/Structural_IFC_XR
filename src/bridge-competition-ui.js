@@ -291,7 +291,9 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     }
     if(app.mobileAR){
       app.startMobileBridgeScan();
-      detector.textContent='Buscando dos mesas desde Android AR…';
+      // The mobile scan chooses polygon detection or guided hit-test.
+      // Preserve its precise instructions instead of overwriting them
+      // with a misleading unconditional "detecting two tables" claim.
       return;
     }
     app.xrControls.bridgeScan=true;
