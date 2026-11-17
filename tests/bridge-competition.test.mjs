@@ -46,6 +46,14 @@ test('grid nodes and unfinished unsupported bars do not cause false collapse',()
   assert.equal(result.status,'stable',result.reason);
   near(result.maxDeflection_mm,control.maxDeflection_mm,1e-7);
   assert.ok(result.totalMass_kg>control.totalMass_kg);
+  assert.ok(result.pending.includes(unfinished.at(-1).id));
+});
+test('a newly drawn unbraced leaf member remains pending, not an instant collapse',()=>{
+  const baseline=bridgeSampleMembers(),grid=bridgeGrid(1.2);
+  const extended=addBridgeMember(baseline,grid,'T2','G3_5','bar_m');
+  const r=calculateBridge({members:extended,span_m:1.2,load_kN:3});
+  assert.equal(r.status,'stable',r.reason);
+  assert.ok(r.pending.includes(extended.at(-1).id));
 });
 test('central load disconnected from any supported path is still an invalid mechanism',()=>{
   const members=bridgeSampleMembers().filter(m=>m.i!=='B2'&&m.j!=='B2');
