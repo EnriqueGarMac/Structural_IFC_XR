@@ -62,6 +62,8 @@ export function setupMobileBridgeEditor(app){
     editor.hidden=!enabled;
     touch.hidden=!placed();
     if(!enabled)return;
+    if(placed()&&message.textContent.startsWith('Coloca la pasarela'))
+      say('Pasarela colocada. Pulsa Añadir barra y toca dos nudos de la retícula.');
     section.value=bridge.sectionId;
     $('mobile-ar-bridge-load-value').textContent=fmt(bridge.load_kN)+' kN';
     $('mobile-ar-bridge-count').textContent=
@@ -196,6 +198,30 @@ export function setupMobileBridgeEditor(app){
   // Keep the mobile panel in sync with edits from desktop and Quest APIs.
   const prior=bridge.onChange;
   bridge.onChange=result=>{prior?.(result);refresh();};
+  const priorLoad=bridge.onLoadProgress;
+  bridge.onLoadProgress=(load,target,progress)=>{
+    priorLoad?.(load,target,progress);
+    if(active()&&bridge.result)
+      say('Carga progresiva: '+fmt(load,2)+' / '+fmt(target,2)+' kN');
+  };
+  const priorFailure=bridge.onFailureProgress;
+  bridge.onFailureProgress=(stage,result)=>{
+    priorFailure?.(stage,result);
+    if(!active())return;
+    const next=stage.nextFailures??[];
+    say(stage.status==='mechanism'?
+      'MECANISMO · tras perder '+stage.removed.join(', ')+
+        ' · no hay equilibrio estático posterior':
+      next.length?'Carga '+fmt(stage.load_kN??bridge.load_kN,2)+
+        ' kN · siguiente fallo: '+next.map(m=>m.id).join(', '):
+        'Las barras restantes recuperan el equilibrio.');
+    const legend=$('mobile-ar-bridge-legend');
+    if(legend&&result)legend.textContent='Estado recalculado · flecha '+
+      fmt(result.maxDeflection_mm??0,2)+' mm · uso '+
+      fmt((result.maxUtilization??0)*100,1)+' %';
+    else if(legend&&stage.status==='mechanism')
+      legend.textContent='Mecanismo sin equilibrio estático: los esfuerzos posteriores no son calculables.';
+  };
   app.onMobileARPlacementChange=refresh;
   refresh();
   return {refresh,pickAt:locate};
