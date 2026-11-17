@@ -52,6 +52,7 @@ export class BridgeCompetitionExperience {
     this.result=null;
     this.mode='axial';
     this.palette='classic';this.ampFactor=1;this.showAxialLabels=false;
+    this.undeformedView=false;
     this.editMode=true;
     this.removeMode=false;
     this.startNode=null;
@@ -103,6 +104,13 @@ export class BridgeCompetitionExperience {
     this.ampFactor=n;this.draw();
   }
   setAxialLabels(enabled){this.showAxialLabels=Boolean(enabled);this.draw();}
+  setUndeformedView(enabled){
+    this.undeformedView=Boolean(enabled);
+    // Returning to the reference geometry stops, but does not delete, the
+    // illustrative failure animation; the computed results are retained.
+    if(this.undeformedView)this.breakAnimation=null;
+    this.draw();
+  }
   setMode(mode){
     if(!['axial','stress','utilization','displacement'].includes(mode))return;
     this.mode=mode;this.draw();
@@ -137,6 +145,7 @@ export class BridgeCompetitionExperience {
     this.draw();
   }
   evaluate(){
+    this.undeformedView=false;
     this.result=calculateBridge({span_m:this.span_m,
       load_kN:this.load_kN,members:this.members});
     if(this.result.status==='stable')
@@ -244,7 +253,7 @@ export class BridgeCompetitionExperience {
     const byNode=new Map(nodes.map(n=>[n.id,n]));
     const disp=new Map((this.result?.displacements??[]).map(d=>[d.nodeId,d]));
     const maxDeflection=this.result?.maxDeflection_mm??0;
-    const amp=maxDeflection>1e-9?
+    const amp=!this.undeformedView&&maxDeflection>1e-9?
       Math.min(500,BASE*.17/(maxDeflection*.001*BASE/span))*this.ampFactor:0;
     const pose=n=>{
       const d=disp.get(n.id);
@@ -290,7 +299,8 @@ export class BridgeCompetitionExperience {
       const section=BRIDGE_SECTIONS[m.sectionId];
       const a=pose(byNode.get(m.i)),b=pose(byNode.get(m.j));
       const actual=results.get(m.id);
-      const broken=this.result?.broken.some(v=>v.id===m.id);
+      const failure=this.result?.broken.find(v=>v.id===m.id);
+      const broken=Boolean(failure);
       let colour=actual?forceSignColour(actual.axial_kN,this.palette):
         section.kind==='tie'?TIE_COLOUR:STEEL_COLOUR;
       if(actual&&!broken){
@@ -322,7 +332,7 @@ export class BridgeCompetitionExperience {
       // amplification, instead of moving the load-point marker away from
       // an apparently straight (but bending) bar.
       const bending=this.result?.bending;
-      if(bending?.memberId===m.id&&section.I_m4>0){
+      if(!this.undeformedView&&bending?.memberId===m.id&&section.I_m4>0){
         const L=bending.length_m,at=L*bending.t,other=L-at;
         const E=section.E_kN_m2,I=section.I_m4,P=bending.load_kN;
         const points=[];
@@ -374,6 +384,7 @@ export class BridgeCompetitionExperience {
         }
         this.breakAnimation.dropped.push({
           id:m.id,i:m.i,j:m.j,
+          failureMode:failure?.mode??null,
           object:beam,origin:beam.position.clone(),
           baseRotation:beam.quaternion.clone(),
           length:a.distanceTo(b),radius:width,
@@ -477,6 +488,22 @@ export class BridgeCompetitionExperience {
       if(first>=0){
         const start=.38+first*.22;
         const t=Math.max(0,elapsed-start);
+        // Material yielding receives an amber warning before fracture;
+        // buckling bends visibly before separating. A geometric mechanism
+        // has no invented member fracture because it has no failed member.
+        const warning=Math.max(0,Math.min(1,(elapsed-(start-.3))/.3));
+        if(t<=0&&warning>0&&part.failureMode==='yield'){
+          part.object.material.color.setHex(0xf2b24c);
+          for(const segment of part.object.userData.curvedPieces??[])
+            segment.material.color.setHex(0xf2b24c);
+        }
+        if(t<=0&&warning>0&&part.failureMode==='buckling'){
+          part.object.position.copy(part.origin);
+          part.object.position.y-=.04*warning;
+          part.object.quaternion.copy(part.baseRotation);
+          part.object.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0,0,1),.18*warning));
+        }
         part.object.visible=t<=0&&!part.object.userData.curvedPieces;
         for(const segment of part.object.userData.curvedPieces??[])
           segment.visible=t<=0;
