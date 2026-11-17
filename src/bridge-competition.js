@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import {planeFromDetection} from './ar-placement.mjs';
 import {forceSignColour,resultColourHex} from './visual-palettes.mjs';
 import {makeAxialLabel} from './teaching-axial-label.js';
-import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics} from './bridge-collapse-dynamics.mjs';
+import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
+  resolveBridgeCylinderFloor} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge} from './bridge-competition-solver.mjs';
 
@@ -66,6 +67,7 @@ export class BridgeCompetitionExperience {
     this.breakAnimation=null;
     this.detectedGap=null;
     this.collisionFloorZ=null;
+    this.floorSurface=null;
     this.bestEligibleMass_kg=null;
     this.defaultWorldQuaternion=new THREE.Quaternion().setFromEuler(
       new THREE.Euler(-Math.PI/2,0,0));
@@ -79,7 +81,7 @@ export class BridgeCompetitionExperience {
     this.active=false;
     this.root.visible=false;
     this.breakAnimation=null;
-    clear(this.root);this.pickers=[];this.previewMesh=null;
+    clear(this.root);this.pickers=[];this.floorSurface=null;this.previewMesh=null;
   }
   setSpan(value){
     const span=Number(value);
@@ -439,11 +441,37 @@ export class BridgeCompetitionExperience {
     loadArrow.name='Carga central B2';
     this.root.add(loadArrow);
     if(this.breakAnimation){
+      const floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
       this.breakAnimation.physics=createBridgeCollapseDynamics(
         nodes.map(n=>({...n,x:pose(n).x,z:pose(n).z})),
-        this.members.map(m=>({...m,tie:BRIDGE_SECTIONS[m.sectionId].kind==='tie'})),
-        [],this.collisionFloorZ??(-.75*BASE/this.span_m)
+        this.members.map(m=>{
+          const section=BRIDGE_SECTIONS[m.sectionId];
+          return {...m,tie:section.kind==='tie',
+            radius:clamp(Math.sqrt(section.A_m2/Math.PI)*BASE/span,
+              section.kind==='tie'?.002:.003,.015)};
+        }),[],floorZ
       );
+      // Show where impact is actually calculated. Without a visual contact
+      // plane, an otherwise grounded rod appears to float or pass through
+      // an imagined floor (especially in the desktop perspective camera).
+      const floor=new THREE.Group();
+      floor.name='Plano de colisión de la pasarela';
+      const surface=new THREE.Mesh(
+        new THREE.PlaneGeometry(BASE*1.8,BASE*.55),
+        new THREE.MeshBasicMaterial({color:0x7798a3,side:THREE.DoubleSide,
+          transparent:true,opacity:.10,depthWrite:false}));
+      surface.position.set(BASE*.5,0,0);
+      floor.add(surface);
+      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-BASE*.38,0,0),
+        new THREE.Vector3(BASE*1.38,0,0)]),
+        new THREE.LineBasicMaterial({color:0x8cc6cd,transparent:true,
+          opacity:.65,depthTest:false}));
+      floor.add(line);
+      floor.position.z=floorZ;
+      floor.renderOrder=-1;
+      this.root.add(floor);
+      this.floorSurface=floor;
     }
     this.app.xrControls && (this.app.xrControls.dirty=true);
     this.onChange?.(this.result);
@@ -461,7 +489,18 @@ export class BridgeCompetitionExperience {
       if(label&&label!=='floor'&&label!=='unknown')continue;
       if(!nearest||candidate.top>nearest.top)nearest=candidate;
     }
-    if(nearest)this.collisionFloorZ=(nearest.top-tableY)*BASE/this.span_m;
+    if(nearest){
+      // Transform the detected real-world floor through the *current*
+      // bridge model matrix, including Quest placement, scale and rotation.
+      this.root.updateWorldMatrix(true,false);
+      const floorPoint=this.root.worldToLocal(
+        new THREE.Vector3(this.detectedGap.start.x,nearest.top,
+          this.detectedGap.start.z));
+      if(Number.isFinite(floorPoint.z)){
+        this.collisionFloorZ=floorPoint.z;
+        if(this.floorSurface)this.floorSurface.position.z=floorPoint.z;
+      }
+    }
   }
   animate(timeMs){
     if(!this.active||!this.breakAnimation)return;
@@ -473,6 +512,7 @@ export class BridgeCompetitionExperience {
     const dt=Math.max(0,Math.min(.06,(timeMs-state.lastStep)/1000));
     state.lastStep=timeMs;
     physics.floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
+    if(this.floorSurface)this.floorSurface.position.z=physics.floorZ;
     // Let the identified element fracture before structural nodes start
     // moving. Surviving members retain compatible shared endpoints.
     if(elapsed>.38){
@@ -525,9 +565,9 @@ export class BridgeCompetitionExperience {
           fragment.object.position.x+=(fragment.fragment?1:-1)*Math.min(t*.07,.14);
           fragment.object.position.z-=1.75*t*t;
           const axis=new THREE.Vector3(0,1,0).applyQuaternion(q);
-          const lowest=fragment.object.position.z-
-            Math.abs(axis.z)*fragment.length*.5-fragment.radius;
-          if(lowest<physics.floorZ)fragment.object.position.z+=physics.floorZ-lowest;
+          const contact=resolveBridgeCylinderFloor(fragment.object.position.z,
+            axis.z,fragment.length,fragment.radius,physics.floorZ);
+          fragment.object.position.z=contact.centerZ;
         }
         continue;
       }
