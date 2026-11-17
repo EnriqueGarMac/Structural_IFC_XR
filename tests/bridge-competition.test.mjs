@@ -61,6 +61,29 @@ test('central load disconnected from any supported path is still an invalid mech
   assert.equal(result.status,'collapse');
   assert.equal(result.reactions.length,0);
 });
+test('three-member triangle carries a point load placed on the interior of its bottom chord',()=>{
+  const triangle=bottom=>[
+    {id:'M1',i:'B0',j:'T2',sectionId:'bar_m'},
+    {id:'M2',i:'T2',j:'B4',sectionId:'bar_m'},
+    {id:'M3',i:'B0',j:'B4',sectionId:bottom}
+  ];
+  const light=calculateBridge({members:triangle('bar_m'),span_m:1.2,load_kN:3});
+  assert.notEqual(light.maxDeflection_mm,null,
+    'Geometrically closed triangle must be analysed, not rejected as disconnected');
+  assert.equal(light.bending?.memberId,'M3');
+  near(light.bending.moment_kNm,.9,1e-8);
+  assert.ok(light.bending.stress_MPa>235,
+    'Thin bottom chord should fail flexure rather than be falsely called safe');
+  assert.equal(light.broken[0]?.mode,'bending');
+  assert.match(light.reason,/flexión/);
+  assert.ok(light.reactions.length>0);
+  assert.ok(light.displacements.some(d=>d.nodeId==='B2'));
+  const reinforced=calculateBridge({members:triangle('bar_l'),span_m:1.2,load_kN:3});
+  assert.equal(reinforced.status,'stable',reinforced.reason);
+  assert.ok(reinforced.bending.stress_MPa<235);
+  assert.ok(reinforced.maxDeflection_mm<reinforced.serviceLimit_mm);
+  near(reinforced.bending.localDeflection_mm,1.3186813186813182,1e-6);
+});
 test('empty or mechanically unstable design is rejected, not assigned fictitious forces',()=>{
   const r=calculateBridge({members:[],load_kN:3});
   assert.equal(r.status,'collapse');
