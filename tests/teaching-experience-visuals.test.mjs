@@ -237,7 +237,22 @@ test('progressive failure animation follows the actual recalculated sequence',()
   assert.deepEqual(updates[0],{removed:['M6'],next:'M14'});
   assert.equal(bridge.breakAnimation.physics.broken.has('M6'),true);
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),false);
+  // Simulate a real intermediate deformation before the NEXT fracture.
+  // Its pieces must be born at that instant, rather than teleporting
+  // back to their original positions from the initial load ramp.
+  const later=bridge.breakAnimation.dropped.find(m=>m.id==='M14');
+  const p=bridge.breakAnimation.physics.positions.get(later.i);
+  p.x+=.047;p.z-=.023;p.oldX=p.x;p.oldZ=p.z;
+  const q=bridge.breakAnimation.physics.positions.get(later.j);
+  const cut=later.fragments[0].split;
+  const a=new THREE.Vector3(p.x,0,p.z);
+  const b=new THREE.Vector3(q.x,0,q.z);
+  const expectedFirst=a.clone().lerp(b,cut*.5);
+  const expectedSecond=a.clone().lerp(b,(1+cut)*.5);
   bridge.animate(2900);
+  assert.ok(later.fragments[0].origin.distanceTo(expectedFirst)<1e-7);
+  assert.ok(later.fragments[1].origin.distanceTo(expectedSecond)<1e-7);
+  assert.equal(bridge.breakAnimation.mechanismStartTime>0,true);
   assert.deepEqual(updates[1],{removed:['M6','M14'],next:null});
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),true);
   bridge.deactivate();
