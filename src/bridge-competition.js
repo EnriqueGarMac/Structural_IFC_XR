@@ -6,7 +6,8 @@ import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
   stepBridgeLooseFragment,bridgeFragmentScatter,
   syncBridgeEdgeRestLengths} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
-  addBridgeMember,calculateBridge,bridgeStageResult,bridgeLoadHistory} from './bridge-competition-solver.mjs';
+  addBridgeMember,calculateBridgeIncrementally,bridgeStageResult,
+  bridgeLoadHistory} from './bridge-competition-solver.mjs';
 
 const BASE=1.2;
 const STEEL_COLOUR=0x9cacb5,TIE_COLOUR=0x77bfd0,FAILED_COLOUR=0xe96d60;
@@ -168,7 +169,7 @@ export class BridgeCompetitionExperience {
     // Load application opens the actual deformed response, not axial colours.
     // The shared Analysis tab follows this same mode via updateTeachingAnalysis.
     this.mode='displacement';
-    this.result=calculateBridge({span_m:this.span_m,
+    this.result=calculateBridgeIncrementally({span_m:this.span_m,
       load_kN:this.load_kN,members:this.members});
     this.loadRamp={...bridgeLoadHistory({span_m:this.span_m,
       load_kN:this.load_kN,members:this.members}),
