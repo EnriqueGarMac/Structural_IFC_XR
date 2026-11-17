@@ -74,6 +74,7 @@ export function setupTrussLesson(app,{
     $('num-nodes').textContent=String(TRUSS_LESSON.nodes.length);
     $('num-frames').textContent=String(TRUSS_LESSON.bars.length);
     $('max-u').textContent=physical(result.maxDisplacement_m)+' mm';
+    app.updateTeachingAnalysis?.('truss',result,lesson);
     app.xrControls.dirty=true;
   }
   lesson.onChange=update;
