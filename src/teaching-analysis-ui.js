@@ -75,7 +75,8 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     const {kind,result,experience}=current;
     document.body.classList.add('teaching-results-active');
     // A previous SAP mode may have frozen these controls.
-    view.disabled=false;amp.disabled=false;
+    view.disabled=false;amp.disabled=false;componentSelect.disabled=false;
+    reactionButton.disabled=false;
     view.closest('.control')?.classList.remove('is-frozen');
     amp.closest('.range-control')?.classList.remove('is-frozen');
     const paletteToggle=$('legend-palette-toggle');
@@ -93,6 +94,8 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     forceControls.hidden=current.view!=='forces';
     reactionControls.hidden=current.view!=='reactions';
     componentRow.hidden=current.view!=='forces';
+    componentRow.classList.remove('is-frozen');
+    reactionControls.classList.remove('is-frozen');
     const hasBending=kind==='bridge'&&Boolean(result?.bending);
     const allowed=hasBending?['P','V2','M3']:['P'];
     for(const option of componentSelect.options)
@@ -230,6 +233,10 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     selectComponent,pickForce:ray=>current?.view==='forces'?forceRenderer.pickForce(ray):null,
     pickReaction:ray=>current?.view==='reactions'?reactionRenderer.pick(ray):null,
     pinForce:hit=>forceRenderer.pinSection(hit),
+    hoverForce:hit=>forceRenderer.setHoverSection(hit),
+    inspectForceXR:ray=>current?.view==='forces'?forceRenderer.inspectXRRay(ray):null,
+    inspectReactionXR:ray=>current?.view==='reactions'?reactionRenderer.inspectXRRay(ray):null,
+    hideXRHover:()=>{forceRenderer.hideXRHover?.();reactionRenderer.hideXRHover?.();},
     refresh,leave};
   app.clearTeachingAnalysis=leave;
   return app.teachingAnalysis;
