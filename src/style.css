@@ -142,3 +142,12 @@
 /* Controls that do not apply to the active results view stay in place, frozen. */
 .is-frozen{opacity:.38;filter:saturate(.3);cursor:not-allowed;transition:opacity .15s}
 .is-frozen select,.is-frozen input,.is-frozen label{cursor:not-allowed}
+
+/* Competition result legend: aligned with the colours actually drawn on rods. */
+.bridge-results-legend{margin:10px 0;padding:10px 12px;border:1px solid #476875;border-radius:10px;background:#102c39;color:#d6ebf0;font-size:12px;line-height:1.65}
+.bridge-results-legend strong{display:block;color:#f0fbff;margin-bottom:4px}
+.bridge-legend-key{display:flex;align-items:center;flex-wrap:wrap;gap:7px 9px;margin:5px 0}
+.bridge-key{display:inline-block;width:13px;height:9px;border-radius:2px;vertical-align:middle}
+.bridge-key.tension{background:#d39d6c}.bridge-key.compression{background:#6eaac6}.bridge-key.failure{background:#e96d60}
+#mobile-ar-bridge-legend:not([hidden]){display:block;padding:5px 7px;border-radius:6px;background:rgba(10,31,44,.9);font-size:11px;line-height:1.4}
+#mobile-ar-bridge-scan[hidden],#mobile-ar-bridge-legend[hidden]{display:none!important}
