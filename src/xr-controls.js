@@ -293,9 +293,10 @@ export class StructuralXRControls {
        d.kind==='amp-slider'&&button==='select')this.drag=null;
   }
   setAmplification(value){
-    const max=this.app.ampMax??150,step=this.app.ampStep??1;
-    const next=Number((Math.round(clamp(value,0,max)/step)*step).toFixed(2));
     const teaching=this.app.teachingAnalysis?.active;
+    const max=teaching?150:(this.app.ampMax??150);
+    const step=teaching?1:(this.app.ampStep??1);
+    const next=Number((Math.round(clamp(value,0,max)/step)*step).toFixed(2));
     const exp=teaching?(this.app.bridgeCompetition?.active?
       this.app.bridgeCompetition:this.app.trussExperience):null;
     const current=teaching?Math.round((exp?.ampFactor??1)*15):this.app.amp;
@@ -307,7 +308,8 @@ export class StructuralXRControls {
     return true;
   }
   setAmplificationFromX(x){
-    return this.setAmplification(amplificationFromSliderX(x,163,604,this.app.ampMax??150));
+    return this.setAmplification(amplificationFromSliderX(x,163,604,
+      this.app.teachingAnalysis?.active?150:(this.app.ampMax??150)));
   }
   _buttons(){
     const c=this.ctx;
@@ -790,8 +792,13 @@ export class StructuralXRControls {
       }
     }
     else if(id==='amp:+'||id==='amp:-'){
-      const delta=Math.max(this.app.ampStep??1,(this.app.ampMax??150)/80);
-      this.setAmplification(app.amp+(id==='amp:+'?delta:-delta));
+      const teaching=Boolean(app.teachingAnalysis?.active);
+      const activeExperience=app.bridgeCompetition?.active?
+        app.bridgeCompetition:app.trussExperience;
+      const current=teaching?Math.round((activeExperience?.ampFactor??1)*15):app.amp;
+      const delta=teaching?3:Math.max(this.app.ampStep??1,
+        (this.app.ampMax??150)/80);
+      this.setAmplification(current+(id==='amp:+'?delta:-delta));
     }
     else if(['loads','deformed','original','frames','supports','axes'].includes(id)){
       const dict={loads:['showLoads','show-loads'],deformed:['showDeformed','show-displaced'],
