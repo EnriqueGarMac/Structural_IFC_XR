@@ -376,10 +376,13 @@ export class StructuralXRControls {
         btn('bridge-sample','EJEMPLO',38,925,335,65);
         btn('bridge-clear','VACIAR',395,925,335,65);
         const state=bridge.result;
-        txt(state?(state.status==='stable'?'APTA · ':state.status==='service'?'FLECHA EXCESIVA · ':'COLAPSO · ')+
-          'Peso '+state.totalMass_kg.toFixed(2)+' kg':
-          'Sin comprobar · selecciona nodos y secciones',
-          38,1040,19,state?.status==='stable'?'#8fedc9':'#ffce9d');
+        txt('LEYENDA · N: naranja tracción · azul compresión · rojo fallo',
+          38,1013,16,'#a4d6de');
+        txt(state?
+          'Uso '+(state.maxUtilization==null?'—':(state.maxUtilization*100).toFixed(1)+' %')+
+          ' · Flecha '+state.maxDeflection_mm.toFixed(2)+' mm · Peso '+state.totalMass_kg.toFixed(2)+' kg':
+          'Sin comprobar · colores y deformada ilustrativa',
+          38,1053,18,state?.status==='stable'?'#8fedc9':'#ffce9d');
       }
     }else if(this.page==='truss'){
       const lesson=app.trussExperience;
