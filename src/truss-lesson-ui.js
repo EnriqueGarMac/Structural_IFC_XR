@@ -150,9 +150,12 @@ export function setupTrussLesson(app,{
   });
   $('truss-apply-supports').addEventListener('click',()=>{
     try{
-      lesson.assignSupports(fixedSelect.value,rollerSelect.value);
+      lesson.assignSupports(fixedSelect.value,rollerSelect.value,{
+        E_kN_m2:Number($('truss-ifc-e').value)*1e6,
+        A_m2:Number($('truss-ifc-area').value)*1e-6
+      });
       refreshNodeOptions();
-      $('truss-ifc-status').textContent='Apoyos confirmados y cálculo actualizado.';
+      $('truss-ifc-status').textContent='Apoyos, sección y módulo E confirmados. Cálculo actualizado.';
     }catch(error){
       $('truss-ifc-status').textContent='Error en los apoyos: '+error.message;
     }
