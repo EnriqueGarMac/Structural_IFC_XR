@@ -432,11 +432,9 @@ export class StructuralScene {
     const r=this.renderer.domElement.getBoundingClientRect();this.mouse.set((evt.clientX-r.left)/r.width*2-1,-(evt.clientY-r.top)/r.height*2+1);
     this.pickRaycaster.setFromCamera(this.mouse,this.camera);
     if(this.bridgeCompetition?.active){
-      const hit=this.bridgeCompetition.pick(this.pickRaycaster);
-      if(hit?.kind==='node'){
-        try{this.bridgeCompetition.chooseNode(hit.id);}
-        catch(error){this.onXRMessage?.(error.message);}
-      }else if(hit?.kind==='member')this.bridgeCompetition.chooseMember(hit.id);
+      // main.js is the single desktop pointer handler for the bridge editor.
+      // Handling it here too would call chooseNode twice for each click,
+      // immediately clearing the first endpoint or creating a wrong bar.
       return;
     }
     if(this.trussExperience?.active){
