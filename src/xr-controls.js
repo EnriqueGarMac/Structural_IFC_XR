@@ -361,7 +361,8 @@ export class StructuralXRControls {
         txt((section.A_m2*1e6).toFixed(0)+' mm²',385,342,27,'#ecfdff','center');
         btn('bridge-section:+','›',592,307,138,68);
         txt('GATILLO EN DOS NODOS PARA AÑADIR UNA BARRA',38,413,19);
-        btn('bridge-edit',bridge.editMode?'CREACIÓN: ACTIVA':'CREACIÓN: INACTIVA',
+        btn('bridge-edit',bridge.addMode?
+          (bridge.startNode?'ELIGE SEGUNDO NODO':'ELIGE PRIMER NODO'):'AÑADIR ELEMENTO',
           38,448,330,69,true);
         btn('bridge-remove-mode',bridge.removeMode?'BORRAR: ACTIVO':'MODO BORRAR',
           400,448,330,69);
@@ -574,8 +575,8 @@ export class StructuralXRControls {
       }else if(id==='bridge-load:+'||id==='bridge-load:-'){
         bridge.setLoad(Math.max(0,Math.min(50,bridge.load_kN+(id.endsWith(':+')?.5:-.5))));
       }else if(id==='bridge-edit'){
-        bridge.editMode=!bridge.editMode;bridge.removeMode=false;bridge.startNode=null;
-        bridge.draw();
+        if(bridge.addMode)bridge.cancelAdd();
+        else bridge.beginAdd();
       }else if(id==='bridge-remove-mode'){
         bridge.removeMode=!bridge.removeMode;
         if(bridge.removeMode)bridge.editMode=false;
@@ -849,6 +850,7 @@ export class StructuralXRControls {
       hovered??=hit?.item?.id??null;
       if(!hit&&!this.drag&&!this.placeMode&&!forceHovered){
         if(this.app.bridgeCompetition?.active){
+          this.app.bridgeCompetition.updatePreviewRay(this._ray(controller));
           const picked=this.app.bridgeCompetition.pick(this._ray(controller));
           if(picked){
             forceHovered=true;
