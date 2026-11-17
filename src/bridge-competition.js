@@ -117,9 +117,10 @@ export class BridgeCompetitionExperience {
     if(this.result.status==='stable')
       this.bestEligibleMass_kg=this.bestEligibleMass_kg===null?
         this.result.totalMass_kg:Math.min(this.bestEligibleMass_kg,this.result.totalMass_kg);
-    this.breakAnimation=this.result.status==='collapse'||this.result.status==='failure'?
-      {startedAt:null,partIds:new Set(this.result.broken.map(m=>m.id)),
-        dropped:[]}:null;
+    // Serviceability alone never triggers a collapse animation.
+    // Follow the ordered failure sequence reported by the member-removal solver.
+    this.breakAnimation=['collapse','failure'].includes(this.result.status)?
+      {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[]}:null;
     this.draw();
     return this.result;
   }
@@ -215,10 +216,15 @@ export class BridgeCompetitionExperience {
       hit.material.transparent=true;hit.material.opacity=.015;
       hit.material.depthWrite=false;hit.material.depthTest=false;
       this.root.add(hit);this.pickers.push(hit);
-      if(this.breakAnimation&&m.id!==undefined){
-        const object=beam;
-        this.breakAnimation.dropped.push({object,origin:object.position.clone(),
-          baseRotation:object.rotation.clone(),broken});
+      if(this.breakAnimation){
+        const index=this.breakAnimation.sequence.indexOf(m.id);
+        this.breakAnimation.dropped.push({
+          object:beam,origin:beam.position.clone(),
+          baseRotation:beam.quaternion.clone(),
+          length:a.distanceTo(b),radius:width,
+          index:index>=0?index:this.breakAnimation.sequence.length+
+            this.members.findIndex(other=>other.id===m.id)
+        });
       }
     }
     for(const node of nodes){
@@ -246,17 +252,36 @@ export class BridgeCompetitionExperience {
     if(!this.active||!this.breakAnimation)return;
     const state=this.breakAnimation;
     if(state.startedAt===null)state.startedAt=timeMs;
-    const t=clamp((timeMs-state.startedAt)/2000,0,1);
-    for(const {object,origin,baseRotation,broken} of state.dropped){
-      const delay=broken?0:.25;
-      const u=clamp((t-delay)/(1-delay),0,1);
+    const elapsed=Math.max(0,(timeMs-state.startedAt)/1000);
+    // A simple kinematic illustration, not physical fracture dynamics:
+    // the failed member moves first; members that lose support follow.
+    // Approximate tabletop height above the floor in the local Z frame.
+    const floorZ=-.75*BASE/this.span_m;
+    const gravity=1.7; // scene-units/s²
+    for(const item of state.dropped){
+      const {object,origin,baseRotation,index,length,radius}=item;
+      const start=.18+index*.24;
+      const t=Math.max(0,elapsed-start);
       object.position.copy(origin);
-      object.position.z-=BASE*.65*u*u;
-      object.rotation.copy(baseRotation);
-      object.rotation.y+=(broken?1:.35)*u;
-      if(broken)object.material.color.setHex(FAILED_COLOUR);
-      object.material.opacity=1-.5*u;
-      if(!object.material.transparent){object.material.transparent=true;object.material.needsUpdate=true;}
+      object.quaternion.copy(baseRotation);
+      if(t<=0)continue;
+      // Rotate around the local vertical as the member separates.
+      object.rotateY(Math.min(t,1.6)*(index%2===0?.6:-.6));
+      const fall=.5*gravity*t*t;
+      object.position.z-=fall;
+      // Plane collision: clamp lowest tip of a rotated rod to the floor.
+      const axis=new THREE.Vector3(0,1,0).applyQuaternion(object.quaternion);
+      const lowest=object.position.z-Math.abs(axis.z)*length*.5-radius;
+      if(lowest<floorZ){
+        object.position.z+=floorZ-lowest;
+        // Small damped bounce on impact, preserving the floor constraint.
+        const penetrationTime=Math.sqrt(Math.max(0,2*(origin.z-floorZ)/gravity));
+        const reboundTime=Math.max(0,t-penetrationTime);
+        if(reboundTime>0)object.position.z+=
+          Math.max(0,.035*Math.exp(-3*reboundTime)*Math.abs(Math.sin(12*reboundTime)));
+      }
+      if(state.sequence.includes(this.members.find(m=>m.id===object.userData.bridgeMember)?.id))
+        object.material.color.setHex(FAILED_COLOUR);
     }
   }
 }
