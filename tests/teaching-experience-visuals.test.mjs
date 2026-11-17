@@ -158,6 +158,24 @@ test('central load arrow tip coincides with B2 in reference and deformed views',
   checkTip();
   exercise.deactivate();
 });
+test('equally loaded mirror members break in the same animation frame',()=>{
+  const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
+  bridge.activate();
+  bridge.members=[
+    ['B0','B2'],['B2','B4'],['B0','T2'],['T2','B4'],['B2','T2']
+  ].map(([i,j],k)=>({id:'M'+(k+1),i,j,sectionId:'bar_m'}));
+  bridge.setLoad(35);
+  const result=bridge.evaluate();
+  assert.deepEqual(result.broken.map(m=>m.id),['M3','M4']);
+  assert.equal(bridge.breakAnimation.failureTimes.M3,
+    bridge.breakAnimation.failureTimes.M4);
+  bridge.animate(100);
+  bridge.animate(750);
+  const broken=bridge.breakAnimation.physics.broken;
+  assert.equal(broken.has('M3'),true);
+  assert.equal(broken.has('M4'),true);
+  bridge.deactivate();
+});
 test('progressive failure animation follows the actual recalculated sequence',()=>{
   const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
   bridge.activate();
