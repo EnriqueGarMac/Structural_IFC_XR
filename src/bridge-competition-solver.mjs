@@ -226,9 +226,13 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     catch(error){
       status='collapse';
       reason=failures.length?
-        'Tras la rotura de '+failures.map(f=>f.id).join(', ')+
-          ' se forma un mecanismo inestable o se pierde el camino resistente.':
-        'Mecanismo inestable o sin camino resistente entre los apoyos.';
+        (failures.some(f=>f.mode==='bending')?
+          'La barra '+failures.find(f=>f.mode==='bending').id+
+          ' falla a flexión por la carga aplicada entre nudos. Al romperse se pierde el camino resistente.':
+          'Tras la rotura de '+failures.map(f=>f.id).join(', ')+
+          ' se forma un mecanismo inestable o se pierde el camino resistente.'):
+        (error.message.startsWith('La carga central')?error.message:
+          'Mecanismo inestable o sin camino resistente entre los apoyos.');
       if(!original)original=null;
       break;
     }
@@ -312,7 +316,19 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     serviceLimit_mm,midspanDeflection_mm:bending?.verticalAtLoad_mm??
       (mid?.uz_m*1000??0),
     maxDeflection_mm,maxUtilization,bending,
-    members:reference.members,displacements:reference.displacements,
+    members:reference.members,displacements:bending?
+      [...reference.displacements.filter(d=>d.nodeId!=='B2'),{
+        nodeId:'B2',
+        ux_m:(reference.displacements.find(d=>d.nodeId===bending.i)?.ux_m??0)*
+          (1-bending.t)+(reference.displacements.find(d=>d.nodeId===bending.j)?.ux_m??0)*
+          bending.t,
+        uz_m:bending.verticalAtLoad_mm/1000,
+        magnitude_m:Math.hypot(
+          (reference.displacements.find(d=>d.nodeId===bending.i)?.ux_m??0)*
+            (1-bending.t)+(reference.displacements.find(d=>d.nodeId===bending.j)?.ux_m??0)*
+            bending.t,
+          bending.verticalAtLoad_mm/1000)
+      }]:reference.displacements,
     reactions:reference.reactions,equilibrium:reference.equilibrium,
     broken:failures,slack:[...slackIds],
     pending:reference.pendingMemberIds??[],
