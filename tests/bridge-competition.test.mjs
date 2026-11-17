@@ -8,7 +8,9 @@ import {bridgeGapBetween,detectBridgeTableGap,applyBridgeGapPlacement}
 const near=(a,b,tol=.000001)=>assert.ok(Math.abs(a-b)<=tol,a+' != '+b);
 test('bridge contest grid, materials and member edit validation',()=>{
   const nodes=bridgeGrid(1.2);
-  assert.equal(nodes.length,8);
+  assert.equal(nodes.length,45);
+  assert.equal(new Set(nodes.map(n=>n.id)).size,45);
+  assert.ok(nodes.some(n=>n.id==='G2_5'));
   assert.equal(nodes[0].fixX,true);
   assert.equal(nodes.find(n=>n.id==='B4').fixZ,true);
   assert.ok(BRIDGE_SECTIONS.bar_m.A_m2>BRIDGE_SECTIONS.tie_m.A_m2);
@@ -35,6 +37,21 @@ test('reference pedestrian truss resists its central teaching load with equilibr
   assert.ok(r.maxUtilization<=1);
   assert.ok(r.maxDeflection_mm<=r.serviceLimit_mm);
   assert.ok(r.totalMass_kg>0&&r.totalMass_kg<300);
+});
+test('grid nodes and unfinished unsupported bars do not cause false collapse',()=>{
+  const grid=bridgeGrid(1.2),base=bridgeSampleMembers();
+  const control=calculateBridge({members:base,span_m:1.2,load_kN:3});
+  const unfinished=addBridgeMember(base,grid,'G2_0','G2_1','bar_m');
+  const result=calculateBridge({members:unfinished,span_m:1.2,load_kN:3});
+  assert.equal(result.status,'stable',result.reason);
+  near(result.maxDeflection_mm,control.maxDeflection_mm,1e-7);
+  assert.ok(result.totalMass_kg>control.totalMass_kg);
+});
+test('central load disconnected from any supported path is still an invalid mechanism',()=>{
+  const members=bridgeSampleMembers().filter(m=>m.i!=='B2'&&m.j!=='B2');
+  const result=calculateBridge({members});
+  assert.equal(result.status,'collapse');
+  assert.equal(result.reactions.length,0);
 });
 test('empty or mechanically unstable design is rejected, not assigned fictitious forces',()=>{
   const r=calculateBridge({members:[],load_kN:3});
