@@ -46,6 +46,7 @@ export class BridgeCompetitionExperience {
     this.sectionId='bar_m';
     this.members=[];
     this.result=null;
+    this.mode='axial';
     this.editMode=true;
     this.removeMode=false;
     this.startNode=null;
@@ -84,6 +85,10 @@ export class BridgeCompetitionExperience {
     this.load_kN=value;
     this.bestEligibleMass_kg=null;
     this.result=null;this.breakAnimation=null;this.draw();
+  }
+  setMode(mode){
+    if(!['axial','stress','utilization','displacement'].includes(mode))return;
+    this.mode=mode;this.draw();
   }
   setSection(id){
     if(!BRIDGE_SECTIONS[id])return;
@@ -203,10 +208,27 @@ export class BridgeCompetitionExperience {
       const a=pose(byNode.get(m.i)),b=pose(byNode.get(m.j));
       const actual=results.get(m.id);
       const broken=this.result?.broken.some(v=>v.id===m.id);
-      const colour=broken?FAILED_COLOUR:
+      let colour=broken?FAILED_COLOUR:
         actual?.axial_kN>1e-7?0xd39d6c:
         actual?.axial_kN< -1e-7?0x6eaac6:
         section.kind==='tie'?TIE_COLOUR:STEEL_COLOUR;
+      if(actual&&!broken){
+        if(this.mode==='utilization'){
+          const u=Math.min(1,Math.max(0,actual.utilization||0));
+          colour=new THREE.Color(0x51bda4).lerp(new THREE.Color(0xe96d60),u).getHex();
+        }else if(this.mode==='displacement'){
+          const da=disp.get(m.i),db=disp.get(m.j);
+          const max=Math.max(1e-9,...this.result.displacements.map(d=>d.magnitude_m||Math.hypot(d.ux_m,d.uz_m)));
+          const aU=da?.magnitude_m??Math.hypot(da?.ux_m||0,da?.uz_m||0);
+          const bU=db?.magnitude_m??Math.hypot(db?.ux_m||0,db?.uz_m||0);
+          colour=new THREE.Color(0x5bc5b3).lerp(new THREE.Color(0xe8a568),
+            Math.min(1,(aU+bU)/(2*max))).getHex();
+        }else if(this.mode==='stress'){
+          const max=Math.max(1e-9,...this.result.members.map(x=>Math.abs(x.stress_MPa||0)));
+          colour=new THREE.Color(colour).lerp(new THREE.Color(0x9cacb5),
+            .55*(1-Math.min(1,Math.abs(actual.stress_MPa||0)/max))).getHex();
+        }
+      }
       const width=section.kind==='tie'?.009:.016+Math.sqrt(section.A_m2)*.40;
       const beam=lineBetween(a,b,width,colour);
       beam.userData.bridgeMember=m.id;
