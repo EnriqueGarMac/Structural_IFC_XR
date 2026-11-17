@@ -183,7 +183,7 @@ export class BridgeCompetitionExperience {
     grid.add(new THREE.LineSegments(g,grey));
     for(const node of nodes){
       const p=world(node,span);
-      const marker=new THREE.Mesh(new THREE.SphereGeometry(.018,10,8),
+      const marker=new THREE.Mesh(new THREE.SphereGeometry(.009,10,8),
         new THREE.MeshBasicMaterial({color:0xb0c8cf,transparent:true,opacity:.65}));
       marker.position.copy(p);grid.add(marker);
     }
@@ -224,7 +224,7 @@ export class BridgeCompetitionExperience {
     for(const node of nodes){
       const p=pose(node);
       const chosen=node.id===this.startNode||node.id===this.selectedNode;
-      const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.044:.029,12,8),
+      const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.022:.014,12,8),
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
       visual.position.copy(p);this.root.add(visual);
       const picker=new THREE.Mesh(new THREE.SphereGeometry(.08,12,8),
