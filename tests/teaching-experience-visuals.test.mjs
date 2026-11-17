@@ -136,6 +136,27 @@ test('resetting to undeformed bridge shape retains numerical results and stops c
   assert.equal(exercise.breakAnimation,null);
   exercise.deactivate();
 });
+test('central load arrow tip coincides with B2 in reference and deformed views',()=>{
+  const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
+  exercise.activate();
+  const checkTip=()=>{
+    const arrow=exercise.root.children.find(o=>o.name==='Carga central B2');
+    assert.ok(arrow,'central load arrow exists');
+    const B2=exercise.root.children.find(o=>o.geometry?.type==='SphereGeometry'&&
+      o.material?.color?.getHex()===0xf1cf82);
+    assert.ok(B2,'selected B2 node marker exists');
+    // ArrowHelper points along negative Z and starts 0.16 m above B2.
+    assert.ok(Math.abs(arrow.position.x-B2.position.x)<1e-9);
+    assert.ok(Math.abs(arrow.position.z-.16-B2.position.z)<1e-9,
+      'arrow tip must terminate on the loaded node');
+  };
+  checkTip();
+  exercise.sample();exercise.evaluate();
+  checkTip();
+  exercise.setUndeformedView(true);
+  checkTip();
+  exercise.deactivate();
+});
 test('bridge renderer allows a lightweight design, editing and animated failure',()=>{
   const app=makeApp();
   assert.equal(bridgeReferenceGeometry().length,2);
