@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
-  resolveBridgeCylinderFloor}
+  resolveBridgeCylinderFloor,stepBridgeLooseFragment}
   from '../src/bridge-collapse-dynamics.mjs';
 import {solveTruss2D,TRUSS_LESSON,defaultTrussLoads} from '../src/truss-solver.mjs';
 
@@ -85,5 +85,27 @@ test('tilted fracture fragments are resolved using their full cylinder extent',(
     const free=resolveBridgeCylinderFloor(0,axisZ,.6,.025,floor);
     assert.equal(free.contact,false);
     assert.equal(free.centerZ,0);
+  }
+});
+
+test('fractured members fall, roll, and settle horizontally without ground penetration',()=>{
+  const floor=-.75;
+  for(const [axisX,axisZ] of [[.65,.76],[-.65,.76],[0,1],[1,0]]){
+    const part={x:0,z:.2,vx:.09,vz:0,angle:0,omega:.8,
+      axisX,axisZ,length:.6,radius:.01};
+    for(let i=0;i<350;i++){
+      stepBridgeLooseFragment(part,1/60,floor);
+      const az=axisZ*Math.cos(part.angle)-axisX*Math.sin(part.angle);
+      const lowest=part.z-Math.abs(az)*part.length*.5-part.radius;
+      assert.ok(lowest>=floor-1e-8,
+        'Cylinder end caps must never enter the ground');
+    }
+    assert.ok(part.touchingFloor,'Free fragment must contact the ground');
+    const finalAxisZ=axisZ*Math.cos(part.angle)-axisX*Math.sin(part.angle);
+    assert.ok(Math.abs(finalAxisZ)<1e-4,
+      'The fragment should settle flat instead of floating vertically');
+    assert.ok(Math.abs(part.z-(floor+part.radius))<1e-4);
+    assert.ok(Math.abs(part.vx)<1e-6&&Math.abs(part.vz)<1e-6,
+      'Fragment velocity dissipates after impact');
   }
 });
