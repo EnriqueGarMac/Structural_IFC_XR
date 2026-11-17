@@ -108,11 +108,11 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
           if(stage.status==='mechanism')
             return 'Tras perder '+stage.removed.join(', ')+
               ': se forma un mecanismo, sin nuevos esfuerzos calculables';
-          if(stage.nextFailure)
+          if(stage.nextFailures?.length)
             return 'Estado '+(stage.step+1)+': '+
               (stage.removed.length?'sin '+stage.removed.join(', '):'estructura inicial')+
-              ' → falla '+stage.nextFailure.id+' ('+
-              fmt(stage.nextFailure.utilization*100,1)+' %)';
+              ' → fallan '+stage.nextFailures.map(f=>
+                f.id+' ('+fmt(f.utilization*100,1)+' %)').join(', ');
           return 'Estado '+(stage.step+1)+
             ': las barras restantes recuperan el equilibrio';
         }).join(' · ')]);
@@ -170,9 +170,10 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     // Do not redraw the model here: that would reset the physics animation.
     const label=stage.status==='mechanism'?
       'Mecanismo tras perder '+stage.removed.join(', '):
-      stage.nextFailure?
-        'Nuevo equilibrio → falla '+stage.nextFailure.id+
-        ' (uso '+fmt(stage.nextFailure.utilization*100,1)+' %)':
+      stage.nextFailures?.length?
+        'Nuevo equilibrio → '+stage.nextFailures.length+
+        ' barra(s) críticas: '+stage.nextFailures.map(f=>
+          f.id+' ('+fmt(f.utilization*100,1)+' %)').join(', '):
         'Los elementos restantes recuperan el equilibrio';
     $('bridge-stage-detail').textContent='ROTURA PROGRESIVA · '+label;
     $('bridge-feedback').textContent=label;
