@@ -89,7 +89,7 @@ test('empty or mechanically unstable design is rejected, not assigned fictitious
   assert.equal(r.status,'collapse');
   assert.equal(r.reactions.length,0);
   assert.equal(r.maxUtilization,null);
-  assert.match(r.reason,/inestable|camino resistente|Sin barras/);
+  assert.match(r.reason,/inestable|camino resistente|Sin barras|no dispone de camino hasta los apoyos/);
 });
 test('tension-only ties cannot act as compressed top-chord members',()=>{
   const members=bridgeSampleMembers().map(m=>({
