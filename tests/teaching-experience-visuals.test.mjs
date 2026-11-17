@@ -48,10 +48,19 @@ test('bridge renderer allows a lightweight design, editing and animated failure'
   exercise.activate();
   assert.equal(exercise.root.visible,true);
   assert.ok(exercise.pickers.length>0);
+  // The editor now requires the explicit Add Element command before the
+  // two endpoint selections; passive node clicks never start a new bar.
+  exercise.chooseNode('B0');
+  assert.equal(exercise.startNode,null);
+  assert.equal(exercise.members.length,0);
+  exercise.beginAdd();
+  assert.equal(exercise.addMode,true);
   exercise.chooseNode('B0');
   assert.equal(exercise.startNode,'B0');
   exercise.chooseNode('T1');
   assert.equal(exercise.members.length,1);
+  assert.equal(exercise.addMode,false);
+  assert.equal(exercise.startNode,null);
   exercise.removeMember(exercise.members[0].id);
   assert.equal(exercise.members.length,0);
   exercise.sample();
