@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {planeFromDetection} from './ar-placement.mjs';
 import {forceSignColour,resultColourHex} from './visual-palettes.mjs';
 import {makeAxialLabel} from './teaching-axial-label.js';
+import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge} from './bridge-competition-solver.mjs';
 
@@ -172,7 +173,8 @@ export class BridgeCompetitionExperience {
   draw(){
     if(!this.active)return;
     clear(this.root);this.pickers=[];
-    this.breakAnimation?.dropped.splice(0);
+    if(this.breakAnimation){this.breakAnimation.dropped=[];this.breakAnimation.nodeMarkers=[];
+      this.breakAnimation.physics=null;this.breakAnimation.startedAt=null;this.breakAnimation.lastStep=null;}
     const nodes=bridgeGrid(this.span_m),span=this.span_m;
     const byNode=new Map(nodes.map(n=>[n.id,n]));
     const disp=new Map((this.result?.displacements??[]).map(d=>[d.nodeId,d]));
@@ -273,6 +275,7 @@ export class BridgeCompetitionExperience {
           });
         }
         this.breakAnimation.dropped.push({
+          id:m.id,i:m.i,j:m.j,
           object:beam,origin:beam.position.clone(),
           baseRotation:beam.quaternion.clone(),
           length:a.distanceTo(b),radius:width,
@@ -288,6 +291,7 @@ export class BridgeCompetitionExperience {
       const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.022:.014,12,8),
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
       visual.position.copy(p);this.root.add(visual);
+      if(this.breakAnimation)this.breakAnimation.nodeMarkers.push({id:node.id,object:visual});
       const picker=new THREE.Mesh(new THREE.SphereGeometry(.08,12,8),
         new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,
           opacity:.01,depthTest:false,depthWrite:false}));
@@ -300,6 +304,13 @@ export class BridgeCompetitionExperience {
     const loadArrow=new THREE.ArrowHelper(loadDir,
       centre.clone().add(new THREE.Vector3(0,0,.39)),.32,0xe49b69,.07,.048);
     this.root.add(loadArrow);
+    if(this.breakAnimation){
+      this.breakAnimation.physics=createBridgeCollapseDynamics(
+        nodes.map(n=>({...n,x:pose(n).x,z:pose(n).z})),
+        this.members.map(m=>({...m,tie:BRIDGE_SECTIONS[m.sectionId].kind==='tie'})),
+        this.breakAnimation.sequence,this.collisionFloorZ??(-.75*BASE/this.span_m)
+      );
+    }
     this.app.xrControls && (this.app.xrControls.dirty=true);
     this.onChange?.(this.result);
   }
@@ -321,41 +332,57 @@ export class BridgeCompetitionExperience {
   animate(timeMs){
     if(!this.active||!this.breakAnimation)return;
     const state=this.breakAnimation;
-    if(state.startedAt===null)state.startedAt=timeMs;
-    const elapsed=Math.max(0,(timeMs-state.startedAt)/1000);
-    // A simple kinematic illustration, not physical fracture dynamics:
-    // the failed member moves first; members that lose support follow.
-    // Approximate tabletop height above the floor in the local Z frame.
-    const floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
-    const gravity=1.7; // scene-units/s²
-    const move=(item,t,twist=1)=>{
-      const {object,origin,baseRotation,index,length,radius}=item;
-      object.position.copy(origin);
-      object.quaternion.copy(baseRotation);
-      if(t<=0)return;
-      object.rotateY(Math.min(t,1.6)*(index%2===0?.6:-.6)*twist);
-      object.position.z-=.5*gravity*t*t;
-      const axis=new THREE.Vector3(0,1,0).applyQuaternion(object.quaternion);
-      const lowest=object.position.z-Math.abs(axis.z)*length*.5-radius;
-      if(lowest<floorZ){
-        object.position.z+=floorZ-lowest;
-        const impactT=Math.sqrt(Math.max(0,2*(origin.z-floorZ)/gravity));
-        const rebound=Math.max(0,t-impactT);
-        if(rebound>0)object.position.z+=
-          .035*Math.exp(-3*rebound)*Math.abs(Math.sin(12*rebound));
-      }
-    };
-    for(const item of state.dropped){
-      const start=.18+item.index*.24;
-      const t=Math.max(0,elapsed-start);
-      if(item.fragments){
-        item.object.visible=t<=0;
-        for(const part of item.fragments){
-          part.object.visible=t>0;
-          if(t>0)move(part,t,part.fragment===0?1:-1);
+    if(state.startedAt===null){state.startedAt=timeMs;state.lastStep=timeMs;}
+    const elapsed=(timeMs-state.startedAt)/1000;
+    const physics=state.physics;
+    if(!physics)return;
+    const dt=Math.max(0,Math.min(.06,(timeMs-state.lastStep)/1000));
+    state.lastStep=timeMs;
+    physics.floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
+    // Let the identified element fracture before structural nodes start
+    // moving. Surviving members retain compatible shared endpoints.
+    if(elapsed>.38){
+      for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
+        stepBridgeCollapseDynamics(physics,dt/Math.max(1,Math.ceil(dt/.016)));
+    }
+    for(const {id,object} of state.nodeMarkers){
+      const p=physics.positions.get(id);
+      if(p)object.position.set(p.x,0,p.z);
+    }
+    for(const part of state.dropped){
+      const first=state.sequence.indexOf(part.id);
+      if(first>=0){
+        const start=.38+first*.22;
+        const t=Math.max(0,elapsed-start);
+        part.object.visible=t<=0;
+        if(part.fragments)for(const fragment of part.fragments){
+          fragment.object.visible=t>0;
+          if(t<=0)continue;
+          const q=fragment.object.quaternion;
+          q.copy(fragment.baseRotation);
+          q.multiply(new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0,1,0),Math.min(1.6,t)*(fragment.fragment?-.7:.7)));
+          fragment.object.position.copy(fragment.origin);
+          fragment.object.position.x+=(fragment.fragment?1:-1)*Math.min(t*.07,.14);
+          fragment.object.position.z-=1.75*t*t;
+          const axis=new THREE.Vector3(0,1,0).applyQuaternion(q);
+          const lowest=fragment.object.position.z-
+            Math.abs(axis.z)*fragment.length*.5-fragment.radius;
+          if(lowest<physics.floorZ)fragment.object.position.z+=physics.floorZ-lowest;
         }
-      }else move(item,t);
-
+        continue;
+      }
+      // Unbroken bar follows its two moving nodes without separating at
+      // shared joints. Fixed supports do not fall arbitrarily.
+      const a=physics.positions.get(part.i),b=physics.positions.get(part.j);
+      if(!a||!b)continue;
+      const p1=new THREE.Vector3(a.x,0,a.z),p2=new THREE.Vector3(b.x,0,b.z);
+      const axis=p2.clone().sub(p1);
+      const length=axis.length();
+      if(length<1e-6)continue;
+      part.object.position.copy(p1).add(p2).multiplyScalar(.5);
+      part.object.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis.normalize());
+      part.object.scale.y=length/part.length;
     }
   }
 }
