@@ -86,6 +86,12 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         (challenge.bestEligibleMass_kg===null?'':
           '<span>Mejor propuesta válida: <strong>'+fmt(challenge.bestEligibleMass_kg,2)+' kg</strong></span>')+
         '<span>Razón: '+result.reason+'</span>'+
+        (result.bending?
+          '<span><strong>Carga aplicada dentro de la barra '+result.bending.memberId+
+          ':</strong> momento máximo '+fmt(result.bending.moment_kNm,3)+
+          ' kN·m · tensión de flexión '+fmt(result.bending.stress_MPa,1)+
+          ' MPa · flecha local '+fmt(result.bending.localDeflection_mm,2)+
+          ' mm. Comprobación aproximada de viga simplemente apoyada.</span>':'')+
         (result.pending?.length?'<span>'+result.pending.length+
           ' barra(s) pendientes de conexión: no intervienen todavía en la rigidez ni en las cargas aplicadas, pero sí cuentan para el peso total.</span>':'')+
         '<span>Vano <strong>'+fmt(challenge.span_m,2)+' m</strong> · Carga '+fmt(challenge.load_kN,2)+' kN</span>'+
