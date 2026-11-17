@@ -68,24 +68,6 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         fmt(BRIDGE_SECTIONS[m.sectionId].A_m2*1e6,0)]));
     if(!challenge.members.length)
       $('bridge-members').textContent='Todavía no hay elementos. Selecciona dos nodos para añadir una barra.';
-    const legend=$('bridge-legend');
-    if(legend){
-      const maxN=result?.members?.length?Math.max(...result.members.map(m=>Math.abs(m.axial_kN||0))):0;
-      const maxStress=result?.members?.length?Math.max(...result.members.map(m=>Math.abs(m.stress_MPa||0))):0;
-      legend.innerHTML='<strong>Leyenda de resultados · celosía 2D</strong>'+
-        '<div class="bridge-legend-key"><span class="bridge-key tension"></span> Tracción (+N) · naranja'+
-        '<span class="bridge-key compression"></span> Compresión (−N) · azul'+
-        '<span class="bridge-key failure"></span> Fallo · rojo</div>'+
-        '<div>Esfuerzo axial N: ±'+fmt(maxN,2)+' kN · Tensión |σ| máxima: '+
-          fmt(maxStress,2)+' MPa</div>'+
-        '<div>Aprovechamiento máximo: '+
-          (result?.maxUtilization==null?'—':fmt(result.maxUtilization*100,1)+' %')+
-          ' (superar 100 % indica fallo resistente)</div>'+
-        '<div>Desplazamiento máximo: '+(result?.maxDeflection_mm==null?'—':fmt(result.maxDeflection_mm,3)+' mm')+
-          ' · deformada visual amplificada · peso: '+
-          (result?.totalMass_kg==null?'—':fmt(result.totalMass_kg,2)+' kg')+'</div>'+
-        '<div>Barra gris: sin esfuerzo calculado · tirante celeste: solo tracción</div>';
-    }
     const mobileLegend=$('mobile-ar-bridge-legend');
     if(mobileLegend){
       mobileLegend.hidden=false;
