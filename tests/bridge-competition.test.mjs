@@ -16,9 +16,9 @@ test('bridge contest grid, materials and member edit validation',()=>{
   assert.equal(nodes.find(n=>n.id==='B4').fixX,true);
   assert.equal(nodes.find(n=>n.id==='B0').fixX,true);
   assert.equal(nodes.find(n=>n.id==='B0').fixZ,true);
-  assert.equal(BRIDGE_SECTIONS.bar_m.A_m2*1e6,120);
+  assert.equal(BRIDGE_SECTIONS.bar_m.A_m2*1e6,75);
   assert.equal(BRIDGE_SECTIONS.bar_l.A_m2*1e6,550);
-  assert.equal(BRIDGE_SECTIONS.tie_m.A_m2*1e6,80);
+  assert.equal(BRIDGE_SECTIONS.tie_m.A_m2*1e6,50);
   assert.ok(BRIDGE_SECTIONS.bar_m.A_m2>BRIDGE_SECTIONS.tie_m.A_m2);
   const start=addBridgeMember([],nodes,'B0','T1','bar_m');
   assert.equal(start.length,1);
@@ -43,6 +43,20 @@ test('reference pedestrian truss resists its central teaching load with equilibr
   assert.ok(r.maxUtilization<=1);
   assert.ok(r.maxDeflection_mm<=r.serviceLimit_mm);
   assert.ok(r.totalMass_kg>0&&r.totalMass_kg<300);
+});
+test('lighter bars yield at a practical teaching load while reinforced options remain',()=>{
+  const members=bridgeSampleMembers();
+  const initial=calculateBridge({members,load_kN:3});
+  assert.equal(initial.status,'stable');
+  const medium=calculateBridge({members,load_kN:20});
+  assert.equal(medium.status,'collapse');
+  assert.equal(medium.broken[0]?.mode,'yield');
+  assert.ok(medium.broken[0]?.utilization>1);
+  assert.ok(initial.totalMass_kg<3,
+    'The new lightweight truss should be lighter than the former 120 mm² design');
+  const strong=BRIDGE_SECTIONS.bar_l,light=BRIDGE_SECTIONS.bar_m;
+  assert.ok(strong.A_m2>light.A_m2*7);
+  assert.ok(strong.fy_MPa*strong.A_m2>light.fy_MPa*light.A_m2*7);
 });
 test('grid nodes and unfinished unsupported bars do not cause false collapse',()=>{
   const grid=bridgeGrid(1.2),base=bridgeSampleMembers();
