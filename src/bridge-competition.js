@@ -427,11 +427,16 @@ export class BridgeCompetitionExperience {
       this.positionPreview(this.previewPoint??world(
         byNode.get(this.startNode),this.span_m));
     }
-    // Fixed central load, always applied at the lower centre node B2.
-    const centre=pose(byNode.get('B2'));
+    // Fixed central load at B2. The arrow tip, not its centre, must coincide
+    // with the load point. An unused grid point stays at its reference position.
+    const centre=assignedNodes.has('B2')?pose(byNode.get('B2')):
+      world(byNode.get('B2'),span);
     const loadDir=new THREE.Vector3(0,0,-1);
+    const arrowLength=.16;
     const loadArrow=new THREE.ArrowHelper(loadDir,
-      centre.clone().add(new THREE.Vector3(0,0,.39)),.32,0xe49b69,.07,.048);
+      centre.clone().add(new THREE.Vector3(0,0,arrowLength)),
+      arrowLength,0xe49b69,.05,.035);
+    loadArrow.name='Carga central B2';
     this.root.add(loadArrow);
     if(this.breakAnimation){
       this.breakAnimation.physics=createBridgeCollapseDynamics(
