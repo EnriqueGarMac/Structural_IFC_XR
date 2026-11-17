@@ -61,40 +61,26 @@ plastificación o propagación de fracturas.
 
 ---
 
-## Actualización de Recursos Docentes: análisis único, concurso e IFC
+## Recursos docentes: resultados integrados sin duplicar herramientas
 
-Las experiencias **Celosías articuladas** y **Concurso de pasarelas**
-presentan ahora sus resultados en la pestaña general **Análisis**.
-Desde Recursos Docentes, pulsa **Ver resultados en Análisis**. El
-selector de magnitud, tablas de barras, reacciones y desplazamientos
-es compartido. Los controles para modificar cargas, elementos y apoyos
-se conservan en la experiencia correspondiente.
+Los ejercicios **Celosías articuladas** y **Concurso de pasarelas** conservan
+sus **tablas numéricas de barras, reacciones y desplazamientos** dentro
+de **Recursos Docentes**, junto a los controles con los que se construye
+y modifica el modelo. No se generan nuevamente esas tablas en Análisis.
 
-En el concurso hay **tres elementos**: barra ligera, barra reforzada
-y tirante (que solamente resiste tracción). El cálculo elimina los
-nodos desconectados y descargados de la matriz de rigidez para evitar
-singularidades artificiales. Un diseño inestable sigue pudiendo
-colapsar, mientras que una flecha excesiva sin agotamiento resistente
-solo recibe la calificación de incumplimiento de servicio.
+La pestaña principal **Análisis** reutiliza ahora su selector de magnitud
+(esfuerzos axiles, tensiones, desplazamientos, reacciones y las magnitudes
+específicas de cada ejercicio), el **slider original de amplificación**
+y el botón de **mostrar los valores axiles sobre las barras**. La
+**leyenda flotante original** mantiene las escalas de color, los valores
+mínimos y máximos y el selector de paleta del resto de la plataforma.
 
-La rotura ilustrativa fragmenta primero el elemento crítico y después
-desplaza escalonadamente el resto. Las barras entran en contacto con
-un plano de suelo: se usa la cota detectada si WebXR proporciona un
-plano compatible por debajo de las mesas y, en otro caso, una cota
-ilustrativa de 0,75 m bajo el tablero. **No es un análisis dinámico
-de fractura, impacto o redistribución temporal de esfuerzos.**
+Cuando se abandona la experiencia docente se restablecen las opciones
+originales del visor para resultados SAP2000, sin cambiar su motor de
+visualización. El solucionador docente sigue siendo una celosía plana
+biarticulada y, por tanto, no ofrece cortantes, momentos ni modos de
+vibración propios sin un análisis adicional.
 
-En **Celosías articuladas**, el usuario puede cargar un IFC con barras
-prismáticas rectas aproximadamente contenidas en un mismo plano XZ.
-Se reconstruyen sus ejes y la conectividad por proximidad. El usuario
-debe verificar la geometría, el módulo E, el área A y los apoyos, y
-puede recalcular y aplicar cargas nodales. Se rechazan los archivos
-que no permitan reconstruir una celosía estable con el esquema asumido.
-La aplicación **no convierte automáticamente cualquier IFC arquitectónico
-en un modelo analítico válido**: para vigas a flexión, pórticos rígidos,
-placas y estructuras tridimensionales se necesita otro modelo FEM.
-
----
 
 ## Recursos docentes: celosías y concurso de pasarelas
 
