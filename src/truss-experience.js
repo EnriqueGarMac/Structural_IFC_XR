@@ -60,6 +60,7 @@ export class TrussExperience {
     this.root.visible=false;
     this.active=false;
     this.model=TRUSS_LESSON;
+    this.importedModel=false;
     this.nodeMap=new Map(this.model.nodes.map(n=>[n.id,n]));
     this.loads=defaultTrussLoads();
     this.selectedNode='G';
@@ -86,6 +87,7 @@ export class TrussExperience {
   setModel(model,{loads=[]}={}){
     const result=solveTruss2D(model,loads);
     this.model=model;
+    this.importedModel=true;
     this.nodeMap=new Map(model.nodes.map(n=>[n.id,n]));
     this.loads=normaliseTrussLoads(model,loads);
     this.result=result;
@@ -174,8 +176,8 @@ export class TrussExperience {
     this.setLoad(this.selectedNode,old.fx_kN+(component==='x'?delta:0),
       old.fz_kN+(component==='z'?delta:0));
   }
-  reset(){this.loads=this.model===TRUSS_LESSON?defaultTrussLoads():[];
-    this.selectedNode=this.model===TRUSS_LESSON?'G':this.model.nodes[0].id;
+  reset(){this.loads=!this.importedModel?defaultTrussLoads():[];
+    this.selectedNode=!this.importedModel?'G':this.model.nodes[0].id;
     this.selectedBarId=null;this.calculate();}
   clearLoads(){this.loads=[];this.calculate();}
   setMode(mode){
