@@ -129,6 +129,32 @@ test('critical lightweight member fails first under demanding loading',()=>{
   assert.ok(r.broken[0].utilization>1);
   assert.match(r.reason,/Tras el fallo/);
 });
+test('progressive bridge failure recalculates member forces after each removal',()=>{
+  const members=bridgeSampleMembers().map(m=>({
+    ...m,sectionId:['M3','M4','M7','M9','M13'].includes(m.id)?
+      'bar_l':'bar_m'
+  }));
+  members.push(
+    {id:'M14',i:'T1',j:'B3',sectionId:'bar_m'},
+    {id:'M15',i:'B2',j:'B4',sectionId:'bar_m'},
+    {id:'M16',i:'B0',j:'B2',sectionId:'bar_l'}
+  );
+  const result=calculateBridge({members,load_kN:35});
+  assert.equal(result.status,'collapse');
+  assert.deepEqual(result.broken.map(f=>f.id),['M6','M14']);
+  assert.equal(result.stages.length,3);
+  assert.deepEqual(result.stages[0].removed,[]);
+  assert.equal(result.stages[0].nextFailure.id,'M6');
+  assert.deepEqual(result.stages[1].removed,['M6']);
+  assert.equal(result.stages[1].nextFailure.id,'M14');
+  const axial=stage=>stage.members.find(m=>m.id==='M14').axial_kN;
+  assert.ok(Math.abs(axial(result.stages[1]))>10*Math.abs(axial(result.stages[0])),
+    'The second failure must be based on NEW forces after losing M6');
+  assert.equal(result.stages[2].status,'mechanism');
+  assert.deepEqual(result.stages[2].removed,['M6','M14']);
+  assert.deepEqual(result.stages[2].members,[],
+    'A mechanism must not produce invented post-collapse member forces');
+});
 test('table-plane finder works only with two level facing surfaces of measured extents',()=>{
   const a={bounds:new THREE.Box3(new THREE.Vector3(0,.75,0),
       new THREE.Vector3(1,.78,.9)),top:.78,width:1,depth:.9,area:.9,label:'table'};
