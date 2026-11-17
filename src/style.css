@@ -187,3 +187,5 @@ body.teaching-results-active #legend{display:block!important}
 #bridge-result .bridge-result-value{font-weight:500;overflow-wrap:anywhere;color:#183f4b}
 #bridge-result .bridge-result-status .bridge-result-value{font-weight:750}
 #bridge-undeformed[aria-pressed="true"]{border-color:#238c91}
+
+body.teaching-results-active #bridge-result.bridge-report{display:grid}
