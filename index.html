@@ -21,7 +21,6 @@
           <button type="button" class="workspace-tab" role="tab" id="tab-view" data-tab="view" aria-controls="panel-view" aria-selected="false" tabindex="-1">Visualizar</button>
           <button type="button" class="workspace-tab" role="tab" id="tab-advanced" data-tab="advanced" aria-controls="panel-advanced" aria-selected="false" tabindex="-1">Ajustes</button>
           <button type="button" class="workspace-tab workspace-tab-resource" role="tab" id="tab-teaching" data-tab="teaching" aria-controls="panel-teaching" aria-selected="false" tabindex="-1">Recursos docentes</button>
-          <button type="button" class="workspace-tab workspace-tab-contest" role="tab" id="tab-contest" data-tab="contest" aria-controls="panel-contest" aria-selected="false" tabindex="-1">Concurso</button>
         </nav>
       <div class="panel-content">
         <section id="panel-model" class="workspace-panel is-current" role="tabpanel" aria-labelledby="tab-model">
@@ -131,13 +130,22 @@
             <h2>Recursos docentes</h2>
             <p>Experiencias para explorar y comprobar el comportamiento de las estructuras.</p>
           </div>
-          <article class="teaching-resource">
+          <div class="teaching-picker" id="teaching-picker" role="group" aria-label="Selecciona una experiencia docente">
+          <article class="teaching-resource teaching-choice" id="teaching-choice-truss">
             <span class="teaching-resource-index">EXPERIENCIA 01 · CÁLCULO ESTRUCTURAL</span>
             <h3>Celosías articuladas</h3>
             <p>Introduce cargas en los nodos de una celosía Warren y calcula su respuesta mediante el método matricial de rigidez.</p>
-            <button type="button" id="truss-start" class="secondary-btn teaching-primary">Abrir experiencia de celosías</button>
+            <button type="button" id="truss-start" class="secondary-btn teaching-primary" aria-pressed="false">Elegir cálculo de celosías</button>
           </article>
+          <article class="teaching-resource teaching-choice" id="teaching-choice-bridge">
+            <span class="teaching-resource-index">EXPERIENCIA 02 · CONCURSO DE DISEÑO</span>
+            <h3>Pasarela entre mesas</h3>
+            <p>Añade barras rígidas y tirantes entre nodos de una retícula. Menor peso y resistencia suficiente mejoran el diseño.</p>
+            <button id="bridge-start" type="button" class="secondary-btn teaching-primary" aria-pressed="false">Elegir concurso de pasarelas</button>
+          </article>
+          </div>
           <div id="truss-controls" class="truss-controls" hidden>
+            <div class="teaching-active-head"><strong>Cálculo de celosías</strong><span>Experimenta con cargas nodales y esfuerzos</span></div>
             <div class="truss-method-note">Celosía plana 2D · Barras biarticuladas · Cargas nodales · Unidades: kN, m, MPa</div>
             <label class="truss-label" for="truss-node-select">Nodo de aplicación</label>
             <select id="truss-node-select" aria-label="Seleccionar nodo de la celosía"></select>
@@ -169,19 +177,8 @@
             <p class="truss-method-note">Las barras solo soportan esfuerzos axiales. Se supone comportamiento elástico lineal, pequeñas deformaciones y uniones articuladas. Los desplazamientos se amplifican exclusivamente para visualizar la deformada.</p>
             <button type="button" id="truss-export" class="secondary-btn">Exportar resultados (CSV)</button>
           </div>
-        </section>
-        <section id="panel-contest" class="workspace-panel" role="tabpanel" aria-labelledby="tab-contest" hidden>
-          <div class="panel-heading"><span class="panel-eyebrow">Desafío estructural</span>
-            <h2>Concurso de pasarelas</h2>
-            <p>Diseña una estructura ligera para salvar un hueco entre dos mesas y resistir una carga en centro de vano.</p>
-          </div>
-          <article class="teaching-resource">
-            <span class="teaching-resource-index">RETO 01 · DISEÑO Y RESISTENCIA</span>
-            <h3>Pasarela entre mesas</h3>
-            <p>Añade barras rígidas y tirantes entre nodos de una retícula. Menor peso y resistencia suficiente mejoran el diseño.</p>
-            <button id="bridge-start" type="button" class="secondary-btn teaching-primary">Iniciar concurso</button>
-          </article>
           <div id="bridge-controls" class="bridge-controls" hidden>
+            <div class="teaching-active-head"><strong>Concurso de pasarelas</strong><span>Diseña, calcula y optimiza por peso</span></div>
             <div class="truss-method-note">Modelo docente 2D de celosía articulada. Barras: tracción o compresión. Tirantes: solo tracción. Peso propio incluido.</div>
             <button id="bridge-detect" type="button" class="secondary-btn">Detectar dos mesas (Quest RM)</button>
             <p id="bridge-detection-status" class="field-help" role="status">Si el dispositivo no proporciona dos planos detectados, introduce el vano manualmente.</p>
@@ -214,6 +211,7 @@
             <p class="truss-method-note">La animación de rotura es ilustrativa. No representa un colapso dinámico real ni valida la seguridad de una pasarela física. Las verificaciones de resistencia, pandeo y flecha son simplificadas.</p>
           </div>
         </section>
+
       </div>
       <div class="panel-footer"><span class="connection-dot" aria-hidden="true"></span><span>IMIS-Lab · Universidad de Granada</span></div>
     </aside>

@@ -7,14 +7,14 @@ const file=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const html=file('index.html'),theme=file('src/studio-theme.css'),main=file('src/main.js');
 
 test('scientific workbench separates model, analysis, visualization and settings',()=>{
-  const names=['model','analysis','view','advanced','teaching','contest'];
+  const names=['model','analysis','view','advanced','teaching'];
   for(const name of names){
     assert.match(html,new RegExp('id="tab-'+name+'"[^>]*role="tab"|'+'role="tab"[^>]*id="tab-'+name+'"'));
     assert.match(html,new RegExp('id="panel-'+name+'"[^>]*role="tabpanel"'));
     assert.match(html,new RegExp('aria-controls="panel-'+name+'"'));
     assert.match(html,new RegExp('aria-labelledby="tab-'+name+'"'));
   }
-  assert.equal((html.match(/class="workspace-panel/g)||[]).length,6);
+  assert.equal((html.match(/class="workspace-panel/g)||[]).length,5);
   assert.match(main,/setupWorkspaceTabs\(\)/);
   assert.match(main,/import '\.\/studio-theme\.css'/);
   assert.match(theme,/grid-template-columns:310px minmax\(0,1fr\)/);
@@ -61,7 +61,7 @@ function stubPanel(name){
   }};
 }
 test('workspace tabs are accessible by pointer and keyboard, one visible panel at a time',()=>{
-  const names=['model','analysis','view','advanced','teaching','contest'];
+  const names=['model','analysis','view','advanced','teaching'];
   const tabs=names.map(stubTab),panels=names.map(stubPanel);
   const root={querySelectorAll(s){
     if(s==='[role="tab"][data-tab]')return tabs;
@@ -69,7 +69,7 @@ test('workspace tabs are accessible by pointer and keyboard, one visible panel a
     throw Error('Unexpected selector '+s);
   }};
   const ui=setupWorkspaceTabs(root);
-  assert.equal(ui.tabs.length,6);
+  assert.equal(ui.tabs.length,5);
   assert.equal(panels.filter(p=>!p.hidden).length,1);
   tabs[2].fire('click');
   assert.equal(panels.find(p=>!p.hidden).id,'panel-view');
@@ -93,4 +93,30 @@ test('interface retains scientific status, result legend and direct AR entry',()
   assert.match(html,/imis-structural-xr-mark\.svg/);
   assert.doesNotMatch(html,/Explora una estructura<br>/);
   assert.match(theme,/prefers-reduced-motion/);
+});
+
+test('bridge contest is a selectable resource nested inside teaching, not a top-level tab',()=>{
+  const teachingStart=html.indexOf('id="panel-teaching" class="workspace-panel"');
+  const teachingEnd=html.indexOf('        </section>',teachingStart);
+  const contestCard=html.indexOf('id="teaching-choice-bridge"',teachingStart);
+  const trussCard=html.indexOf('id="teaching-choice-truss"',teachingStart);
+  const contestControls=html.indexOf('id="bridge-controls"',teachingStart);
+  const trussControls=html.indexOf('id="truss-controls"',teachingStart);
+  assert.ok(teachingStart>=0&&teachingEnd>teachingStart);
+  assert.ok(trussCard>teachingStart&&trussCard<teachingEnd);
+  assert.ok(contestCard>teachingStart&&contestCard<teachingEnd);
+  assert.ok(contestControls>contestCard&&contestControls<teachingEnd);
+  assert.ok(trussControls>trussCard&&trussControls<teachingEnd);
+  assert.match(html,/id="teaching-picker" role="group" aria-label="Selecciona una experiencia docente"/);
+  assert.match(html,/id="truss-start"[^>]*aria-pressed="false"/);
+  assert.match(html,/id="bridge-start"[^>]*aria-pressed="false"/);
+  assert.doesNotMatch(html,/id="tab-contest"|id="panel-contest"/);
+  const bridgeUI=file('src/bridge-competition-ui.js');
+  const xr=file('src/xr-controls.js');
+  assert.match(bridgeUI,/run\(\);selectWorkspace\?\.\('teaching'\)/);
+  assert.match(main,/selectTeachingExperience\(name\)/);
+  assert.match(main,/selectTeachingExperience\(null\)/);
+  assert.match(xr,/btn\('teaching-menu','RECURSOS DOCENTES/);
+  assert.match(xr,/this\.page==='teaching'/);
+  assert.match(xr,/\['bridge','truss'\]\.includes\(this\.page\)\?'teaching':'main'/);
 });

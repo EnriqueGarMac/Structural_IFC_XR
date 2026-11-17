@@ -148,6 +148,16 @@ const demos={
     definition:industrialTeaching,levels:[0],filename:'NAVE_INDUSTRIAL_IMIS'
   }
 };
+function selectTeachingExperience(kind=null){
+  for(const [key,cardId,buttonId] of [
+    ['truss','teaching-choice-truss','truss-start'],
+    ['bridge','teaching-choice-bridge','bridge-start']
+  ]){
+    const selected=kind===key;
+    $(cardId).classList.toggle('is-selected',selected);
+    $(buttonId).setAttribute('aria-pressed',String(selected));
+  }
+}
 function leaveTrussLesson(){
   app.trussExperience?.deactivate();
   app.bridgeCompetition?.deactivate();
@@ -156,6 +166,7 @@ function leaveTrussLesson(){
   $('bridge-stage-status').hidden=true;
   $('truss-controls').hidden=true;
   $('bridge-controls').hidden=true;
+  selectTeachingExperience(null);
 }
 let activeDemo='frame';
 function showDemo(kind='frame'){
@@ -624,6 +635,19 @@ setupBridgeCompetition(app,{
   },
   modelLabel:setModelLabel,status
 });
+
+// Clicking either card selects one teaching experience; switching deactivates
+// the other via its existing clearPrevious callback.
+for(const [name,buttonId,cardId] of [
+  ['truss','truss-start','teaching-choice-truss'],
+  ['bridge','bridge-start','teaching-choice-bridge']
+]){
+  $(buttonId).addEventListener('click',()=>selectTeachingExperience(name));
+  $(cardId).addEventListener('click',event=>{
+    if(event.target.closest('button'))return;
+    $(buttonId).click();
+  });
+}
 
 (async()=>{
   const [mrOK,vrOK]=await Promise.all([
