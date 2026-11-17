@@ -89,7 +89,7 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
       const statusLabel=result.status==='stable'?'Resiste':
         result.status==='service'?'No cumple la flecha':
         result.broken?.length?'Rotura de elemento':'Mecanismo inestable';
-      const failureNames={yield:'límite elástico',buckling:'pandeo',
+      const failureNames={yield:'límite elástico axial',
         bending:'flexión',axial:'resistencia axial'};
       const rows=[
         ['Diagnóstico',statusLabel],
