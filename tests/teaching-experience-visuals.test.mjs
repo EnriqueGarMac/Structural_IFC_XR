@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {TrussExperience,trussGeometry} from '../src/truss-experience.js';
+import {bridgeSampleMembers} from '../src/bridge-competition-solver.mjs';
 import {BridgeCompetitionExperience,bridgeReferenceGeometry}
   from '../src/bridge-competition.js';
 
@@ -156,6 +157,35 @@ test('central load arrow tip coincides with B2 in reference and deformed views',
   exercise.setUndeformedView(true);
   checkTip();
   exercise.deactivate();
+});
+test('progressive failure animation follows the actual recalculated sequence',()=>{
+  const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
+  bridge.activate();
+  bridge.members=bridgeSampleMembers().map(m=>({
+    ...m,sectionId:['M3','M4','M7','M9','M13'].includes(m.id)?
+      'bar_l':'bar_m'
+  }));
+  bridge.members.push(
+    {id:'M14',i:'T1',j:'B3',sectionId:'bar_m'},
+    {id:'M15',i:'B2',j:'B4',sectionId:'bar_m'},
+    {id:'M16',i:'B0',j:'B2',sectionId:'bar_l'}
+  );
+  bridge.setLoad(35);
+  const updates=[];
+  bridge.onFailureProgress=stage=>updates.push({
+    removed:[...stage.removed],next:stage.nextFailure?.id??null
+  });
+  const r=bridge.evaluate();
+  assert.deepEqual(r.broken.map(f=>f.id),['M6','M14']);
+  bridge.animate(100);
+  bridge.animate(950);
+  assert.deepEqual(updates[0],{removed:['M6'],next:'M14'});
+  assert.equal(bridge.breakAnimation.physics.broken.has('M6'),true);
+  assert.equal(bridge.breakAnimation.physics.broken.has('M14'),false);
+  bridge.animate(2300);
+  assert.deepEqual(updates[1],{removed:['M6','M14'],next:null});
+  assert.equal(bridge.breakAnimation.physics.broken.has('M14'),true);
+  bridge.deactivate();
 });
 test('visible collision plane and fractured cylinders share the same ground height',()=>{
   const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
