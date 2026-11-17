@@ -275,11 +275,43 @@
     </section>
   </div>
   <div id="mobile-ar-overlay" class="mobile-ar-overlay" hidden>
+    <div id="mobile-ar-bridge-touch" class="mobile-ar-bridge-touch" hidden
+      aria-label="Toca los nudos de la pasarela para crear barras"></div>
     <div class="mobile-ar-crosshair" aria-hidden="true">＋</div>
     <div class="mobile-ar-toolbar">
       <strong>IMIS Structural XR · AR móvil</strong>
       <span id="mobile-ar-status" aria-live="polite">Busca una mesa o el suelo con la cámara.</span>
       <span id="mobile-ar-bridge-legend" hidden></span>
+      <div id="mobile-ar-bridge-editor" class="mobile-ar-bridge-editor" hidden>
+        <div class="mobile-ar-bridge-header">
+          <strong>Concurso · Diseñar pasarela</strong>
+          <span id="mobile-ar-bridge-count">0 barras</span>
+        </div>
+        <div class="mobile-ar-bridge-config">
+          <label for="mobile-ar-bridge-section">Sección
+            <select id="mobile-ar-bridge-section" aria-label="Sección de barra"></select>
+          </label>
+          <div class="mobile-ar-bridge-load">
+            <span>Carga central: <output id="mobile-ar-bridge-load-value">3,0 kN</output></span>
+            <div>
+              <button type="button" id="mobile-ar-bridge-load-minus" aria-label="Reducir carga">−</button>
+              <button type="button" id="mobile-ar-bridge-load-plus" aria-label="Aumentar carga">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-ar-bridge-buttons">
+          <button type="button" id="mobile-ar-bridge-add" aria-pressed="false">Añadir barra</button>
+          <button type="button" id="mobile-ar-bridge-pick">Marcar nudo central</button>
+          <button type="button" id="mobile-ar-bridge-remove" aria-pressed="false">Borrar barra</button>
+          <button type="button" id="mobile-ar-bridge-calc">Calcular</button>
+          <button type="button" id="mobile-ar-bridge-undeformed">Sin deformar</button>
+          <button type="button" id="mobile-ar-bridge-mode">Ver: desplazamientos</button>
+          <button type="button" id="mobile-ar-bridge-undo">Deshacer barra</button>
+          <button type="button" id="mobile-ar-bridge-example">Ejemplo</button>
+          <button type="button" id="mobile-ar-bridge-clear">Vaciar diseño</button>
+        </div>
+        <span id="mobile-ar-bridge-feedback" role="status" aria-live="polite">Coloca la pasarela para comenzar a editar.</span>
+      </div>
       <div class="mobile-ar-actions">
         <button type="button" id="mobile-ar-place">Colocar aquí</button>
         <button type="button" id="mobile-ar-redetect">Buscar plano</button>
