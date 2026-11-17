@@ -58,6 +58,7 @@ export function setupMobileBridgeEditor(app){
   const say=text=>{message.textContent=text;};
   const refresh=()=>{
     const enabled=active();
+    overlay.classList.toggle('bridge-editor-active',enabled);
     editor.hidden=!enabled;
     touch.hidden=!placed();
     if(!enabled)return;
