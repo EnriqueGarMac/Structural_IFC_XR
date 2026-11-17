@@ -308,7 +308,7 @@ export class BridgeCompetitionExperience {
       this.breakAnimation.physics=createBridgeCollapseDynamics(
         nodes.map(n=>({...n,x:pose(n).x,z:pose(n).z})),
         this.members.map(m=>({...m,tie:BRIDGE_SECTIONS[m.sectionId].kind==='tie'})),
-        this.breakAnimation.sequence,this.collisionFloorZ??(-.75*BASE/this.span_m)
+        [],this.collisionFloorZ??(-.75*BASE/this.span_m)
       );
     }
     this.app.xrControls && (this.app.xrControls.dirty=true);
@@ -342,6 +342,13 @@ export class BridgeCompetitionExperience {
     // Let the identified element fracture before structural nodes start
     // moving. Surviving members retain compatible shared endpoints.
     if(elapsed>.38){
+      // Remove failed members exactly when their fracture becomes visible.
+      // The remaining constraints then redistribute motion between nodes.
+      state.sequence.forEach((id,i)=>{
+        if(elapsed<.38+i*.22||physics.broken.has(id))return;
+        physics.broken.add(id);
+        physics.edges=physics.edges.filter(edge=>edge.id!==id);
+      });
       for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
         stepBridgeCollapseDynamics(physics,dt/Math.max(1,Math.ceil(dt/.016)));
     }
