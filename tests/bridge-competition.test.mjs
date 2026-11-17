@@ -100,6 +100,19 @@ test('tension-only ties cannot act as compressed top-chord members',()=>{
   assert.ok(r.slack.includes('M5')&&r.slack.includes('M6'));
   assert.ok(r.totalMass_kg>0);
 });
+test('member limit-state cause distinguishes yielding from Euler buckling',()=>{
+  const shallow=[
+    ['B0','B2','bar_l'],['B2','B4','bar_l'],
+    ['B0','G1_4','bar_m'],['G1_4','B4','bar_m'],
+    ['B2','G1_4','bar_m']
+  ].map(([i,j,sectionId],k)=>({id:'M'+(k+1),i,j,sectionId}));
+  const yieldResult=calculateBridge({members:shallow,span_m:.6,load_kN:50});
+  assert.equal(yieldResult.broken[0]?.mode,'yield');
+  assert.match(yieldResult.reason,/límite elástico/);
+  const buckleResult=calculateBridge({members:shallow,span_m:1.2,load_kN:50});
+  assert.equal(buckleResult.broken[0]?.mode,'buckling');
+  assert.match(buckleResult.reason,/pandeo/);
+});
 test('critical lightweight member fails first under demanding loading',()=>{
   const r=calculateBridge({members:bridgeSampleMembers(),load_kN:50,span_m:2.9});
   assert.equal(r.status,'collapse');
