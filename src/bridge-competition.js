@@ -55,6 +55,9 @@ export class BridgeCompetitionExperience {
     this.editMode=true;
     this.removeMode=false;
     this.startNode=null;
+    this.addMode=false;
+    this.previewPoint=null;
+    this.previewMesh=null;
     this.selectedNode='B2';
     this.selectedMemberId=null;
     this.pickers=[];
@@ -75,7 +78,7 @@ export class BridgeCompetitionExperience {
     this.active=false;
     this.root.visible=false;
     this.breakAnimation=null;
-    clear(this.root);this.pickers=[];
+    clear(this.root);this.pickers=[];this.previewMesh=null;
   }
   setSpan(value){
     const span=Number(value);
@@ -144,16 +147,57 @@ export class BridgeCompetitionExperience {
     this.draw();
     return this.result;
   }
+  beginAdd(){
+    this.editMode=true;this.removeMode=false;
+    this.addMode=true;this.startNode=null;this.previewPoint=null;
+    this.draw();
+  }
+  cancelAdd(){this.addMode=false;this.startNode=null;this.previewPoint=null;this.draw();}
+  updatePreviewRay(raycaster){
+    if(!this.active||!this.addMode||!this.startNode||!this.previewMesh)return;
+    // Raycast against the bridge design plane, in model-local coordinates.
+    this.app.worldRoot.updateWorldMatrix(true,true);
+    const inverse=this.root.matrixWorld.clone().invert();
+    const origin=raycaster.ray.origin.clone().applyMatrix4(inverse);
+    const direction=raycaster.ray.direction.clone().transformDirection(inverse);
+    if(Math.abs(direction.y)<1e-7)return;
+    const distance=-origin.y/direction.y;
+    if(distance<0)return;
+    const intersection=origin.addScaledVector(direction,distance);
+    const nodes=bridgeGrid(this.span_m);
+    const nearest=nodes.reduce((best,n)=>{
+      const p=world(n,this.span_m),d=p.distanceTo(intersection);
+      return d<best.d?{d,n,p}:best;
+    },{d:Infinity,n:null,p:null});
+    const point=nearest.d<.05?nearest.p:intersection;
+    this.previewPoint=point.clone();this.positionPreview(point);
+  }
+  positionPreview(point){
+    if(!this.previewMesh||!this.startNode)return;
+    const start=bridgeGrid(this.span_m).find(n=>n.id===this.startNode);
+    if(!start)return;
+    const a=world(start,this.span_m),b=point.clone();b.y=0;
+    const delta=b.clone().sub(a),length=delta.length();
+    this.previewMesh.visible=length>1e-5;
+    if(length<1e-5)return;
+    this.previewMesh.position.copy(a).add(b).multiplyScalar(.5);
+    this.previewMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
+    this.previewMesh.scale.y=length;
+  }
   chooseNode(id){
     if(!bridgeGrid(this.span_m).some(n=>n.id===id))return;
     this.selectedNode=id;
     if(this.removeMode){this.startNode=null;this.draw();return;}
     if(!this.editMode){this.startNode=null;this.draw();return;}
+    if(!this.addMode){this.selectedNode=id;this.draw();return;}
     if(!this.startNode){this.startNode=id;this.draw();return;}
     if(this.startNode===id){this.startNode=null;this.draw();return;}
     const start=this.startNode;
-    this.startNode=null;
-    this.addMember(start,id);
+    try{
+      this.addMember(start,id);
+      this.addMode=false;this.startNode=null;this.previewPoint=null;
+      this.draw();
+    }catch(error){this.startNode=start;this.draw();throw error;}
   }
   chooseMember(id){
     if(!this.members.some(m=>m.id===id))return;
@@ -193,19 +237,21 @@ export class BridgeCompetitionExperience {
     // Behind the design: a passive snap-grid spanning both supports.
     const grid=new THREE.Group();this.root.add(grid);
     const grey=new THREE.LineBasicMaterial({color:0x64808a,transparent:true,opacity:.24});
-    const yRows=[0,.14,.28].map(f=>f*BASE);
     const positions=[];
-    for(let c=0;c<=4;c++){
-      const x=c*BASE/4;
-      positions.push(x,0,0,x,0,BASE*.36);
+    for(let c=0;c<=8;c++){
+      const x=c*BASE/8;
+      positions.push(x,0,0,x,0,BASE*.28);
     }
-    for(const z of yRows)positions.push(0,0,z,BASE,0,z);
+    for(let r=0;r<=4;r++){
+      const z=r*BASE*.28/4;
+      positions.push(0,0,z,BASE,0,z);
+    }
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     grid.add(new THREE.LineSegments(g,grey));
     for(const node of nodes){
       const p=world(node,span);
-      const marker=new THREE.Mesh(new THREE.SphereGeometry(.009,10,8),
+      const marker=new THREE.Mesh(new THREE.SphereGeometry(.006,10,8),
         new THREE.MeshBasicMaterial({color:0xb0c8cf,transparent:true,opacity:.65}));
       marker.position.copy(p);grid.add(marker);
     }
@@ -288,15 +334,27 @@ export class BridgeCompetitionExperience {
     for(const node of nodes){
       const p=pose(node);
       const chosen=node.id===this.startNode||node.id===this.selectedNode;
-      const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.022:.014,12,8),
+      const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.016:.009,12,8),
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
       visual.position.copy(p);this.root.add(visual);
       if(this.breakAnimation)this.breakAnimation.nodeMarkers.push({id:node.id,object:visual});
-      const picker=new THREE.Mesh(new THREE.SphereGeometry(.08,12,8),
+      const picker=new THREE.Mesh(new THREE.SphereGeometry(.025,12,8),
         new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,
           opacity:.01,depthTest:false,depthWrite:false}));
       picker.position.copy(p);picker.userData.bridgeNode=node.id;
       this.root.add(picker);this.pickers.push(picker);
+    }
+    // The ghost bar is independent of the calculated structure and follows
+    // the pointer until a second grid node is selected.
+    if(this.addMode&&this.startNode){
+      this.previewMesh=new THREE.Mesh(
+        new THREE.CylinderGeometry(.011,.011,1,8),
+        new THREE.MeshBasicMaterial({color:0xf4db90,transparent:true,opacity:.7,
+          depthTest:false,depthWrite:false}));
+      this.previewMesh.renderOrder=12000;
+      this.root.add(this.previewMesh);
+      this.positionPreview(this.previewPoint??world(
+        byNode.get(this.startNode),this.span_m));
     }
     // Fixed central load, always applied at the lower centre node B2.
     const centre=pose(byNode.get('B2'));
