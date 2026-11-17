@@ -46,6 +46,12 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     if(!current)return;
     const {kind,result,experience}=current;
     document.body.classList.add('teaching-results-active');
+    // A previous SAP mode may have frozen these controls.
+    view.disabled=false;amp.disabled=false;
+    view.closest('.control')?.classList.remove('is-frozen');
+    amp.closest('.range-control')?.classList.remove('is-frozen');
+    const paletteToggle=$('legend-palette-toggle');
+    if(paletteToggle)paletteToggle.disabled=false;
     if(view.dataset.teachingKind!==kind){
       setOptions(teachingViews[kind]);
       view.dataset.teachingKind=kind;
@@ -102,8 +108,15 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
   };
   const render=(kind,result,experience)=>{
     if(!current||current.kind!==kind||current.experience!==experience)
-      current={kind,result,experience,view:viewForMode[experience.mode]??'forces'};
-    else current.result=result;
+      current={kind,result,experience,view:viewForMode[experience.mode]??'forces',
+        lastMode:experience.mode};
+    else{
+      current.result=result;
+      if(current.lastMode!==experience.mode){
+        if(current.view!=='reactions')current.view=viewForMode[experience.mode]??'forces';
+        current.lastMode=experience.mode;
+      }
+    }
     refresh();
   };
   const selectView=value=>{
