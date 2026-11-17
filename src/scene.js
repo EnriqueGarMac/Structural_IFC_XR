@@ -522,6 +522,10 @@ export class StructuralScene {
     this.webSun.update();
     const status=document.getElementById('mobile-ar-status');
     if(status)status.textContent='Apunta hacia una mesa o al suelo.';
+    const scanButton=$('mobile-ar-bridge-scan');
+    if(scanButton)scanButton.hidden=!this.bridgeCompetition?.active;
+    const bridgeLegend=$('mobile-ar-bridge-legend');
+    if(bridgeLegend)bridgeLegend.hidden=!this.bridgeCompetition?.active;
     const capability=typeof session.requestHitTestSource==='function'&&
       (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
     if(!capability){
