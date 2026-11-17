@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
-  resolveBridgeCylinderFloor,stepBridgeLooseFragment,bridgeFragmentScatter}
+  resolveBridgeCylinderFloor,stepBridgeLooseFragment,bridgeFragmentScatter,
+  syncBridgeEdgeRestLengths}
   from '../src/bridge-collapse-dynamics.mjs';
 import {solveTruss2D,TRUSS_LESSON,defaultTrussLoads} from '../src/truss-solver.mjs';
 
@@ -11,6 +12,31 @@ test('independently changing a member area updates truss stiffness and displacem
   const stronger=solveTruss2D(stiff,defaultTrussLoads());
   assert.ok(stronger.maxDisplacement_m<base.maxDisplacement_m);
   assert.ok(Math.abs(stronger.maxDisplacement_m*3-base.maxDisplacement_m)<1e-8);
+});
+test('surviving constraints inherit the last deformed equilibrium before collapse',()=>{
+  const state=createBridgeCollapseDynamics([
+    {id:'A',x:0,z:0,fixX:true,fixZ:true},
+    {id:'B',x:.5,z:-.1},
+    {id:'C',x:1,z:0,fixX:true,fixZ:true}
+  ],[
+    {id:'M1',i:'A',j:'B'},
+    {id:'M2',i:'B',j:'C'}
+  ],[],-.75);
+  const p=state.positions.get('B');
+  p.x=.53;p.z=-.21;p.oldX=p.x;p.oldZ=p.z;
+  const stale=state.edges.map(e=>e.rest);
+  syncBridgeEdgeRestLengths(state);
+  const updated=state.edges.map(e=>e.rest);
+  assert.ok(updated.some((l,i)=>Math.abs(l-stale[i])>.01),
+    'The updated pose must change old constraints');
+  for(const edge of state.edges){
+    const a=state.positions.get(edge.i),b=state.positions.get(edge.j);
+    assert.ok(Math.abs(edge.rest-Math.hypot(a.x-b.x,a.z-b.z))<1e-12);
+  }
+  const before={x:p.x,z:p.z};
+  stepBridgeCollapseDynamics(state,1/60,{gravity:0});
+  assert.ok(Math.hypot(p.x-before.x,p.z-before.z)<1e-10,
+    'No sudden repositioning when the second failure begins');
 });
 test('collapse animation preserves pins, roller height and ground collision',()=>{
   const nodes=[
