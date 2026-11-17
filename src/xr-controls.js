@@ -380,7 +380,7 @@ export class StructuralXRControls {
           38,1013,16,'#a4d6de');
         txt(state?
           'Uso '+(state.maxUtilization==null?'—':(state.maxUtilization*100).toFixed(1)+' %')+
-          ' · Flecha '+state.maxDeflection_mm.toFixed(2)+' mm · Peso '+state.totalMass_kg.toFixed(2)+' kg':
+          ' · Flecha '+(state.maxDeflection_mm==null?'—':state.maxDeflection_mm.toFixed(2))+' mm · Peso '+(state.totalMass_kg==null?'—':state.totalMass_kg.toFixed(2))+' kg':
           'Sin comprobar · colores y deformada ilustrativa',
           38,1053,18,state?.status==='stable'?'#8fedc9':'#ffce9d');
       }
