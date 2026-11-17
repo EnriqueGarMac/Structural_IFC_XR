@@ -337,6 +337,93 @@ export function bridgeStageResult(result,stage){
     bending:stage.step===0?result.bending:null,
     stageIndex:stage.step,stageStatus:stage.status};
 }
+// Advance the load only to the next resistant limit, remove the members
+// reaching that limit, and solve the remaining structure at SAME load.
+// Further increases are permitted only when a stable new equilibrium exists.
+// This avoids the unphysical cascade caused by instantly applying the full
+// target load (e.g. 35 kN) after a failure at a much smaller load.
+export function calculateBridgeIncrementally({
+  span_m=1.2,load_kN=3,members=[],maxEvents=16
+}={}){
+  const removed=new Set(),failed=[];
+  const stages=[];
+  let applied=0,reference=null,latest=null;
+  let mechanism=false,reason='';
+  const evaluate=load=>calculateBridge({span_m,load_kN:load,
+    members,progressive:false,removedIds:[...removed]});
+  const nextStage=(result,atLoad)=>{
+    const stage=result.stages?.[0];
+    if(!stage)return null;
+    return {...stage,step:stages.length,
+      load_kN:atLoad,removed:[...removed]};
+  };
+  for(let event=0;event<Math.max(1,maxEvents);event++){
+    const atCurrent=evaluate(applied);
+    const target=applied<load_kN-1e-8?evaluate(load_kN):atCurrent;
+    if(target.stages?.[0]?.status==='mechanism'){
+      // No valid static configuration even at the current load. If target
+      // alone is singular, do not fabricate any intermediate overloads.
+      const stage=nextStage(target,load_kN);
+      if(stage)stages.push(stage);
+      latest=target;
+      mechanism=true;
+      reason=target.reason;
+      break;
+    }
+    let critical=load_kN;
+    const alreadyOverloaded=Boolean(atCurrent.stages?.[0]?.nextFailures?.length);
+    const targetOverloaded=Boolean(target.stages?.[0]?.nextFailures?.length);
+    if(alreadyOverloaded)critical=applied;
+    else if(targetOverloaded){
+      let low=applied,high=load_kN;
+      for(let k=0;k<17;k++){
+        const mid=(low+high)*.5,midState=evaluate(mid);
+        if(midState.stages?.[0]?.nextFailures?.length||
+            midState.stages?.[0]?.status==='mechanism')high=mid;
+        else low=mid;
+      }
+      critical=high;
+    }
+    const result=evaluate(critical);
+    latest=result;
+    const stage=nextStage(result,critical);
+    if(!stage){mechanism=true;reason=result.reason;break;}
+    stages.push(stage);
+    if(!reference&&result.displacements.length)reference=result;
+    applied=critical;
+    if(stage.status==='mechanism'){
+      mechanism=true;reason=result.reason;break;
+    }
+    const candidates=stage.nextFailures??[];
+    if(!candidates.length){
+      reason=failed.length?
+        'Tras las roturas, los elementos restantes alcanzan el equilibrio.':
+        result.reason;
+      break;
+    }
+    for(const member of candidates){
+      if(removed.has(member.id))continue;
+      removed.add(member.id);
+      failed.push({...member,load_kN:critical});
+    }
+    // A new stiffness solution is mandatory before increasing the load;
+    // next iteration begins at the load that caused the last failure.
+    if(event===Math.max(1,maxEvents)-1)
+      reason='Se alcanzó el límite de iteraciones de rotura progresiva.';
+  }
+  if(!latest)return calculateBridge({span_m,load_kN,members,progressive:false});
+  const base=reference??latest;
+  const status=mechanism?'collapse':failed.length?'failure':latest.status;
+  if(mechanism&&failed.length)reason=
+    'Tras retirar '+failed.map(f=>f.id).join(', ')+
+    ', se forma un mecanismo sin equilibrio estático válido.';
+  return {...base,status,resistant:status==='stable',
+    reason:reason||latest.reason,load_kN,appliedLoad_kN:applied,
+    broken:failed,stages,progressiveLoad:true,
+    postFailure:failed.length&&latest.displacements.length?
+      {members:latest.members,displacements:latest.displacements}:null};
+}
+
 // Deterministic quasi-static load history used by the teaching animation.
 // Each sample solves the actual stiffness system at an increasing external
 // load (including self-weight). For failure cases we bracket the FIRST
