@@ -29,6 +29,19 @@ export function createBridgeCollapseDynamics(nodes,members,brokenIds=[],floorZ=-
   const original=new Map([...positions].map(([id,p])=>[id,{x:p.x,z:p.z}]));
   return {positions,original,edges,broken,clearance,floorZ,time:0};
 }
+// Refresh the geometric constraints at a confirmed static equilibrium.
+// This is an animation hand-off, not a constitutive change: the currently
+// displayed elastic deformation becomes the start pose of the next stage.
+export function syncBridgeEdgeRestLengths(state){
+  if(!state?.edges||!state?.positions)return state;
+  for(const edge of state.edges){
+    const a=state.positions.get(edge.i),b=state.positions.get(edge.j);
+    if(!a||!b)continue;
+    const length=Math.hypot(a.x-b.x,a.z-b.z);
+    if(Number.isFinite(length)&&length>1e-9)edge.rest=length;
+  }
+  return state;
+}
 export function stepBridgeCollapseDynamics(state,dt,{gravity=3.5,iterations=12}={}){
   const step=Math.min(.035,Math.max(0,dt));
   if(!step)return state;
