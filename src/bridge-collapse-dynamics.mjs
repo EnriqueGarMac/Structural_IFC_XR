@@ -38,7 +38,9 @@ export function stepBridgeCollapseDynamics(state,dt,{gravity=3.5,iterations=12}=
     const vx=(p.x-p.oldX)*.985,vz=(p.z-p.oldZ)*.985;
     const x=p.x,z=p.z;
     if(!p.fixX)p.x+=vx;
-    if(!p.fixZ)p.z+=vz-gravity*step*step*(id==='B2'?2.5:1);
+    // Uniform gravity: accelerating the loaded node by 2.5x produced an
+    // abrupt artificial snap immediately after loss of stability.
+    if(!p.fixZ)p.z+=vz-gravity*step*step;
     p.oldX=x;p.oldZ=z;
   }
   for(let iteration=0;iteration<iterations;iteration++){
