@@ -166,6 +166,14 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     app.xrControls.dirty=true;
   }
   challenge.onChange=update;
+  challenge.onLoadProgress=(appliedLoad,targetLoad,fraction)=>{
+    // The computed target remains unchanged; this label reports the
+    // currently displayed quasi-static loading step, not a new load case.
+    const suffix=appliedLoad<targetLoad-1e-4&&fraction>=1?
+      ' · primer límite resistente':'';
+    $('bridge-stage-detail').textContent='CARGA PROGRESIVA · '+
+      fmt(appliedLoad,2)+' / '+fmt(targetLoad,2)+' kN'+suffix;
+  };
   challenge.onFailureProgress=(stage,stageResult)=>{
     // Use the actual, newly solved stage. Never redraw the 3D experience
     // here, because that would restart the progressive collapse.
