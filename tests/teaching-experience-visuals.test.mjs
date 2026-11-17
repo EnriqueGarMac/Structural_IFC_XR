@@ -237,6 +237,16 @@ test('progressive failure animation follows the actual recalculated sequence',()
   assert.deepEqual(updates[0],{removed:['M6'],next:'M14'});
   assert.equal(bridge.breakAnimation.physics.broken.has('M6'),true);
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),false);
+  bridge.animate(2250);
+  const midPhysics=bridge.breakAnimation.physics;
+  assert.equal(bridge.breakAnimation.deformationTransition,null);
+  for(const edge of midPhysics.edges){
+    const start=midPhysics.positions.get(edge.i);
+    const end=midPhysics.positions.get(edge.j);
+    assert.ok(Math.abs(edge.rest-Math.hypot(
+      start.x-end.x,start.z-end.z))<1e-8,
+      'Completed equilibrium must become the next stage reference shape');
+  }
   // Simulate a real intermediate deformation before the NEXT fracture.
   // Its pieces must be born at that instant, rather than teleporting
   // back to their original positions from the initial load ramp.
