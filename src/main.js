@@ -2,6 +2,7 @@ import './style.css';
 import './studio-theme.css';
 import {setupWorkspaceTabs} from './workspace-tabs.js';
 import {setupTrussLesson} from './truss-lesson-ui.js';
+import {setupBridgeCompetition} from './bridge-competition-ui.js';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults, buildingTeaching } from './demo.js';
@@ -149,9 +150,12 @@ const demos={
 };
 function leaveTrussLesson(){
   app.trussExperience?.deactivate();
-  $('stage').classList.remove('truss-mode');
+  app.bridgeCompetition?.deactivate();
+  $('stage').classList.remove('truss-mode','bridge-mode');
   $('truss-stage-status').hidden=true;
+  $('bridge-stage-status').hidden=true;
   $('truss-controls').hidden=true;
+  $('bridge-controls').hidden=true;
 }
 let activeDemo='frame';
 function showDemo(kind='frame'){
@@ -389,6 +393,27 @@ $('apply-offset').addEventListener('click',()=>{
 
 const forceReadout=$('force-readout');
 app.renderer.domElement.addEventListener('pointermove',event=>{
+  if(app.bridgeCompetition?.active){
+    if(app.isXR){forceReadout.hidden=true;return;}
+    const rect=app.renderer.domElement.getBoundingClientRect();
+    if(rect.width<=0||rect.height<=0)return;
+    app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
+      -(event.clientY-rect.top)/rect.height*2+1);
+    app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+    const hit=app.bridgeCompetition.pick(app.pickRaycaster);
+    if(!hit){forceReadout.hidden=true;return;}
+    const bridge=app.bridgeCompetition;
+    const result=bridge.result;
+    const data=result?.members?.find(m=>m.id===hit.id);
+    forceReadout.textContent=hit.kind==='node'?
+      'Nodo '+hit.id+' · Selecciona dos nodos para añadir un elemento':
+      'Elemento '+hit.id+
+       (data?'\nN '+data.axial_kN.toFixed(2)+' kN · uso '+(data.utilization*100).toFixed(1)+' %':'');
+    const stage=$('stage').getBoundingClientRect();
+    forceReadout.style.left=Math.max(8,Math.min(stage.width-260,event.clientX-stage.left+14))+'px';
+    forceReadout.style.top=Math.max(8,Math.min(stage.height-80,event.clientY-stage.top+16))+'px';
+    forceReadout.hidden=false;return;
+  }
   if(app.trussExperience?.active){
     if(app.isXR){forceReadout.hidden=true;return;}
     const rect=app.renderer.domElement.getBoundingClientRect();
@@ -575,6 +600,21 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
 setupTrussLesson(app,{
   selectWorkspace:name=>workspace.selectTab(name),
   clearPrevious:()=>{
+    leaveTrussLesson();
+    demoActive=false;syntheticResults=true;sapGeometryActive=false;
+    originalIFC=null;importedIFCName='';
+    for(const conf of Object.values(demos)){
+      $(conf.button).classList.remove('is-current');
+      $(conf.button).setAttribute('aria-pressed','false');
+    }
+  },
+  modelLabel:setModelLabel,status
+});
+
+setupBridgeCompetition(app,{
+  selectWorkspace:name=>workspace.selectTab(name),
+  clearPrevious:()=>{
+    leaveTrussLesson();
     demoActive=false;syntheticResults=true;sapGeometryActive=false;
     originalIFC=null;importedIFCName='';
     for(const conf of Object.values(demos)){
