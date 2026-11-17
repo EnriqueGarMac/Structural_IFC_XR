@@ -117,9 +117,11 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
     let delta=horizontal-body.angle;
     delta=((delta+Math.PI/2)%Math.PI+Math.PI)%Math.PI-Math.PI/2;
     body.groundedFor=(body.groundedFor??0)+step;
-    body.omega=body.omega*.12+delta*step*4;
-    body.angle+=delta*Math.min(.32,8*step);
-    body.vx*=Math.exp(-9*step);
+    // Accelerate the final end-on-ground rotation: a member that has
+    // struck with one end should not remain visibly tilted for long.
+    body.omega=body.omega*.05+delta*step*2;
+    body.angle+=delta*Math.min(.60,20*step);
+    body.vx*=Math.exp(-12*step);
     axisZ=body.axisZ*Math.cos(body.angle)-
       body.axisX*Math.sin(body.angle);
     contact=resolveBridgeCylinderFloor(body.z,axisZ,length,radius,floorZ);
@@ -128,8 +130,8 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
     // The educational animation has a defined final rest configuration.
     // Complete the last fraction of a degree instead of leaving a
     // nearly-horizontal rod visually intersecting or hovering above ground.
-    if((body.groundedFor>.4&&Math.abs(axisZ)<.015&&
-        Math.abs(body.vx)<.02)||body.groundedFor>1.6){
+    if((body.groundedFor>.14&&Math.abs(axisZ)<.025&&
+        Math.abs(body.vx)<.04)||body.groundedFor>.38){
       body.angle+=Math.atan2(axisZ,Math.abs(body.axisX*Math.cos(body.angle)+
         body.axisZ*Math.sin(body.angle)))*(
         (body.axisX*Math.cos(body.angle)+
