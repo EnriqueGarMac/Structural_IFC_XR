@@ -356,13 +356,15 @@ export class BridgeCompetitionExperience {
         });
       }
     }
+    const assignedNodes=new Set(this.members.flatMap(m=>[m.i,m.j]));
     for(const node of nodes){
       const p=pose(node);
       const chosen=node.id===this.startNode||node.id===this.selectedNode;
       const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.016:.009,12,8),
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
       visual.position.copy(p);this.root.add(visual);
-      if(this.breakAnimation)this.breakAnimation.nodeMarkers.push({id:node.id,object:visual});
+      if(this.breakAnimation&&assignedNodes.has(node.id))
+        this.breakAnimation.nodeMarkers.push({id:node.id,object:visual});
       const picker=new THREE.Mesh(new THREE.SphereGeometry(.017,12,8),
         new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,
           opacity:.01,depthTest:false,depthWrite:false}));
