@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
-  resolveBridgeCylinderFloor,stepBridgeLooseFragment}
+  resolveBridgeCylinderFloor,stepBridgeLooseFragment,bridgeFragmentScatter}
   from '../src/bridge-collapse-dynamics.mjs';
 import {solveTruss2D,TRUSS_LESSON,defaultTrussLoads} from '../src/truss-solver.mjs';
 
@@ -131,4 +131,36 @@ test('fractured members fall, roll, and settle horizontally without ground penet
     assert.equal(part.z,raisedFloor+part.radius,
       'A resting fragment must follow a corrected detected floor');
   }
+});
+
+test('fracture scatter separates both halves without altering floor contact',()=>{
+  const a=bridgeFragmentScatter(20261117,'M7',0);
+  const b=bridgeFragmentScatter(20261117,'M7',1);
+  assert.deepEqual(bridgeFragmentScatter(20261117,'M7',0),a,
+    'A running collapse uses reproducible individual fragment parameters');
+  assert.notDeepEqual(a,b,'Separate halves must not receive the same impulse');
+  assert.ok(a.vx<0&&b.vx>0,'The halves disperse instead of reassembling');
+  assert.ok(a.delay>=0&&a.delay<.1&&b.delay>=0&&b.delay<.1);
+  for(const params of [a,b]){
+    assert.ok(Math.abs(params.depth)<=.013);
+    assert.ok(Math.abs(params.vz)<=.045);
+  }
+  const floor=-.75;
+  const parts=[a,b].map((scatter,index)=>({
+    x:index===0?-.15:.15,z:.2,
+    vx:scatter.vx,vz:scatter.vz,angle:0,omega:scatter.omega,
+    axisX:.7,axisZ:.714,length:.3,radius:.01
+  }));
+  for(let i=0;i<270;i++){
+    for(const body of parts){
+      stepBridgeLooseFragment(body,1/60,floor);
+      const vertical=body.axisZ*Math.cos(body.angle)-
+        body.axisX*Math.sin(body.angle);
+      const bottom=body.z-Math.abs(vertical)*body.length/2-body.radius;
+      assert.ok(bottom>=floor-1e-8,'Scattered fragments remain above ground');
+    }
+  }
+  assert.ok(parts.every(body=>body.settled));
+  assert.ok(parts[1].x-parts[0].x>.35,
+    'The separated fragments must not reconstruct the original bar');
 });
