@@ -157,6 +157,30 @@ test('central load arrow tip coincides with B2 in reference and deformed views',
   checkTip();
   exercise.deactivate();
 });
+test('visible collision plane and fractured cylinders share the same ground height',()=>{
+  const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
+  exercise.activate();exercise.sample();exercise.setSpan(2.9);exercise.setLoad(50);
+  const result=exercise.evaluate();
+  assert.equal(result.status,'collapse');
+  const floor=exercise.root.getObjectByName('Plano de colisión de la pasarela');
+  assert.ok(floor,'Floor collision must be visible in the scene');
+  exercise.animate(100);
+  exercise.animate(1800);
+  exercise.animate(3800);
+  const limit=exercise.breakAnimation.physics.floorZ;
+  assert.ok(Math.abs(floor.position.z-limit)<1e-8);
+  for(const member of exercise.breakAnimation.dropped){
+    for(const fragment of member.fragments??[]){
+      if(!fragment.object.visible)continue;
+      const axis=new THREE.Vector3(0,1,0).applyQuaternion(fragment.object.quaternion);
+      const lowest=fragment.object.position.z-
+        Math.abs(axis.z)*fragment.length*.5-fragment.radius;
+      assert.ok(lowest>=limit-1e-8,
+        'Broken member '+member.id+' must not intersect displayed floor');
+    }
+  }
+  exercise.deactivate();
+});
 test('bridge renderer allows a lightweight design, editing and animated failure',()=>{
   const app=makeApp();
   assert.equal(bridgeReferenceGeometry().length,2);
