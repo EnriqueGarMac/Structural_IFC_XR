@@ -504,3 +504,23 @@ select:focus-visible,.offset-inputs input:focus-visible{border-color:#267a86}
   .workspace-tab{font-size:10px;padding:10px 2px;min-height:45px}
   .truss-stage-status{top:10px;left:11px;padding:7px 9px;max-width:calc(100% - 30px)}
 }
+
+/* Structural bridge competition: compact scientific controls. */
+.workspace-tabs{grid-template-columns:repeat(6,minmax(0,1fr));padding:0 3px}
+.workspace-tab{font-size:9.7px;letter-spacing:-.025em;overflow-wrap:anywhere;min-width:0}
+.workspace-tab-resource{line-height:1.05}
+.workspace-tab-contest{font-weight:720}
+.bridge-controls[hidden],.bridge-stage-status[hidden],#bridge-result[hidden]{display:none!important}
+.bridge-stage-status{position:absolute;top:19px;left:21px;z-index:5;pointer-events:none;
+  display:grid;gap:4px;padding:10px 12px;background:rgba(30,41,47,.90);border-left:2px solid #d6a667;
+  color:#d8e8eb;font-size:10px;max-width:min(325px,calc(100% - 210px))}
+.bridge-stage-status strong{font-size:11px;font-weight:690}
+.bridge-stage-status span{color:#b6cacf}
+.stage.bridge-mode .legend{display:none!important}
+.bridge-controls .truss-load-grid input,.bridge-controls .truss-load-grid select{width:100%;margin-top:6px;min-height:37px}
+.bridge-controls .truss-label{margin-bottom:8px}
+.bridge-controls .truss-load-grid{margin:12px 0}
+@media(max-width:700px){
+  .workspace-tab{font-size:9px;letter-spacing:-.03em;padding:8px 1px}
+  .bridge-stage-status{top:10px;left:11px;padding:7px 9px;max-width:calc(100% - 30px)}
+}
