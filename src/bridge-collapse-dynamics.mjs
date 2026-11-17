@@ -12,6 +12,14 @@ export function createBridgeCollapseDynamics(nodes,members,brokenIds=[],floorZ=-
     x:n.x,z:n.z,oldX:n.x,oldZ:n.z,
     fixX:Boolean(n.fixX),fixZ:Boolean(n.fixZ)
   }]));
+  // A rod has finite thickness: its centreline must stay at least one
+  // visual radius above the floor, not merely its mathematical nodes.
+  const clearance=new Map([...positions.keys()].map(id=>[id,0]));
+  for(const m of members){
+    const radius=Math.max(0,Number(m.radius)||0);
+    for(const id of [m.i,m.j])if(clearance.has(id))
+      clearance.set(id,Math.max(clearance.get(id),radius));
+  }
   const broken=new Set(brokenIds);
   const edges=members.filter(m=>!broken.has(m.id)).map(m=>{
     const a=positions.get(m.i),b=positions.get(m.j);
@@ -19,7 +27,7 @@ export function createBridgeCollapseDynamics(nodes,members,brokenIds=[],floorZ=-
       rest:Math.hypot(b.x-a.x,b.z-a.z)};
   });
   const original=new Map([...positions].map(([id,p])=>[id,{x:p.x,z:p.z}]));
-  return {positions,original,edges,broken,floorZ,time:0};
+  return {positions,original,edges,broken,clearance,floorZ,time:0};
 }
 export function stepBridgeCollapseDynamics(state,dt,{gravity=3.5,iterations=12}={}){
   const step=Math.min(.035,Math.max(0,dt));
@@ -49,13 +57,29 @@ export function stepBridgeCollapseDynamics(state,dt,{gravity=3.5,iterations=12}=
       const origin=state.original.get(id);
       if(p.fixX)p.x=origin.x;
       if(p.fixZ)p.z=origin.z;
-      if(!p.fixZ&&p.z<floor){
-        p.z=floor;
-        // Inelastic floor contact. Preserve only a fraction of rebound speed.
-        p.oldZ=Math.min(p.z,p.oldZ);
+      const minZ=floor+(state.clearance?.get(id)??0);
+      if(!p.fixZ&&p.z<minZ){
+        p.z=minZ;
+        // Resting contact: cancel downward Verlet velocity and dissipate
+        // lateral motion. Do not accumulate artificial rebound each frame.
+        p.oldZ=p.z;
+        p.oldX=p.x-(p.x-p.oldX)*.45;
       }
-      p.x=clamp(p.x,-4,5);p.z=clamp(p.z,floor,3);
+      p.x=clamp(p.x,-4,5);
+      if(!p.fixZ)p.z=clamp(p.z,minZ,3);
     }
   }
   return state;
+}
+
+// Projection of a finite cylindrical fragment onto the ground plane.
+// axisZ is the signed vertical component of the cylinder's unit axis.
+// Conservative radius allowance also covers end caps and angled members.
+export function resolveBridgeCylinderFloor(centerZ,axisZ,length,radius,floorZ){
+  const halfExtent=Math.abs(axisZ)*Math.max(0,length)*.5+
+    Math.max(0,radius);
+  const minCenter=floorZ+halfExtent;
+  const corrected=Math.max(Number(centerZ),minCenter);
+  return {centerZ:corrected,contact:corrected>centerZ,
+    lowestZ:corrected-halfExtent};
 }
