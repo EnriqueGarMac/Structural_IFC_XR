@@ -3,7 +3,8 @@ import {planeFromDetection} from './ar-placement.mjs';
 import {forceSignColour,resultColourHex} from './visual-palettes.mjs';
 import {makeAxialLabel} from './teaching-axial-label.js';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
-  stepBridgeLooseFragment,bridgeFragmentScatter} from './bridge-collapse-dynamics.mjs';
+  stepBridgeLooseFragment,bridgeFragmentScatter,
+  syncBridgeEdgeRestLengths} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge,bridgeStageResult,bridgeLoadHistory} from './bridge-competition-solver.mjs';
 
@@ -746,6 +747,17 @@ export class BridgeCompetitionExperience {
         if(stage){
           state.stageResult=bridgeStageResult(this.result,stage);
           if(stage.status==='mechanism'&&!state.mechanismStarted){
+            // The surviving members must start moving from the shape that
+            // actually exists at this instant. Otherwise their stale rest
+            // lengths pull the structure to an older configuration in one
+            // frame, producing the jump between consecutive failures.
+            syncBridgeEdgeRestLengths(physics);
+            // The static interpolation is cancelled at the mechanism, so
+            // its temporary positioning must not become an impulse.
+            for(const particle of physics.positions.values()){
+              particle.oldX=particle.x;
+              particle.oldZ=particle.z;
+            }
             state.mechanismStarted=true;
             state.mechanismStartTime=elapsed;
             // A mechanism has no post-failure static deformation target.
@@ -846,7 +858,17 @@ export class BridgeCompetitionExperience {
         p.x=x;p.z=z;
         p.oldX+=dx;p.oldZ+=dz;
       }
-      if(alpha>=1)state.deformationTransition=null;
+      if(alpha>=1){
+        // Snapshot the completed static equilibrium before the next
+        // fracture or physical step. The constraint solver must not
+        // suddenly restore lengths from the preceding equilibrium.
+        syncBridgeEdgeRestLengths(physics);
+        for(const particle of physics.positions.values()){
+          particle.oldX=particle.x;
+          particle.oldZ=particle.z;
+        }
+        state.deformationTransition=null;
+      }
     }
     for(const {id,object} of state.nodeMarkers){
       const p=physics.positions.get(id);
