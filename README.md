@@ -68,12 +68,22 @@ sus **tablas numéricas de barras, reacciones y desplazamientos** dentro
 de **Recursos Docentes**, junto a los controles con los que se construye
 y modifica el modelo. No se generan nuevamente esas tablas en Análisis.
 
-La pestaña principal **Análisis** reutiliza ahora su selector de magnitud
-(esfuerzos axiles, tensiones, desplazamientos, reacciones y las magnitudes
-específicas de cada ejercicio), el **slider original de amplificación**
-y el botón de **mostrar los valores axiles sobre las barras**. La
-**leyenda flotante original** mantiene las escalas de color, los valores
-mínimos y máximos y el selector de paleta del resto de la plataforma.
+La pestaña principal **Análisis** reutiliza el selector de magnitud,
+el **slider original de amplificación** y la **leyenda flotante**. Las
+experiencias docentes convierten sus resultados mediante
+`src/teaching-results-adapter.mjs` al contrato empleado por el visor
+estructural general. Las mismas clases `SAPVisuals` y `ReactionVisuals`
+dibujan ahora el **diagrama axial N**, las **flechas de reacciones**,
+sus etiquetas y la consulta de secciones con ratón y mando Quest.
+Los datos de la celosía se conservan independientes de los resultados
+SAP2000 importados, sin duplicar el motor de representación.
+
+Para celosías articuladas solo está disponible el **axil P**. En el
+concurso, cuando se ha calculado la flexión aproximada de una barra
+cargada entre nudos, se activan además los diagramas de **V2** y **M3**
+de esa barra. No se inventan cortantes, momentos ni modos propios de los
+demás miembros. Las tablas de esfuerzos, tensiones, reacciones y
+desplazamientos permanecen dentro de **Recursos Docentes**.
 
 Cuando se abandona la experiencia docente se restablecen las opciones
 originales del visor para resultados SAP2000, sin cambiar su motor de
