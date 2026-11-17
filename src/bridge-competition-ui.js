@@ -104,6 +104,8 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         (challenge.bestEligibleMass_kg===null?'':
           '<span>Mejor propuesta válida: <strong>'+fmt(challenge.bestEligibleMass_kg,2)+' kg</strong></span>')+
         '<span>Razón: '+result.reason+'</span>'+
+        (result.pending?.length?'<span>'+result.pending.length+
+          ' barra(s) pendientes de conexión: no intervienen todavía en la rigidez ni en las cargas aplicadas, pero sí cuentan para el peso total.</span>':'')+
         '<span>Vano <strong>'+fmt(challenge.span_m,2)+' m</strong> · Carga '+fmt(challenge.load_kN,2)+' kN</span>'+
         '<span>Peso de acero: <strong>'+fmt(result.totalMass_kg,2)+' kg</strong></span>'+
         '<span>Aprovechamiento máximo: <strong>'+
@@ -117,7 +119,7 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         fmt(m.axial_kN,2),
         fmt(m.stress_MPa,2),
         fmt(m.utilization*100,1)+' %',
-        m.slack?'Holgado':m.kind==='tie'?'Tirante':'Barra'
+        m.pending?'Pendiente de conectar':m.slack?'Holgado':m.kind==='tie'?'Tirante':'Barra'
       ]);
       const reactionRows=result.reactions.map(r=>[
         'Apoyo '+r.nodeId,'Rx '+fmt(r.rx_kN,2)+' kN',
