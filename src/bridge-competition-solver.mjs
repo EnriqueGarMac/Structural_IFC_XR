@@ -95,25 +95,47 @@ export function addBridgeMember(members,nodes,i,j,sectionId){
   if(members.some(m=>bridgeMemberKey(m.i,m.j)===key))
     throw Error('Ya existe un elemento entre esos nodos.');
   const expanded=members.map(m=>({...m}));
-  // If a student later adds a third branch to a previously simplified
-  // point, restore that joint by splitting the continuous bar there.
-  // This allows extending or triangulating an existing line of steel.
-  for(const id of [i,j]){
-    const n=byId.get(id);
-    for(let k=0;k<expanded.length;k++){
-      const m=expanded[k];
-      if(!pointInsideBridgeMember(n,m,byId))continue;
-      const used=new Set(expanded.map(x=>x.id));
-      let number=1;while(used.has('M'+number))number++;
-      expanded.splice(k,1,{...m,j:id},
-        {...m,id:'M'+number,i:id});
-      k++;
-    }
-  }
   if(expanded.length>=60)throw Error('Límite docente de 60 elementos.');
   let number=1;
   while(expanded.some(m=>m.id==='M'+number))number++;
   expanded.push({id:'M'+number,i,j,sectionId});
+  // An unconnected construction leaf must NOT break an existing bar
+  // into two collinear pin-ended pieces. Do so only once the branch
+  // actually links to the loaded node or either support without using
+  // the bar it is attempting to split.
+  const protectedIds=new Set(nodes.filter(n=>n.fixX||n.fixZ||
+    n.id==='B2').map(n=>n.id));
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let k=0;k<expanded.length;k++){
+      const host=expanded[k];
+      const candidates=new Set(expanded.filter(m=>m!==host)
+        .flatMap(m=>[m.i,m.j]));
+      let splitId=null;
+      for(const id of candidates){
+        const node=byId.get(id);
+        if(!pointInsideBridgeMember(node,host,byId))continue;
+        const visited=new Set([id]),queue=[id];
+        for(const v of queue){
+          for(const m of expanded){
+            if(m===host)continue;
+            const w=m.i===v?m.j:m.j===v?m.i:null;
+            if(w!==null&&!visited.has(w)){visited.add(w);queue.push(w);}
+          }
+        }
+        if([...visited].some(v=>v!==id&&protectedIds.has(v))){
+          splitId=id;break;
+        }
+      }
+      if(!splitId)continue;
+      const used=new Set(expanded.map(m=>m.id));
+      let idNum=1;while(used.has('M'+idNum))idNum++;
+      expanded.splice(k,1,{...host,j:splitId},
+        {...host,id:'M'+idNum,i:splitId});
+      changed=true;break;
+    }
+  }
   return mergeCollinearBridgeMembers(expanded,nodes);
 }
 export function bridgeSampleMembers(){
