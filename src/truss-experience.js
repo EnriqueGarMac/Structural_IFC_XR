@@ -27,7 +27,7 @@ export function trussGeometry(model=TRUSS_LESSON){
   const byId=new Map(model.nodes.map(n=>[n.id,n]));
   return model.bars.map(bar=>({
     name:'Celosía · barra '+bar.id,ifcType:'IfcMember',
-    geometry:shapeMember(this.nodeMap.get(bar.i),this.nodeMap.get(bar.j),.045),
+    geometry:shapeMember(byId.get(bar.i),byId.get(bar.j),.045),
     color:COLORS.base,structural:true,analysisIncluded:false,
     preserveStructuralOrigin:true
   }));
