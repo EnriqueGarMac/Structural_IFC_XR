@@ -28,3 +28,25 @@ test('collapse animation preserves pins, roller height and ground collision',()=
     Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.z>=-.65-1e-8));
   assert.ok(state.positions.get('B2').z<0);
 });
+
+test('unused grid points are not part of the collapse simulation',()=>{
+  const nodes=[
+    {id:'B0',x:0,z:0,fixX:true,fixZ:true},
+    {id:'B2',x:.5,z:0},
+    {id:'B4',x:1,z:0,fixZ:true},
+    {id:'G1',x:.25,z:.3},
+    {id:'G2',x:.75,z:.3}
+  ];
+  const members=[{id:'M1',i:'B0',j:'B2'},{id:'M2',i:'B2',j:'B4'}];
+  const state=createBridgeCollapseDynamics(nodes,members,[], -.65);
+  assert.deepEqual([...state.positions.keys()],['B0','B2','B4']);
+  assert.equal(state.positions.has('G1'),false);
+  assert.equal(state.positions.has('G2'),false);
+  for(let i=0;i<150;i++)stepBridgeCollapseDynamics(state,1/60);
+  assert.equal(state.positions.has('G1'),false);
+  assert.equal(state.positions.has('G2'),false);
+  const empty=createBridgeCollapseDynamics(nodes,[],[],-.65);
+  assert.equal(empty.positions.size,0);
+  stepBridgeCollapseDynamics(empty,1/60);
+  assert.equal(empty.positions.size,0);
+});
