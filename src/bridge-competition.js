@@ -5,7 +5,7 @@ import {makeAxialLabel} from './teaching-axial-label.js';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
   stepBridgeLooseFragment} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
-  addBridgeMember,calculateBridge,bridgeStageResult} from './bridge-competition-solver.mjs';
+  addBridgeMember,calculateBridge,bridgeStageResult,bridgeLoadHistory} from './bridge-competition-solver.mjs';
 
 const BASE=1.2;
 const STEEL_COLOUR=0x9cacb5,TIE_COLOUR=0x77bfd0,FAILED_COLOUR=0xe96d60;
@@ -65,6 +65,8 @@ export class BridgeCompetitionExperience {
     this.pickers=[];
     this.onChange=null;
     this.breakAnimation=null;
+    this.loadRamp=null;
+    this.rampBars=[];this.rampMarkers=[];
     this.detectedGap=null;
     this.collisionFloorZ=null;
     this.floorSurface=null;
@@ -167,6 +169,9 @@ export class BridgeCompetitionExperience {
     this.mode='displacement';
     this.result=calculateBridge({span_m:this.span_m,
       load_kN:this.load_kN,members:this.members});
+    this.loadRamp={...bridgeLoadHistory({span_m:this.span_m,
+      load_kN:this.load_kN,members:this.members}),
+      startedAt:null,duration:1.4,complete:false,progress:0};
     if(this.result.status==='stable')
       this.bestEligibleMass_kg=this.bestEligibleMass_kg===null?
         this.result.totalMass_kg:Math.min(this.bestEligibleMass_kg,this.result.totalMass_kg);
@@ -177,7 +182,7 @@ export class BridgeCompetitionExperience {
     const failureTimes={};
     for(const [index,stage] of failureStages.entries())
       for(const member of stage.nextFailures)
-        failureTimes[member.id]=.48+index*1.05;
+        failureTimes[member.id]=1.50+index*1.05;
     this.breakAnimation=['collapse','failure'].includes(this.result.status)?
       {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[],
         failureStages,failureTimes,stageDisplayed:0,
@@ -273,7 +278,7 @@ export class BridgeCompetitionExperience {
   }
   draw(){
     if(!this.active)return;
-    clear(this.root);this.pickers=[];
+    clear(this.root);this.pickers=[];this.rampBars=[];this.rampMarkers=[];
     if(this.breakAnimation){this.breakAnimation.dropped=[];this.breakAnimation.nodeMarkers=[];
       this.breakAnimation.physics=null;this.breakAnimation.startedAt=null;this.breakAnimation.lastStep=null;}
     const nodes=bridgeGrid(this.span_m),span=this.span_m;
@@ -282,12 +287,13 @@ export class BridgeCompetitionExperience {
     const maxDeflection=this.result?.maxDeflection_mm??0;
     const amp=!this.undeformedView&&maxDeflection>1e-9?
       Math.min(500,BASE*.17/(maxDeflection*.001*BASE/span))*this.ampFactor:0;
+    const drawAmp=this.loadRamp&&!this.loadRamp.complete?0:amp;
     const pose=n=>{
       const d=disp.get(n.id);
       const p=world(n,span);
       if(d){
-        p.x+=d.ux_m*amp*BASE/span;
-        p.z+=d.uz_m*amp*BASE/span;
+        p.x+=d.ux_m*drawAmp*BASE/span;
+        p.z+=d.uz_m*drawAmp*BASE/span;
       }
       return p;
     };
@@ -362,6 +368,8 @@ export class BridgeCompetitionExperience {
       const beam=lineBetween(a,b,width,colour);
       beam.userData.bridgeMember=m.id;
       this.root.add(beam);
+      this.rampBars.push({id:m.id,i:m.i,j:m.j,object:beam,
+        sectionId:m.sectionId,originalLength:a.distanceTo(b)});
       // A load in the interior of a continuous bar causes bending.
       // Draw the simply-supported elastic curve with the same display
       // amplification, instead of moving the load-point marker away from
@@ -377,7 +385,7 @@ export class BridgeCompetitionExperience {
             P*other*x*(L*L-other*other-x*x)/(6*L*E*I):
             P*at*(L-x)*(L*L-at*at-(L-x)*(L-x))/(6*L*E*I);
           const point=a.clone().lerp(b,fraction);
-          point.z-=deflection*amp*BASE/span;
+          point.z-=deflection*drawAmp*BASE/span;
           points.push(point);
         }
         beam.visible=false;
@@ -438,6 +446,7 @@ export class BridgeCompetitionExperience {
       const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.016:.009,12,8),
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
       visual.position.copy(p);this.root.add(visual);
+      if(assignedNodes.has(node.id))this.rampMarkers.push({id:node.id,object:visual});
       if(this.breakAnimation&&assignedNodes.has(node.id))
         this.breakAnimation.nodeMarkers.push({id:node.id,object:visual});
       const picker=new THREE.Mesh(new THREE.SphereGeometry(.017,12,8),
@@ -471,6 +480,7 @@ export class BridgeCompetitionExperience {
       arrowLength,0xe49b69,.05,.035);
     loadArrow.name='Carga central B2';
     this.root.add(loadArrow);
+    this.loadArrow=loadArrow;
     if(this.breakAnimation){
       const floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
       this.breakAnimation.physics=createBridgeCollapseDynamics(
@@ -534,20 +544,110 @@ export class BridgeCompetitionExperience {
     }
   }
   animate(timeMs){
-    if(!this.active||!this.breakAnimation)return;
+    if(!this.active)return;
+    if(this.loadRamp&&!this.loadRamp.complete){
+      const ramp=this.loadRamp;
+      if(ramp.startedAt===null)ramp.startedAt=timeMs;
+      const progress=clamp((timeMs-ramp.startedAt)/1000/ramp.duration,0,1);
+      ramp.progress=progress;
+      const n=ramp.snapshots.length-1;
+      const index=Math.min(n-1,Math.floor(progress*n));
+      const alpha=progress>=1?1:progress*n-index;
+      const left=ramp.snapshots[index],right=ramp.snapshots[index+1];
+      const uA=new Map(left.displacements.map(d=>[d.nodeId,d]));
+      const uB=new Map(right.displacements.map(d=>[d.nodeId,d]));
+      const byNode=new Map(bridgeGrid(this.span_m).map(n=>[n.id,n]));
+      const current=new Map();
+      const amplitude=this.undeformedView?0:
+        this.result?.maxDeflection_mm>1e-9?
+        Math.min(500,BASE*.17/(this.result.maxDeflection_mm*.001*
+          BASE/this.span_m))*this.ampFactor:0;
+      for(const id of new Set(this.members.flatMap(m=>[m.i,m.j]))){
+        const base=byNode.get(id);
+        if(!base)continue;
+        const a=uA.get(id),b=uB.get(id);
+        const interp=(field)=>
+          (a?.[field]??0)*(1-alpha)+(b?.[field]??0)*alpha;
+        current.set(id,{x:base.x*BASE/this.span_m+
+          interp('ux_m')*amplitude*BASE/this.span_m,
+          z:base.z*BASE/this.span_m+
+          interp('uz_m')*amplitude*BASE/this.span_m});
+      }
+      const fA=new Map(left.members.map(m=>[m.id,m]));
+      const fB=new Map(right.members.map(m=>[m.id,m]));
+      const maxMag=Math.max(1e-10,...[...current].map(([id,p])=>{
+        const base=byNode.get(id);
+        return Math.hypot(p.x-base.x*BASE/this.span_m,
+          p.z-base.z*BASE/this.span_m);
+      }));
+      for(const part of this.rampBars){
+        const a=current.get(part.i),b=current.get(part.j);
+        if(!a||!b)continue;
+        const p=new THREE.Vector3(a.x,0,a.z),q=new THREE.Vector3(b.x,0,b.z);
+        const direction=q.clone().sub(p),length=direction.length();
+        if(length<1e-8)continue;
+        part.object.position.copy(p).add(q).multiplyScalar(.5);
+        part.object.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),
+          direction.normalize());
+        part.object.scale.y=length/part.originalLength;
+        const aMember=fA.get(part.id),bMember=fB.get(part.id);
+        const axial=(aMember?.axial_kN??0)*(1-alpha)+
+          (bMember?.axial_kN??0)*alpha;
+        let colour=forceSignColour(axial,this.palette);
+        if(this.mode==='displacement'){
+          const va=byNode.get(part.i),vb=byNode.get(part.j);
+          const norm=(point,base)=>Math.hypot(
+            point.x-base.x*BASE/this.span_m,
+            point.z-base.z*BASE/this.span_m)/maxMag;
+          colour=resultColourHex(Math.min(1,(norm(a,va)+norm(b,vb))/2),
+            this.palette);
+        }else if(this.mode==='utilization'){
+          const util=(aMember?.utilization??0)*(1-alpha)+
+            (bMember?.utilization??0)*alpha;
+          colour=resultColourHex(clamp(util,0,1),this.palette);
+        }
+        part.object.material.color.setHex(colour);
+      }
+      for(const marker of this.rampMarkers){
+        const p=current.get(marker.id);
+        if(p)marker.object.position.set(p.x,0,p.z);
+      }
+      const centre=current.get('B2');
+      if(centre&&this.loadArrow)this.loadArrow.position.set(
+        centre.x,0,centre.z+.16);
+      if(this.breakAnimation?.physics){
+        for(const [id,p] of current){
+          const particle=this.breakAnimation.physics.positions.get(id);
+          if(!particle)continue;
+          particle.x=p.x;particle.z=p.z;
+          particle.oldX=p.x;particle.oldZ=p.z;
+        }
+        // Keep initial member pieces aligned with the increasing load.
+        for(const part of this.breakAnimation.dropped){
+          const beam=this.rampBars.find(v=>v.id===part.id);
+          if(!beam)continue;
+          part.origin.copy(beam.object.position);
+          part.baseRotation.copy(beam.object.quaternion);
+          part.length=beam.originalLength*beam.object.scale.y;
+        }
+      }
+      if(progress>=1)ramp.complete=true;
+      return;
+    }
+    if(!this.breakAnimation)return;
     const state=this.breakAnimation;
     if(state.startedAt===null){state.startedAt=timeMs;state.lastStep=timeMs;}
     const elapsed=(timeMs-state.startedAt)/1000;
     const physics=state.physics;
     if(!physics)return;
-    const FRACTURE_START=.48,FRACTURE_INTERVAL=1.05;
+    const FRACTURE_START=1.50,FRACTURE_INTERVAL=1.05;
     const dt=Math.max(0,Math.min(.06,(timeMs-state.lastStep)/1000));
     state.lastStep=timeMs;
     physics.floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
     if(this.floorSurface)this.floorSurface.position.z=physics.floorZ;
     // Let the identified element fracture before structural nodes start
     // moving. Surviving members retain compatible shared endpoints.
-    if(elapsed>.38){
+    if(elapsed>FRACTURE_START-.02){
       // Remove failed members exactly when their fracture becomes visible.
       // The remaining constraints then redistribute motion between nodes.
       state.failureStages.forEach((failureStage,i)=>{
