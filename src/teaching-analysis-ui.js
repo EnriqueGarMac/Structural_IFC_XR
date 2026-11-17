@@ -1,121 +1,145 @@
-// Both educational experiences reuse the platform's existing Analysis tab.
-// No second results navigation stack or independent engineering solver.
+// Adapter for educational results: reuses the main Analysis selectors,
+// amplification slider, force-value toggle and stage legend. The original
+// result tables remain in Resources, where the exercises are edited.
 import {cssForceGradient,cssResultGradient} from './visual-palettes.mjs';
 const $=id=>document.getElementById(id);
 const fmt=(value,d=2)=>Number.isFinite(value)?Number(value).toLocaleString('es-ES',
   {minimumFractionDigits:d,maximumFractionDigits:d}):'—';
-const modes={
-  truss:[['axial','Esfuerzo axial N (kN)'],['stress','Tensión normal σ (MPa)'],
-    ['strain','Deformación ε'],['displacement','Desplazamiento |u| (mm)']],
-  bridge:[['axial','Esfuerzo axial N (kN)'],['stress','Tensión normal σ (MPa)'],
-    ['utilization','Aprovechamiento (%)'],['displacement','Desplazamiento |u| (mm)']]
+const baseViews=[
+  ['deformation','Desplazamientos'],
+  ['forces','Esfuerzos internos'],
+  ['reactions','Reacciones en apoyos'],
+  ['modes','Modos de vibración'],
+  ['buckling','Modos de pandeo']
+];
+const teachingViews={
+  truss:[
+    ['forces','Esfuerzo axial N (kN)'],
+    ['stress','Tensión normal σ (MPa)'],
+    ['strain','Deformación unitaria ε'],
+    ['deformation','Desplazamientos |u| (mm)'],
+    ['reactions','Reacciones de apoyo (kN)']
+  ],
+  bridge:[
+    ['forces','Esfuerzo axial N (kN)'],
+    ['stress','Tensión normal σ (MPa)'],
+    ['utilization','Aprovechamiento (%)'],
+    ['deformation','Desplazamientos |u| (mm)'],
+    ['reactions','Reacciones de apoyo (kN)']
+  ]
 };
-function grid(headers,rows){
-  const safe=v=>String(v??'—').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-  return '<table><thead><tr>'+headers.map(h=>'<th>'+safe(h)+'</th>').join('')+
-    '</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(v=>'<td>'+safe(v)+'</td>').join('')+
-    '</tr>').join('')+'</tbody></table>';
-}
+const modeForView={forces:'axial',stress:'stress',strain:'strain',
+  utilization:'utilization',deformation:'displacement',reactions:'axial'};
+const viewForMode={axial:'forces',stress:'stress',strain:'strain',
+  utilization:'utilization',displacement:'deformation'};
 export function setupTeachingAnalysis(app,{selectWorkspace}={}){
-  const panel=$('teaching-analysis-results'),selector=$('teaching-analysis-mode');
-  const info=$('teaching-analysis-context'),summary=$('teaching-analysis-summary'),
-    tables=$('teaching-analysis-tables'),legend=$('teaching-analysis-legend'),
-    amplification=$('teaching-amp'),axialLabels=$('teaching-axial-labels');
+  const view=$('analysis-view'),amp=$('amp'),showValues=$('toggle-force-values'),
+    forceControls=$('force-values-controls'),legend=$('legend');
+  view.closest('.control')?.classList.add('teaching-shared-control');
+  amp.closest('.range-control')?.classList.add('teaching-shared-control');
+  forceControls.classList.add('teaching-shared-control');
   let current=null;
-  const render=(kind,result,experience)=>{
-    current={kind,result,experience};
+  const setOptions=options=>{
+    view.replaceChildren(...options.map(([id,title])=>new Option(title,id)));
+  };
+  const refresh=()=>{
+    if(!current)return;
+    const {kind,result,experience}=current;
     document.body.classList.add('teaching-results-active');
-    panel.hidden=false;
-    const previous=selector.dataset.kind;
-    if(previous!==kind){
-      selector.replaceChildren();
-      modes[kind].forEach(([value,label])=>selector.add(new Option(label,value)));
-      selector.dataset.kind=kind;
+    if(view.dataset.teachingKind!==kind){
+      setOptions(teachingViews[kind]);
+      view.dataset.teachingKind=kind;
     }
-    selector.value=experience.mode;
-    amplification.value=String(experience.ampFactor??1);
-    $('teaching-amp-value').textContent='×'+fmt(experience.ampFactor??1,1);
-    axialLabels.checked=Boolean(experience.showAxialLabels);
+    if(!current.view||!teachingViews[kind].some(([id])=>id===current.view))
+      current.view=viewForMode[experience.mode]??'forces';
+    view.value=current.view;
+    amp.max='150';amp.min='0';amp.step='1';
+    amp.value=String(Math.round((experience.ampFactor??1)*15));
+    $('amp-value').textContent='×'+fmt(experience.ampFactor??1,1)+' · visual';
+    forceControls.hidden=current.view!=='forces';
+    showValues.textContent=experience.showAxialLabels?
+      'Ocultar valores axiles':'Mostrar valores axiles sobre barras';
+    showValues.setAttribute('aria-pressed',String(Boolean(experience.showAxialLabels)));
+    const title=$('legend-title'),lo=$('legend-min'),hi=$('legend-max');
+    const stageBar=legend.querySelector('.legend-bar');
     if(!result){
-      info.textContent='Diseño modificado. Calcula la resistencia antes de consultar resultados.';
-      summary.textContent='SIN COMPROBAR · Resultados anteriores descartados';
-      legend.textContent='Sin análisis disponible para el diseño actual.';
-      tables.replaceChildren();
-      $('legend-title').textContent='SIN RESULTADOS';
-      $('legend-min').textContent='—';$('legend-max').textContent='—';
+      title.textContent='SIN RESULTADOS';
+      lo.textContent='—';hi.textContent='—';
+      if(stageBar)stageBar.style.background=cssForceGradient(experience.palette??'classic');
       return;
     }
-    info.textContent=kind==='bridge'?'Concurso de pasarelas · celosía 2D · peso propio y carga central':
-      'Cálculo matricial de celosías planas · cargas nodales';
-    const bars=kind==='bridge'?result.members:result.bars;
-    const displacement=kind==='bridge'?result.maxDeflection_mm:result.maxDisplacement_m*1000;
-    const mode=experience.mode, palette=experience.palette??'classic';
-    const name=Object.fromEntries(modes[kind])[mode];
-    const values=mode==='axial'?bars.map(b=>b.axial_kN):
-      mode==='stress'?bars.map(b=>b.stress_MPa):
-      mode==='strain'?bars.map(b=>b.strain):
-      mode==='utilization'?bars.map(b=>(b.utilization||0)*100):
-      result.displacements.map(d=>(d.magnitude_m??Math.hypot(d.ux_m,d.uz_m))*1000);
+    const members=kind==='bridge'?result.members:result.bars;
+    let values=[],unit='',digits=2,signed=true,name='';
+    if(current.view==='reactions'){
+      values=result.reactions.flatMap(r=>[r.rx_kN,r.rz_kN]);
+      name='REACCIONES Rx / Rz';unit='kN';
+    }else if(current.view==='deformation'){
+      values=result.displacements.map(d=>
+        (d.magnitude_m??Math.hypot(d.ux_m,d.uz_m))*1000);
+      name='DESPLAZAMIENTO |u|';unit='mm';digits=3;signed=false;
+    }else if(current.view==='stress'){
+      values=members.map(m=>m.stress_MPa);
+      name='TENSIÓN NORMAL σ';unit='MPa';
+    }else if(current.view==='strain'){
+      values=members.map(m=>m.strain);
+      name='DEFORMACIÓN UNITARIA ε';digits=7;
+    }else if(current.view==='utilization'){
+      values=members.map(m=>(m.utilization??0)*100);
+      name='APROVECHAMIENTO';unit='%';signed=false;
+    }else{
+      values=members.map(m=>m.axial_kN);
+      name='ESFUERZO AXIAL N';unit='kN';
+    }
     const finite=values.filter(Number.isFinite);
     const min=finite.length?Math.min(...finite):0;
     const max=finite.length?Math.max(...finite):0;
-    const unit={axial:'kN',stress:'MPa',strain:'',utilization:'%',displacement:'mm'}[mode];
-    const signed=['axial','stress','strain'].includes(mode);
-    const colorGradient=signed?cssForceGradient(palette):cssResultGradient(palette);
-    const rangeDigits=mode==='strain'?7:mode==='displacement'?3:2;
-    const minText=fmt(min,rangeDigits)+(unit?' '+unit:'');
-    const maxText=fmt(max,rangeDigits)+(unit?' '+unit:'');
-    // Reuse the same floating legend as the main viewer instead of a
-    // second unrelated colour key. Only the calculation source changes.
-    $('legend-title').textContent=name.toUpperCase();
-    $('legend-min').textContent=minText;
-    $('legend-max').textContent=maxText;
-    const stageBar=$('legend').querySelector('.legend-bar');
-    if(stageBar)stageBar.style.background=colorGradient;
-    legend.innerHTML='<strong>'+name+'</strong>'+
-      '<div class="teaching-colour-ramp" style="background:'+colorGradient+'"></div>'+
-      '<div class="teaching-colour-limits"><span>'+minText+'</span><span>'+maxText+'</span></div>'+
-      '<div>Amplificación visual ×'+fmt(experience.ampFactor??1,1)+
-      '. Valores y comprobaciones sin amplificar.</div>';
-    summary.textContent=kind==='bridge'?
-      'Estado: '+(result.status==='stable'?'APTA':result.status==='service'?'FLECHA EXCESIVA':
-        'NO RESISTE')+' · Peso '+fmt(result.totalMass_kg)+' kg · Flecha '+
-        fmt(displacement,3)+' mm · Aprovechamiento máximo '+
-        fmt(result.maxUtilization==null?NaN:result.maxUtilization*100,1)+' %':
-      'Desplazamiento máximo '+fmt(displacement,3)+' mm · '+result.bars.length+' barras';
-    const barRows=bars.map(b=>[b.id,b.i+'–'+b.j,fmt(b.axial_kN,3),
-      fmt(b.stress_MPa,3),fmt(b.strain,7),kind==='bridge'?fmt(b.utilization*100,1)+' %':
-        fmt(b.extension_mm,3)+' mm']);
-    const supports=result.reactions.map(r=>[r.nodeId,fmt(r.rx_kN,3),fmt(r.rz_kN,3)]);
-    const motions=result.displacements.map(d=>[d.nodeId,fmt(d.ux_m*1000,3),
-      fmt(d.uz_m*1000,3)]);
-    tables.innerHTML='<h3>Barras</h3>'+grid(['ID','Nodos','N (kN)','σ (MPa)','ε',
-      kind==='bridge'?'Uso':'ΔL'],barRows)+
-      '<h3>Reacciones</h3>'+grid(['Apoyo','Rx (kN)','Rz (kN)'],supports)+
-      '<h3>Desplazamientos nodales</h3>'+grid(['Nodo','Ux (mm)','Uz (mm)'],motions);
+    title.textContent=name;
+    lo.textContent=fmt(min,digits)+(unit?' '+unit:'');
+    hi.textContent=fmt(max,digits)+(unit?' '+unit:'');
+    if(stageBar)stageBar.style.background=signed?
+      cssForceGradient(experience.palette??'classic'):
+      cssResultGradient(experience.palette??'classic');
   };
-  selector.addEventListener('change',()=>{
-    if(!current)return;
-    current.experience.setMode(selector.value);
-  });
-  amplification.addEventListener('input',()=>{
-    if(!current)return;
-    current.experience.setAmplification(Number(amplification.value));
-  });
-  axialLabels.addEventListener('change',()=>{
-    if(!current)return;
-    current.experience.setAxialLabels(axialLabels.checked);
-  });
+  const render=(kind,result,experience)=>{
+    if(!current||current.kind!==kind||current.experience!==experience)
+      current={kind,result,experience,view:viewForMode[experience.mode]??'forces'};
+    else current.result=result;
+    refresh();
+  };
+  const selectView=value=>{
+    if(!current)return false;
+    if(!teachingViews[current.kind].some(([id])=>id===value))return false;
+    current.view=value;
+    const target=modeForView[value];
+    if(target!==current.experience.mode)current.experience.setMode(target);
+    else refresh();
+    return true;
+  };
+  const setAmplification=value=>{
+    if(!current)return false;
+    current.experience.setAmplification(Number(value)/15);
+    return true;
+  };
+  const toggleAxialValues=()=>{
+    if(!current)return false;
+    current.experience.setAxialLabels(!current.experience.showAxialLabels);
+    return true;
+  };
   for(const id of ['truss-open-analysis','bridge-open-analysis'])
     $(id)?.addEventListener('click',()=>selectWorkspace?.('analysis'));
   const leave=()=>{
-    current=null;panel.hidden=true;
+    current=null;
     document.body.classList.remove('teaching-results-active');
+    delete view.dataset.teachingKind;
+    setOptions(baseViews);
+    view.value='deformation';
+    forceControls.hidden=true;
+    showValues.textContent='Mostrar valores característicos';
+    showValues.setAttribute('aria-pressed','false');
   };
   app.updateTeachingAnalysis=render;
-  app.setTeachingAmplification=value=>{
-    if(current)current.experience.setAmplification(value);
-  };
+  app.teachingAnalysis={get active(){return Boolean(current);},
+    selectView,setAmplification,toggleAxialValues,refresh,leave};
   app.clearTeachingAnalysis=leave;
-  return {render,leave};
+  return app.teachingAnalysis;
 }
