@@ -42,6 +42,28 @@ Entre los diseños válidos del mismo vano/carga se conserva el menor
 peso calculado durante la sesión. Se puede cargar una celosía de
 referencia y descargar el diseño y los resultados en JSON.
 
+### Detección de mesas en móvil y leyenda del concurso
+
+En Android con navegador compatible con WebXR `immersive-ar` y
+`plane-detection`, abre primero **Recursos docentes → Concurso de
+pasarelas**, inicia **AR móvil** y pulsa **Detectar hueco entre mesas**.
+La aplicación reutiliza el detector de dos planos horizontales de Quest:
+exige siete observaciones coherentes antes de medir el vano y anclar la
+pasarela entre los bordes detectados. Si el navegador únicamente dispone
+de `hit-test`, **no se deducen bordes ni dimensiones**: introduce el
+vano manualmente.
+
+En iPhone, **AR Quick Look** presenta una instantánea USDZ y no expone
+al visor web el seguimiento ni los límites de las dos mesas. La
+detección interactiva de bordes no está disponible en esta vía.
+
+El concurso muestra una leyenda para los esfuerzos axiales
+(naranja = tracción, azul = compresión y rojo = fallo), con valores
+en kN, MPa, %, mm y kg cuando existe análisis. La deformada es
+ilustrativa y amplificada. La leyenda resumida también aparece en
+Android AR y en el menú inmersivo de Quest. Los marcadores de nodos
+son más pequeños, pero conservan su volumen de selección.
+
 ### Espacio físico entre mesas en Quest RM
 
 Pulsar **Detectar hueco entre dos mesas** en el menú de Quest RM o
