@@ -8,6 +8,9 @@ import {teachingResultsToViewer,TEACHING_CASE}
   from '../src/teaching-results-adapter.mjs';
 import {readForceStations} from '../src/force-diagrams.mjs';
 import {reactionSummary} from '../src/reactions.mjs';
+import * as THREE from 'three';
+import {SAPVisuals} from '../src/sap-visuals.js';
+import {ReactionVisuals} from '../src/reaction-visuals.js';
 
 test('Warren truss reuses SAP force diagrams and XYZ reaction contract',()=>{
   const result=solveTruss2D(TRUSS_LESSON,defaultTrussLoads());
@@ -71,4 +74,33 @@ test('an unsolved bridge mechanism does not fabricate force diagrams',()=>{
   const converted=teachingResultsToViewer('bridge',result,{members,span_m:1.2});
   assert.equal(Object.keys(converted.forces[TEACHING_CASE]).length,0);
   assert.equal(Object.keys(converted.jointReactions[TEACHING_CASE]).length,0);
+});
+
+test('actual common 3D engines draw teaching axial patches and joint reaction arrows',()=>{
+  const result=solveTruss2D(TRUSS_LESSON,defaultTrussLoads());
+  const converted=teachingResultsToViewer('truss',result,{model:TRUSS_LESSON});
+  const contentRoot=new THREE.Group();
+  const worldRoot=new THREE.Group();worldRoot.add(contentRoot);
+  const scene=new THREE.Scene();scene.add(worldRoot);
+  const app={
+    contentRoot,worldRoot,scene,results:converted,caseName:TEACHING_CASE,
+    offset:[0,0,0],maxSize:12,
+    clearGroup(group){
+      for(const child of [...group.children])group.remove(child);
+    },
+    updateVisualization(){}
+  };
+  const sap=new SAPVisuals(app);
+  app.sapVisuals=sap;
+  sap.component='P';sap.view='forces';sap.refresh();
+  assert.equal(sap.forceMeshes.length,TRUSS_LESSON.bars.length,
+    'The real force-diagram renderer must create a patch per teaching bar');
+  assert.ok(sap.forceMeshes.every(mesh=>
+    mesh.geometry.getAttribute('position').count>=6));
+  const reactions=new ReactionVisuals(app);
+  sap.view='reactions';reactions.refresh();
+  assert.equal(reactions.pickers.length,result.reactions.length);
+  assert.ok(reactions.group.children.length>reactions.pickers.length,
+    'The real reaction renderer must create visible force arrows');
+  sap.clear();reactions.clear();
 });
