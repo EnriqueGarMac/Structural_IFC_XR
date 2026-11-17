@@ -43,10 +43,14 @@ test('two straight collinear same-section segments merge into one member',()=>{
   let dissimilar=addBridgeMember([],grid,'B0','B1','bar_m');
   dissimilar=addBridgeMember(dissimilar,grid,'B1','B2','bar_l');
   assert.equal(dissimilar.length,2);
-  // The geometry remains editable: adding a new branch at the old
-  // construction point restores the joint and the two original intervals.
+  // An unfinished leaf must not introduce a spurious mechanism into
+  // the existing member. Restore the joint only after a second link
+  // connects the branch to the load-bearing part of the bridge.
   members=addBridgeMember(members,grid,'B1','T1','bar_m');
-  assert.equal(members.length,4);
+  assert.equal(members.length,3);
+  assert.ok(members.some(m=>m.i==='B0'&&m.j==='B2'));
+  members=addBridgeMember(members,grid,'T1','B2','bar_m');
+  assert.equal(members.length,5);
   const connected=members.filter(m=>m.i==='B1'||m.j==='B1');
   assert.equal(connected.length,3);
   assert.ok(connected.some(m=>m.i==='B0'||m.j==='B0'));
