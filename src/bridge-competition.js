@@ -5,7 +5,7 @@ import {makeAxialLabel} from './teaching-axial-label.js';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
   stepBridgeLooseFragment} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
-  addBridgeMember,calculateBridge} from './bridge-competition-solver.mjs';
+  addBridgeMember,calculateBridge,bridgeStageResult} from './bridge-competition-solver.mjs';
 
 const BASE=1.2;
 const STEEL_COLOUR=0x9cacb5,TIE_COLOUR=0x77bfd0,FAILED_COLOUR=0xe96d60;
@@ -165,7 +165,8 @@ export class BridgeCompetitionExperience {
         failureTimes[member.id]=.48+index*1.05;
     this.breakAnimation=['collapse','failure'].includes(this.result.status)?
       {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[],
-        failureStages,failureTimes,stageDisplayed:0}:null;
+        failureStages,failureTimes,stageDisplayed:0,
+        stageResult:bridgeStageResult(this.result,this.result.stages?.[0])}:null;
     this.draw();
     return this.result;
   }
@@ -545,20 +546,91 @@ export class BridgeCompetitionExperience {
         const stage=this.result?.stages?.[failureStage.step+1];
         state.stageDisplayed=i+1;
         if(stage){
+          state.stageResult=bridgeStageResult(this.result,stage);
           const byId=new Map((stage.members??[]).map(m=>[m.id,m]));
           const nextIds=new Set(stage.nextFailures?.map(f=>f.id)??[]);
+          const stageDisplacements=new Map((stage.displacements??[])
+            .map(d=>[d.nodeId,d]));
+          const maxDisplacement=Math.max(1e-9,...(stage.displacements??[])
+            .map(d=>Math.hypot(d.ux_m??0,d.uz_m??0)));
+          const maxStress=Math.max(1e-9,...(stage.members??[])
+            .filter(m=>m.active&&!m.pending).map(m=>Math.abs(m.stress_MPa??0)));
+          const nextValues=stage.nextFailures??[];
           for(const part of state.dropped){
             if(physics.broken.has(part.id))continue;
             const member=byId.get(part.id);
-            if(!member)continue;
-            part.object.material.color.setHex(nextIds.has(part.id)?0xf2b24c:
-              forceSignColour(member.axial_kN,this.palette));
+            // A mechanism has no invertible stiffness matrix. Stop displaying
+            // obsolete colours and stresses as if they were recalculated.
+            if(!member||stage.status==='mechanism'){
+              part.object.material.color.setHex(STEEL_COLOUR);
+              continue;
+            }
+            let colour=forceSignColour(member.axial_kN,this.palette);
+            if(this.mode==='utilization')
+              colour=resultColourHex(Math.min(1,Math.max(0,member.utilization||0)),
+                this.palette);
+            if(this.mode==='stress')
+              colour=new THREE.Color(colour).lerp(new THREE.Color(STEEL_COLOUR),
+                .55*(1-Math.min(1,Math.abs(member.stress_MPa??0)/maxStress))).getHex();
+            if(this.mode==='displacement'){
+              const u=stageDisplacements.get(part.i);
+              const v=stageDisplacements.get(part.j);
+              const mag=d=>d?Math.hypot(d.ux_m??0,d.uz_m??0):0;
+              colour=resultColourHex(Math.min(1,(mag(u)+mag(v))/
+                (2*maxDisplacement)),this.palette);
+            }
+            if(nextIds.has(part.id))colour=0xf2b24c;
+            part.object.material.color.setHex(colour);
+            for(const segment of part.object.userData.curvedPieces??[])
+              segment.material.color.setHex(colour);
           }
-          this.onFailureProgress?.(stage);
+          if(state.stageResult&&stage.displacements.length){
+            const originals=new Map(bridgeGrid(this.span_m)
+              .map(n=>[n.id,world(n,this.span_m)]));
+            const initial=new Map();
+            const targets=new Map();
+            const amplification=this.undeformedView?0:
+              (this.result?.maxDeflection_mm>1e-9?
+                Math.min(500,BASE*.17/
+                  (this.result.maxDeflection_mm*.001*BASE/this.span_m))*
+                  this.ampFactor:0);
+            for(const d of stage.displacements){
+              const current=physics.positions.get(d.nodeId);
+              const base=originals.get(d.nodeId);
+              if(!current||!base)continue;
+              initial.set(d.nodeId,{x:current.x,z:current.z});
+              targets.set(d.nodeId,{
+                x:base.x+(d.ux_m??0)*amplification*BASE/this.span_m,
+                z:base.z+(d.uz_m??0)*amplification*BASE/this.span_m
+              });
+            }
+            state.deformationTransition={start:elapsed,duration:.36,
+              initial,targets};
+          }else state.deformationTransition=null;
+          this.onFailureProgress?.(stage,state.stageResult);
         }
       });
       for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
         stepBridgeCollapseDynamics(physics,dt/Math.max(1,Math.ceil(dt/.016)));
+    }
+    // Recalculated deformations are interpolated to avoid an abrupt jump
+    // when a failed member changes the equilibrium of its neighbours.
+    // The subsequent particle simulation remains qualitative once a
+    // mechanism forms and never invents a static post-collapse solution.
+    if(state.deformationTransition){
+      const tr=state.deformationTransition;
+      const alpha=Math.min(1,Math.max(0,(elapsed-tr.start)/tr.duration));
+      const ease=alpha*alpha*(3-2*alpha);
+      for(const [id,target] of tr.targets){
+        const p=physics.positions.get(id),from=tr.initial.get(id);
+        if(!p||!from)continue;
+        const x=p.fixX?from.x:from.x+(target.x-from.x)*ease;
+        const z=p.fixZ?from.z:from.z+(target.z-from.z)*ease;
+        const dx=x-p.x,dz=z-p.z;
+        p.x=x;p.z=z;
+        p.oldX+=dx;p.oldZ+=dz;
+      }
+      if(alpha>=1)state.deformationTransition=null;
     }
     for(const {id,object} of state.nodeMarkers){
       const p=physics.positions.get(id);
