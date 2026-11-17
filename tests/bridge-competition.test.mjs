@@ -43,12 +43,14 @@ test('empty or mechanically unstable design is rejected, not assigned fictitious
   assert.equal(r.maxUtilization,null);
   assert.match(r.reason,/inestable|camino resistente|Sin barras/);
 });
-test('a stressed weak bridge triggers failed members and a failure result',()=>{
-  const members=bridgeSampleMembers().map(m=>({...m,sectionId:'bar_m'}));
+test('tension-only ties cannot act as compressed top-chord members',()=>{
+  const members=bridgeSampleMembers().map(m=>({
+    ...m,sectionId:['M5','M6'].includes(m.id)?'tie_m':'bar_m'
+  }));
   const r=calculateBridge({members,load_kN:50,span_m:2.9});
-  assert.ok(['collapse','failure','service'].includes(r.status));
+  assert.equal(r.status,'collapse','Compression-only tie assignment must not falsely pass');
+  assert.ok(r.slack.includes('M5')&&r.slack.includes('M6'));
   assert.ok(r.totalMass_kg>0);
-  if(r.broken.length)assert.equal(r.status!=='stable',true);
 });
 test('table-plane finder works only with two level facing surfaces of measured extents',()=>{
   const a={bounds:new THREE.Box3(new THREE.Vector3(0,.75,0),
