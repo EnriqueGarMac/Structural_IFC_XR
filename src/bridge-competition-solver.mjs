@@ -226,11 +226,10 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     catch(error){
       status='collapse';
       reason=failures.length?
-        (failures.some(f=>f.mode==='bending')?
-          'La barra '+failures.find(f=>f.mode==='bending').id+
-          ' falla a flexión por la carga aplicada entre nudos. Al romperse se pierde el camino resistente.':
-          'Tras la rotura de '+failures.map(f=>f.id).join(', ')+
-          ' se forma un mecanismo inestable o se pierde el camino resistente.'):
+        ('Tras el fallo de '+failures.map(f=>f.id+' ('+
+          ({bending:'flexión',buckling:'pandeo',yield:'límite elástico'}[f.mode]||
+            'resistencia')+')').join(', ')+
+          ' se pierde el camino resistente de la estructura.'):
         (error.message.startsWith('La carga central')?error.message:
           'Mecanismo inestable o sin camino resistente entre los apoyos.');
       if(!original)original=null;
@@ -276,9 +275,15 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
       reason=critical.bendingUtilization>1?
         'La carga actúa entre nudos de '+critical.id+
         ': la barra supera su resistencia a flexión. Refuerza la sección o triangula el punto cargado.':
-        'La barra '+critical.id+' supera su resistencia axial o a pandeo.';
+        critical.axial_kN<0&&critical.compressionCapacity_kN<
+          critical.tensionCapacity_kN*(1-1e-8)?
+          'La barra '+critical.id+' pierde estabilidad por pandeo.':
+          'La barra '+critical.id+' alcanza su límite elástico axial.';
+      const mode=critical.bendingUtilization>1?'bending':
+        critical.axial_kN<0&&critical.compressionCapacity_kN<
+          critical.tensionCapacity_kN*(1-1e-8)?'buckling':'yield';
       failures.push({id:critical.id,utilization:critical.utilization,
-        kind:critical.kind,mode:critical.bendingUtilization>1?'bending':'axial'});
+        kind:critical.kind,mode});
       if(!progressive)break;
       active.delete(critical.id);
       continue;
