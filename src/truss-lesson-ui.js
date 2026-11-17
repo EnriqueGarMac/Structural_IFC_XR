@@ -56,7 +56,6 @@ export function setupTrussLesson(app,{
   function update(result){
     if(!lesson.active)return;
     inputs();
-    $('truss-display').value=lesson.mode;
     const rx=result.reactions.reduce((t,r)=>t+r.rx_kN,0),
       rz=result.reactions.reduce((t,r)=>t+r.rz_kN,0);
     $('truss-summary').innerHTML=
@@ -193,7 +192,6 @@ export function setupTrussLesson(app,{
   }
   $('truss-reset').addEventListener('click',()=>lesson.reset());
   $('truss-clear').addEventListener('click',()=>lesson.clearLoads());
-  $('truss-display').addEventListener('change',e=>lesson.setMode(e.target.value));
   $('truss-export').addEventListener('click',()=>downloadTrussCSV(lesson));
   return lesson;
 }
