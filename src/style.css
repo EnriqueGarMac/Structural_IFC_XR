@@ -175,3 +175,15 @@ body.teaching-results-active #legend{display:block!important}
 .truss-member-editor p{margin:0;font-size:12px;color:#b3d3dc}
 .truss-member-editor label{font-size:12px;color:#c3dce3}
 .truss-member-editor input{width:100%;min-width:0;padding:9px;color:#e8f6f9;background:#0c2532;border:1px solid #527681;border-radius:6px}
+
+/* Structural competition result report: one labelled row per datum. */
+#bridge-result.bridge-report{display:grid;gap:0;margin:12px 0;
+  padding:3px 12px;border:1px solid #cadae0;border-radius:9px;
+  background:#f8fbfc;color:#243e48;font-size:12px;line-height:1.55}
+#bridge-result .bridge-result-row{display:grid;grid-template-columns:minmax(105px,38%) minmax(0,1fr);
+  gap:12px;align-items:start;padding:9px 0;border-bottom:1px solid #e0e9ed}
+#bridge-result .bridge-result-row:last-child{border-bottom:0}
+#bridge-result .bridge-result-label{font-weight:650;color:#45636e}
+#bridge-result .bridge-result-value{font-weight:500;overflow-wrap:anywhere;color:#183f4b}
+#bridge-result .bridge-result-status .bridge-result-value{font-weight:750}
+#bridge-undeformed[aria-pressed="true"]{border-color:#238c91}
