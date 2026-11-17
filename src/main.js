@@ -434,6 +434,7 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
       app.pickRaycaster.setFromCamera(app.mouse,app.camera);
       const section=app.teachingAnalysis.pickForce(app.pickRaycaster);
       const reaction=app.teachingAnalysis.pickReaction(app.pickRaycaster);
+      app.teachingAnalysis.hoverForce(section);
       if(section||reaction){
         forceReadout.textContent=section?
           'Barra '+section.frameId+' · '+section.component+
@@ -541,6 +542,8 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
   forceReadout.hidden=false;
 });
 app.renderer.domElement.addEventListener('pointerleave',()=>{
+  app.teachingAnalysis?.hoverForce(null);
+  app.teachingAnalysis?.hideXRHover();
   forceReadout.hidden=true;
   app.sapVisuals?.setHoverSection(null);
   app.nodeProbe?.hideXRHover();
