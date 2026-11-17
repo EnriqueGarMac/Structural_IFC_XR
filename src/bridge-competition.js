@@ -125,13 +125,15 @@ export class BridgeCompetitionExperience {
   }
   reset(){
     this.members=[];this.result=null;this.breakAnimation=null;
-    this.startNode=null;this.selectedMemberId=null;this.detectedGap=null;
+    this.startNode=null;this.addMode=false;this.previewPoint=null;
+    this.selectedMemberId=null;this.detectedGap=null;
     this.collisionFloorZ=null;
     this.draw();
   }
   sample(){
     this.members=bridgeSampleMembers();
     this.result=null;this.breakAnimation=null;this.startNode=null;
+    this.addMode=false;this.previewPoint=null;
     this.draw();
   }
   evaluate(){
@@ -210,7 +212,10 @@ export class BridgeCompetitionExperience {
     this.app.worldRoot.updateWorldMatrix(true,true);
     const hits=raycaster.intersectObjects(this.pickers,false);
     if(!hits.length)return null;
-    const result=hits[0].object.userData;
+    // A nearby rod's generous hit target should not block selection of
+    // a small grid node when finishing the second endpoint.
+    const nodeHit=hits.find(hit=>hit.object.userData.bridgeNode);
+    const result=(nodeHit??hits[0]).object.userData;
     return result.bridgeNode?{kind:'node',id:result.bridgeNode}:
       result.bridgeMember?{kind:'member',id:result.bridgeMember}:null;
   }
