@@ -21,7 +21,6 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     tables=$('teaching-analysis-tables'),legend=$('teaching-analysis-legend');
   let current=null;
   const render=(kind,result,experience)=>{
-    if(!result)return;
     current={kind,result,experience};
     document.body.classList.add('teaching-results-active');
     panel.hidden=false;
@@ -32,6 +31,13 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
       selector.dataset.kind=kind;
     }
     selector.value=experience.mode;
+    if(!result){
+      info.textContent='Diseño modificado. Calcula la resistencia antes de consultar resultados.';
+      summary.textContent='SIN COMPROBAR · Resultados anteriores descartados';
+      legend.textContent='Sin análisis disponible para el diseño actual.';
+      tables.replaceChildren();
+      return;
+    }
     info.textContent=kind==='bridge'?'Concurso de pasarelas · celosía 2D · peso propio y carga central':
       'Cálculo matricial de celosías planas · cargas nodales';
     const bars=kind==='bridge'?result.members:result.bars;
