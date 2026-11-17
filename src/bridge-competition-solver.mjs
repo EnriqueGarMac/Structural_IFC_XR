@@ -127,7 +127,11 @@ function analysis(nodes,members,load_kN,active){
       .map(m=>({id:m.id,i:m.i,j:m.j,E_kN_m2:m.E_kN_m2,A_m2:m.A_m2}))
   };
   if(!model.bars.length)throw Error('Sin barras que transmitan cargas a los apoyos.');
-  return solveTruss2D(model,[...nodal.values()].filter(n=>retained.has(n.nodeId)));
+  const solved=solveTruss2D(model,[...nodal.values()]
+    .filter(n=>retained.has(n.nodeId)));
+  const solvedIds=new Set(model.bars.map(m=>m.id));
+  solved.pendingMemberIds=all.filter(m=>!solvedIds.has(m.id)).map(m=>m.id);
+  return solved;
 }
 function extension(nodes,displacements,m){
   const byNode=new Map(nodes.map(n=>[n.id,n]));
@@ -156,7 +160,8 @@ function membersWithCapacities(all,raw,active,nodes){
       strain:axial/(m.E_kN_m2*m.A_m2),extension_mm:axial*m.L/
         (m.E_kN_m2*m.A_m2)*1000,
       tensionCapacity_kN:yieldCapacity,compressionCapacity_kN:compressionCapacity,
-      utilization,slack:m.kind==='tie'&&!activeState};
+      utilization,slack:m.kind==='tie'&&!activeState,
+      pending:activeState&&!b};
   });
 }
 export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=true}={}){
@@ -222,7 +227,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     return {status:'collapse',reason,span_m,load_kN,loads:[],
       nodes,members:all.map(m=>({...m,utilization:0,axial_kN:0,
         stress_MPa:0,strain:0,slack:false})),
-      broken:failures,slack:[...slackIds],totalMass_kg,
+      broken:failures,slack:[...slackIds],pending:members.map(m=>m.id),totalMass_kg,
       maxDeflection_mm:null,maxUtilization:null,reactions:[],displacements:[],
       equilibrium:null};
   }
@@ -244,6 +249,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     members:reference.members,displacements:reference.displacements,
     reactions:reference.reactions,equilibrium:reference.equilibrium,
     broken:failures,slack:[...slackIds],
+    pending:reference.pendingMemberIds??[],
     postFailure:failures.length?{members:memberResults,displacements:raw.displacements}:null,
     meta:{solver:'2D axial stiffness, nonlinear active-set tension-only cables; simplified progressive member removal',
       assumptions:'Uniones articuladas, barras con pandeo de Euler, cargas nodales y peso propio repartido; sin interacción suelo ni dinámica real'}
