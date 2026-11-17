@@ -71,7 +71,24 @@ function analysis(nodes,members,load_kN,active){
   // Only member-connected components that carry load or touch a support
   // enter the stiffness matrix. Decorative or unfinished isolated branches
   // must not produce zero-energy DOFs or false collapses.
-  const edges=all.filter(m=>active.has(m.id));
+  let edges=all.filter(m=>active.has(m.id));
+  const protectedNodes=new Set(nodes.filter(n=>n.fixX||n.fixZ||n.id==='B2')
+    .map(n=>n.id));
+  // During construction, an unfinished leaf bar at an otherwise unloaded
+  // node is a pending member, not evidence that the completed bridge fails.
+  // Peel those loose ends recursively until they are braced. The central
+  // load node and supports are never pruned, so genuine mechanisms remain.
+  for(let pass=0;pass<nodes.length;pass++){
+    const degree=new Map(nodes.map(n=>[n.id,0]));
+    for(const m of edges){
+      degree.set(m.i,degree.get(m.i)+1);
+      degree.set(m.j,degree.get(m.j)+1);
+    }
+    const pending=new Set(nodes.filter(n=>!protectedNodes.has(n.id)&&
+      degree.get(n.id)===1).map(n=>n.id));
+    if(!pending.size)break;
+    edges=edges.filter(m=>!pending.has(m.i)&&!pending.has(m.j));
+  }
   const adjacency=new Map(nodes.map(n=>[n.id,[]]));
   for(const m of edges){
     adjacency.get(m.i).push(m.j);adjacency.get(m.j).push(m.i);
