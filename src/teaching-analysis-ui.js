@@ -48,8 +48,14 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     results:null,xrControls:app.xrControls,
     clearGroup:group=>app.clearGroup(group),
     updateVisualization:()=>{forceRenderer.refresh();reactionRenderer.refresh();}};
-  const forceRenderer=new SAPVisuals(proxy);
-  const reactionRenderer=new ReactionVisuals(proxy);
+  const forceRenderer=app.contentRoot?new SAPVisuals(proxy):{
+    group:{visible:false},component:'P',showCharacteristics:false,
+    refresh(){},clear(){},pickForce(){return null;},pinSection(){}
+  };
+  const reactionRenderer=app.contentRoot?new ReactionVisuals(proxy):{
+    group:{visible:false},showValues:false,refresh(){},clear(){},
+    setValues(enabled){this.showValues=Boolean(enabled);},pick(){return null;}
+  };
   proxy.sapVisuals=forceRenderer;
   forceRenderer.group.visible=false;reactionRenderer.group.visible=false;
   forceRenderer.component='P';
@@ -107,7 +113,7 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     forceRenderer.showCharacteristics=Boolean(experience.showAxialLabels);
     const diagrams=current.view==='forces';
     const reactions=current.view==='reactions';
-    forceRenderer.view=diagrams?'forces':'deformation';
+    forceRenderer.view=diagrams?'forces':reactions?'reactions':'deformation';
     reactionRenderer.group.visible=reactions;
     forceRenderer.group.visible=diagrams;
     // The general engines consume the converted educational model directly.
