@@ -1,5 +1,6 @@
 // Both educational experiences reuse the platform's existing Analysis tab.
 // No second results navigation stack or independent engineering solver.
+import {cssForceGradient,cssResultGradient} from './visual-palettes.mjs';
 const $=id=>document.getElementById(id);
 const fmt=(value,d=2)=>Number.isFinite(value)?Number(value).toLocaleString('es-ES',
   {minimumFractionDigits:d,maximumFractionDigits:d}):'—';
@@ -18,7 +19,8 @@ function grid(headers,rows){
 export function setupTeachingAnalysis(app,{selectWorkspace}={}){
   const panel=$('teaching-analysis-results'),selector=$('teaching-analysis-mode');
   const info=$('teaching-analysis-context'),summary=$('teaching-analysis-summary'),
-    tables=$('teaching-analysis-tables'),legend=$('teaching-analysis-legend');
+    tables=$('teaching-analysis-tables'),legend=$('teaching-analysis-legend'),
+    amplification=$('teaching-amp'),axialLabels=$('teaching-axial-labels');
   let current=null;
   const render=(kind,result,experience)=>{
     current={kind,result,experience};
@@ -31,32 +33,50 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
       selector.dataset.kind=kind;
     }
     selector.value=experience.mode;
+    amplification.value=String(experience.ampFactor??1);
+    $('teaching-amp-value').textContent='×'+fmt(experience.ampFactor??1,1);
+    axialLabels.checked=Boolean(experience.showAxialLabels);
     if(!result){
       info.textContent='Diseño modificado. Calcula la resistencia antes de consultar resultados.';
       summary.textContent='SIN COMPROBAR · Resultados anteriores descartados';
       legend.textContent='Sin análisis disponible para el diseño actual.';
       tables.replaceChildren();
+      $('legend-title').textContent='SIN RESULTADOS';
+      $('legend-min').textContent='—';$('legend-max').textContent='—';
       return;
     }
     info.textContent=kind==='bridge'?'Concurso de pasarelas · celosía 2D · peso propio y carga central':
       'Cálculo matricial de celosías planas · cargas nodales';
     const bars=kind==='bridge'?result.members:result.bars;
-    const maxN=Math.max(0,...bars.map(b=>Math.abs(b.axial_kN||0)));
-    const maxS=Math.max(0,...bars.map(b=>Math.abs(b.stress_MPa||0)));
     const displacement=kind==='bridge'?result.maxDeflection_mm:result.maxDisplacement_m*1000;
-    const mode=experience.mode;
+    const mode=experience.mode, palette=experience.palette??'classic';
     const name=Object.fromEntries(modes[kind])[mode];
-    const range=mode==='axial'?'±'+fmt(maxN)+' kN':
-      mode==='stress'?'±'+fmt(maxS)+' MPa':
-      mode==='strain'?'Máx. |ε| '+fmt(Math.max(0,...bars.map(b=>Math.abs(b.strain||0))),6):
-      mode==='utilization'?'0–'+fmt(Math.max(100,...bars.map(b=>(b.utilization||0)*100)),1)+' %':
-      '0–'+fmt(displacement,3)+' mm';
-    legend.innerHTML='<strong>'+name+' · '+range+'</strong>'+
-      '<div>Colores: '+(mode==='utilization'?'verde = menor utilización, rojo = mayor utilización':
-        mode==='displacement'?'verde = menor desplazamiento, naranja = mayor desplazamiento':
-        'naranja = tracción, azul = compresión')+
-      (kind==='bridge'?', rojo = elemento fallado':'')+'</div>'+
-      '<div>Los desplazamientos mostrados numéricamente son físicos; la deformada 3D está amplificada.</div>';
+    const values=mode==='axial'?bars.map(b=>b.axial_kN):
+      mode==='stress'?bars.map(b=>b.stress_MPa):
+      mode==='strain'?bars.map(b=>b.strain):
+      mode==='utilization'?bars.map(b=>(b.utilization||0)*100):
+      result.displacements.map(d=>(d.magnitude_m??Math.hypot(d.ux_m,d.uz_m))*1000);
+    const finite=values.filter(Number.isFinite);
+    const min=finite.length?Math.min(...finite):0;
+    const max=finite.length?Math.max(...finite):0;
+    const unit={axial:'kN',stress:'MPa',strain:'',utilization:'%',displacement:'mm'}[mode];
+    const signed=['axial','stress','strain'].includes(mode);
+    const colorGradient=signed?cssForceGradient(palette):cssResultGradient(palette);
+    const rangeDigits=mode==='strain'?7:mode==='displacement'?3:2;
+    const minText=fmt(min,rangeDigits)+(unit?' '+unit:'');
+    const maxText=fmt(max,rangeDigits)+(unit?' '+unit:'');
+    // Reuse the same floating legend as the main viewer instead of a
+    // second unrelated colour key. Only the calculation source changes.
+    $('legend-title').textContent=name.toUpperCase();
+    $('legend-min').textContent=minText;
+    $('legend-max').textContent=maxText;
+    const stageBar=$('legend').querySelector('.legend-bar');
+    if(stageBar)stageBar.style.background=colorGradient;
+    legend.innerHTML='<strong>'+name+'</strong>'+
+      '<div class="teaching-colour-ramp" style="background:'+colorGradient+'"></div>'+
+      '<div class="teaching-colour-limits"><span>'+minText+'</span><span>'+maxText+'</span></div>'+
+      '<div>Amplificación visual ×'+fmt(experience.ampFactor??1,1)+
+      '. Valores y comprobaciones sin amplificar.</div>';
     summary.textContent=kind==='bridge'?
       'Estado: '+(result.status==='stable'?'APTA':result.status==='service'?'FLECHA EXCESIVA':
         'NO RESISTE')+' · Peso '+fmt(result.totalMass_kg)+' kg · Flecha '+
@@ -78,6 +98,14 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     if(!current)return;
     current.experience.setMode(selector.value);
   });
+  amplification.addEventListener('input',()=>{
+    if(!current)return;
+    current.experience.setAmplification(Number(amplification.value));
+  });
+  axialLabels.addEventListener('change',()=>{
+    if(!current)return;
+    current.experience.setAxialLabels(axialLabels.checked);
+  });
   for(const id of ['truss-open-analysis','bridge-open-analysis'])
     $(id)?.addEventListener('click',()=>selectWorkspace?.('analysis'));
   const leave=()=>{
@@ -85,6 +113,9 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     document.body.classList.remove('teaching-results-active');
   };
   app.updateTeachingAnalysis=render;
+  app.setTeachingAmplification=value=>{
+    if(current)current.experience.setAmplification(value);
+  };
   app.clearTeachingAnalysis=leave;
   return {render,leave};
 }
