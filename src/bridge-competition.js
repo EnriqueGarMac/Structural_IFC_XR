@@ -711,16 +711,46 @@ export class BridgeCompetitionExperience {
       state.failureStages.forEach((failureStage,i)=>{
         const at=FRACTURE_START+i*FRACTURE_INTERVAL;
         if(elapsed<at||state.stageDisplayed>i)return;
-        // One event may contain several identical critical utilization
-        // ratios; remove these members in the same simulated instant.
-        for(const failure of failureStage.nextFailures)
+        // Release each fragment exactly at the CURRENT member endpoints,
+        // including the deformation accumulated since earlier failures.
+        // Otherwise the second failure can teleport to its original pose.
+        for(const failure of failureStage.nextFailures){
+          const part=state.dropped.find(m=>m.id===failure.id);
+          if(!part?.fragments)continue;
+          const start=physics.positions.get(part.i);
+          const end=physics.positions.get(part.j);
+          if(!start||!end)continue;
+          const a=new THREE.Vector3(start.x,0,start.z);
+          const b=new THREE.Vector3(end.x,0,end.z);
+          const split=part.fragments[0]?.split??.5;
+          const midpoint=a.clone().lerp(b,split);
+          for(const [k,fragment] of part.fragments.entries()){
+            const p=k===0?a:midpoint,q=k===0?midpoint:b;
+            const delta=q.clone().sub(p),length=delta.length();
+            if(length<1e-8)continue;
+            fragment.object.position.copy(p).add(q).multiplyScalar(.5);
+            fragment.object.quaternion.setFromUnitVectors(
+              new THREE.Vector3(0,1,0),delta.normalize());
+            fragment.object.scale.y=length/
+              fragment.object.geometry.parameters.height;
+            fragment.origin.copy(fragment.object.position);
+            fragment.baseRotation.copy(fragment.object.quaternion);
+            fragment.length=length;
+            fragment.motion=null;
+          }
           physics.broken.add(failure.id);
+        }
         physics.edges=physics.edges.filter(edge=>!physics.broken.has(edge.id));
         const stage=this.result?.stages?.[failureStage.step+1];
         state.stageDisplayed=i+1;
         if(stage){
           state.stageResult=bridgeStageResult(this.result,stage);
-          if(stage.status==='mechanism')state.mechanismStarted=true;
+          if(stage.status==='mechanism'&&!state.mechanismStarted){
+            state.mechanismStarted=true;
+            state.mechanismStartTime=elapsed;
+            // A mechanism has no post-failure static deformation target.
+            state.deformationTransition=null;
+          }
           const byId=new Map((stage.members??[]).map(m=>[m.id,m]));
           const nextIds=new Set(stage.nextFailures?.map(f=>f.id)??[]);
           const stageDisplacements=new Map((stage.displacements??[])
@@ -787,10 +817,17 @@ export class BridgeCompetitionExperience {
       // Only a true mechanism is released into gravitational movement.
       // While the remaining truss is statically admissible, use its
       // recalculated equilibrium rather than adding spurious acceleration.
-      if(state.mechanismStarted)
-        for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
-          stepBridgeCollapseDynamics(physics,
-            dt/Math.max(1,Math.ceil(dt/.016)));
+      if(state.mechanismStarted){
+        // Avoid a sudden gravitational kick at the exact instant a member
+        // disappears. Ease gravity in while the remaining pinned links
+        // preserve their current geometry.
+        const age=Math.max(0,elapsed-(state.mechanismStartTime??elapsed));
+        const t=clamp(age/.48,0,1);
+        const gravity=3.5*t*t*(3-2*t);
+        const count=Math.max(1,Math.ceil(dt/.012));
+        for(let i=0;i<count;i++)
+          stepBridgeCollapseDynamics(physics,dt/count,{gravity});
+      }
     }
     // Recalculated deformations are interpolated to avoid an abrupt jump
     // when a failed member changes the equilibrium of its neighbours.
