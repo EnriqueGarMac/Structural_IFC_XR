@@ -193,7 +193,7 @@
             <div class="teaching-active-head"><strong>Concurso de pasarelas</strong><span>Diseña, calcula y optimiza por peso</span></div>
             <div class="truss-method-note">Modelo docente 2D de celosía articulada. Dos apoyos extremos con desplazamiento horizontal y vertical impedidos. Barras: tracción o compresión, comprobadas por límite elástico. Tirantes: solo tracción. Peso propio incluido. No se estudia el pandeo.</div>
             <button id="bridge-detect" type="button" class="secondary-btn">Detectar dos mesas (Quest RM / Android AR)</button>
-            <p id="bridge-detection-status" class="field-help" role="status">Si el dispositivo no proporciona dos planos detectados, introduce el vano manualmente.</p>
+            <p id="bridge-detection-status" class="field-help" role="status">En Android AR se intentará detectar dos superficies. Si el navegador no proporciona contornos, podrás señalar con la cámara el borde interior de cada mesa y medir el vano mediante hit-test. También puedes introducir el vano manualmente. En iPhone (Quick Look) el navegador no devuelve las superficies a esta aplicación.</p>
             <div class="truss-load-grid">
               <label for="bridge-span">Vano entre mesas (m)<input id="bridge-span" type="number" min=".3" max="3" step=".05" value="1.2" inputmode="decimal"></label>
               <label for="bridge-load">Carga central (kN)<input id="bridge-load" type="number" min="0" max="50" step=".5" value="3" inputmode="decimal"></label>
