@@ -98,6 +98,8 @@ export class StructuralScene {
         else this.xrControls.update(time,frame);
       }else this.controls.update();
       this.sapVisuals?.updateModalAnimation(time);
+      if(this.isXR&&this.xrMode==='ar'&&this.bridgeCompetition?.breakAnimation)
+        this.bridgeCompetition.observeFloor(frame,this.renderer.xr.getReferenceSpace());
       this.bridgeCompetition?.animate(time);
       this.renderer.render(this.scene,this.camera);
     });
