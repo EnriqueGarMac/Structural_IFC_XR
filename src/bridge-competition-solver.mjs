@@ -66,14 +66,42 @@ function physical(model,members){
 function analysis(nodes,members,load_kN,active){
   const all=physical(nodes,members);
   const nodal=new Map(nodes.map(n=>[n.id,{nodeId:n.id,fx_kN:0,fz_kN:0}]));
+  const centreNode=nodes.find(n=>n.id==='B2');
   const centre=nodal.get('B2');
-  centre.fz_kN-=load_kN;
+  const activeMembers=all.filter(m=>active.has(m.id));
+  const connectedToCentre=activeMembers.some(m=>m.i==='B2'||m.j==='B2');
+  let loadTransfer=null;
+  if(!connectedToCentre&&load_kN>0){
+    // A load on the interior of a continuous member cannot be treated as
+    // an unsupported free truss node. Transfer its vertical resultant to
+    // the end joints AND later verify bending of the loaded member.
+    const byId=new Map(nodes.map(n=>[n.id,n]));
+    const candidates=activeMembers.filter(m=>{
+      if(m.kind!=='bar')return false; // cables cannot resist transverse load
+      const a=byId.get(m.i),b=byId.get(m.j);
+      const dx=b.x-a.x,dz=b.z-a.z,L2=dx*dx+dz*dz;
+      const t=((centreNode.x-a.x)*dx+(centreNode.z-a.z)*dz)/L2;
+      const offset=Math.abs((centreNode.x-a.x)*dz-(centreNode.z-a.z)*dx)/
+        Math.sqrt(L2);
+      return t>1e-6&&t<1-1e-6&&offset<1e-6;
+    }).sort((a,b)=>a.L-b.L);
+    const m=candidates[0];
+    if(m){
+      const a=byId.get(m.i),b=byId.get(m.j);
+      const t=((centreNode.x-a.x)*(b.x-a.x)+
+        (centreNode.z-a.z)*(b.z-a.z))/(m.L*m.L);
+      loadTransfer={memberId:m.id,i:m.i,j:m.j,t,length_m:m.L,
+        load_kN,sectionId:m.sectionId};
+      nodal.get(m.i).fz_kN-=load_kN*(1-t);
+      nodal.get(m.j).fz_kN-=load_kN*t;
+    }else centre.fz_kN-=load_kN;
+  }else centre.fz_kN-=load_kN;
   // Only member-connected components that carry load or touch a support
   // enter the stiffness matrix. Decorative or unfinished isolated branches
   // must not produce zero-energy DOFs or false collapses.
   let edges=all.filter(m=>active.has(m.id));
-  const protectedNodes=new Set(nodes.filter(n=>n.fixX||n.fixZ||n.id==='B2')
-    .map(n=>n.id));
+  const protectedNodes=new Set(nodes.filter(n=>n.fixX||n.fixZ||
+    (n.id==='B2'&&!loadTransfer)).map(n=>n.id));
   // During construction, an unfinished leaf bar at an otherwise unloaded
   // node is a pending member, not evidence that the completed bridge fails.
   // Peel those loose ends recursively until they are braced. The central
@@ -131,7 +159,26 @@ function analysis(nodes,members,load_kN,active){
     .filter(n=>retained.has(n.nodeId)));
   const solvedIds=new Set(model.bars.map(m=>m.id));
   solved.pendingMemberIds=all.filter(m=>!solvedIds.has(m.id)).map(m=>m.id);
+  solved.loadTransfer=loadTransfer;
   return solved;
+}
+function midMemberBending(transfer,m,displacements){
+  if(!transfer||m?.id!==transfer.memberId)return null;
+  const section=BRIDGE_SECTIONS[m.sectionId],L=transfer.length_m;
+  const t=transfer.t,a=L*t,b=L*(1-t),P=transfer.load_kN;
+  const moment_kNm=P*a*b/L;
+  const radius_m=Math.sqrt(section.A_m2/Math.PI);
+  const stress_MPa=section.I_m4>0?
+    moment_kNm*radius_m/(section.I_m4*1000):Infinity;
+  const localDeflection_mm=section.I_m4>0?
+    P*a*a*b*b/(3*section.E_kN_m2*section.I_m4*L)*1000:Infinity;
+  const byU=new Map(displacements.map(d=>[d.nodeId,d]));
+  const verticalAtLoad_m=(byU.get(transfer.i)?.uz_m??0)*(1-t)+
+    (byU.get(transfer.j)?.uz_m??0)*t-localDeflection_mm/1000;
+  return {...transfer,moment_kNm,stress_MPa,localDeflection_mm,
+    verticalAtLoad_mm:verticalAtLoad_m*1000,
+    utilization:(Math.abs(m.axial_kN)/(1000*section.A_m2)+stress_MPa)/
+      section.fy_MPa};
 }
 function extension(nodes,displacements,m){
   const byNode=new Map(nodes.map(n=>[n.id,n]));
@@ -190,6 +237,18 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     if(visited.has(hash)){status='collapse';reason='No converge la redistribución de tirantes.';break;}
     visited.add(hash);
     const current=membersWithCapacities(all,raw,active,nodes);
+    const loaded=raw.loadTransfer;
+    if(loaded){
+      const loadedMember=current.find(m=>m.id===loaded.memberId);
+      const bending=midMemberBending(loaded,loadedMember,raw.displacements);
+      if(bending){
+        loadedMember.bendingMoment_kNm=bending.moment_kNm;
+        loadedMember.bendingStress_MPa=bending.stress_MPa;
+        loadedMember.bendingUtilization=bending.utilization;
+        loadedMember.utilization=Math.max(loadedMember.utilization,bending.utilization);
+        raw.bending=bending;
+      }
+    }
     // Tension-only: discard cables predicted in compression and repeat.
     const compressive=current.filter(m=>m.kind==='tie'&&active.has(m.id)
       &&m.axial_kN< -1e-6);
@@ -210,9 +269,12 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
       .sort((a,b)=>b.utilization-a.utilization)[0];
     if(critical){
       status='failure';
-      reason='La barra '+critical.id+' supera su resistencia axial o a pandeo.';
+      reason=critical.bendingUtilization>1?
+        'La carga actúa entre nudos de '+critical.id+
+        ': la barra supera su resistencia a flexión. Refuerza la sección o triangula el punto cargado.':
+        'La barra '+critical.id+' supera su resistencia axial o a pandeo.';
       failures.push({id:critical.id,utilization:critical.utilization,
-        kind:critical.kind});
+        kind:critical.kind,mode:critical.bendingUtilization>1?'bending':'axial'});
       if(!progressive)break;
       active.delete(critical.id);
       continue;
@@ -234,7 +296,10 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
   if(!memberResults)memberResults=membersWithCapacities(all,raw,active,nodes);
   const reference=original??{...raw,members:memberResults};
   const mid=reference.displacements.find(d=>d.nodeId==='B2');
-  const maxDeflection_mm=Math.max(0,...reference.displacements.map(d=>Math.abs(d.uz_m)))*1000;
+  const bending=reference.bending??null;
+  const maxDeflection_mm=Math.max(
+    0,...reference.displacements.map(d=>Math.abs(d.uz_m)*1000),
+    Math.abs(bending?.verticalAtLoad_mm??0));
   const maxUtilization=Math.max(0,...reference.members.map(m=>m.utilization));
   const serviceLimit_mm=span_m*1000/BRIDGE_DEFAULTS.deflectionLimit;
   if(status==='stable'&&maxDeflection_mm>serviceLimit_mm){
@@ -244,14 +309,15 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
   }
   const resistant=status==='stable';
   return {status,resistant,reason,nodes,span_m,load_kN,totalMass_kg,
-    serviceLimit_mm,midspanDeflection_mm:mid?.uz_m*1000??0,
-    maxDeflection_mm,maxUtilization,
+    serviceLimit_mm,midspanDeflection_mm:bending?.verticalAtLoad_mm??
+      (mid?.uz_m*1000??0),
+    maxDeflection_mm,maxUtilization,bending,
     members:reference.members,displacements:reference.displacements,
     reactions:reference.reactions,equilibrium:reference.equilibrium,
     broken:failures,slack:[...slackIds],
     pending:reference.pendingMemberIds??[],
     postFailure:failures.length?{members:memberResults,displacements:raw.displacements}:null,
     meta:{solver:'2D axial stiffness, nonlinear active-set tension-only cables; simplified progressive member removal',
-      assumptions:'Uniones articuladas, barras con pandeo de Euler, cargas nodales y peso propio repartido; sin interacción suelo ni dinámica real'}
+      assumptions:'Uniones articuladas, barras con pandeo de Euler, peso propio repartido y cargas nodales; carga entre nudos transferida estáticamente y flexión de barra simplemente apoyada comprobada por separado; sin interacción suelo ni dinámica real'}
   };
 }
