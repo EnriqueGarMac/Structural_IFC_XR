@@ -129,6 +129,20 @@ test('critical lightweight member fails first under demanding loading',()=>{
   assert.ok(r.broken[0].utilization>1);
   assert.match(r.reason,/Tras el fallo/);
 });
+test('symmetric equally critical bars fail simultaneously, without arbitrary ID bias',()=>{
+  const symmetric=[
+    ['B0','B2'],['B2','B4'],['B0','T2'],['T2','B4'],['B2','T2']
+  ].map(([i,j],k)=>({id:'M'+(k+1),i,j,sectionId:'bar_m'}));
+  const r=calculateBridge({members:symmetric,load_kN:35});
+  assert.equal(r.status,'collapse');
+  assert.deepEqual(r.broken.map(f=>f.id),['M3','M4']);
+  const stage=r.stages[0];
+  assert.deepEqual(stage.nextFailures.map(f=>f.id),['M3','M4']);
+  assert.ok(Math.abs(stage.nextFailures[0].utilization-
+    stage.nextFailures[1].utilization)<1e-10);
+  assert.deepEqual(r.stages[1].removed,['M3','M4']);
+  assert.equal(r.stages[1].status,'mechanism');
+});
 test('progressive bridge failure recalculates member forces after each removal',()=>{
   const members=bridgeSampleMembers().map(m=>({
     ...m,sectionId:['M3','M4','M7','M9','M13'].includes(m.id)?
