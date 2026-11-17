@@ -48,6 +48,17 @@ test('educational analysis reuses main selector and legend, without cloned resul
     assert.equal(getElementById('legend-title').textContent,'ESFUERZO AXIAL N');
     assert.match(getElementById('legend-min').textContent,/−?5,00|\-5,00/);
     assert.match(getElementById('legend-max').textContent,/10,00 kN/);
+    app.teachingAnalysis.selectView('reactions');
+    assert.equal(getElementById('analysis-view').value,'reactions');
+    assert.equal(getElementById('reaction-values-controls').hidden,false);
+    assert.equal(getElementById('force-values-controls').hidden,true);
+    app.teachingAnalysis.toggleReactionValues();
+    assert.equal(getElementById('toggle-reaction-values').textContent,
+      'Ocultar valores de reacciones');
+    app.teachingAnalysis.selectView('forces');
+    assert.equal(getElementById('force-component').value,'P');
+    assert.equal(app.teachingAnalysis.selectComponent('M3'),false,
+      'Pin-jointed trusses must not expose nonexistent bending diagrams');
     app.teachingAnalysis.selectView('deformation');
     assert.equal(experience.mode,'displacement');
     app.teachingAnalysis.setAmplification(45);
