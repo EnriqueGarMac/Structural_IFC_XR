@@ -151,3 +151,21 @@
 .bridge-key.tension{background:#d39d6c}.bridge-key.compression{background:#6eaac6}.bridge-key.failure{background:#e96d60}
 #mobile-ar-bridge-legend:not([hidden]){display:block;padding:5px 7px;border-radius:6px;background:rgba(10,31,44,.9);font-size:11px;line-height:1.4}
 #mobile-ar-bridge-scan[hidden],#mobile-ar-bridge-legend[hidden]{display:none!important}
+
+/* Educational results use the Analysis tab instead of duplicating tables in Resources. */
+body.teaching-results-active #panel-analysis > :not(.panel-heading):not(#teaching-analysis-results){display:none!important}
+#teaching-analysis-results[hidden]{display:none!important}
+.teaching-analysis-results{display:flex;flex-direction:column;gap:10px}
+.teaching-analysis-results>label{font-size:12px;color:#b4d5de}
+.teaching-analysis-results>select{width:100%;padding:10px;border-radius:8px;background:#14323e;color:#e8f5f8;border:1px solid #4b7b86}
+.teaching-analysis-results .truss-table-scroll{overflow-x:auto}
+.teaching-analysis-results .truss-table-scroll h3{font-size:12px;margin:15px 0 5px}
+body.teaching-results-active #truss-summary,
+body.teaching-results-active #truss-reactions,
+body.teaching-results-active #truss-bars-table,
+body.teaching-results-active #truss-nodes-table,
+body.teaching-results-active #bridge-result,
+body.teaching-results-active #bridge-detail,
+body.teaching-results-active #bridge-legend,
+body.teaching-results-active #truss-controls .truss-subheading,
+body.teaching-results-active #bridge-controls .truss-subheading{display:none!important}
