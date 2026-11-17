@@ -124,7 +124,10 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     try{solved=analysis(nodes,members,load_kN,active);}
     catch(error){
       status='collapse';
-      reason='Mecanismo inestable o sin camino resistente entre los apoyos.';
+      reason=failures.length?
+        'Tras la rotura de '+failures.map(f=>f.id).join(', ')+
+          ' se forma un mecanismo inestable o se pierde el camino resistente.':
+        'Mecanismo inestable o sin camino resistente entre los apoyos.';
       if(!original)original=null;
       break;
     }
