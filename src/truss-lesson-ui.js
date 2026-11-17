@@ -1,5 +1,7 @@
 import {TrussExperience,trussGeometry} from './truss-experience.js';
-import {TRUSS_LESSON} from './truss-solver.mjs';
+import {TRUSS_LESSON,solveTruss2D} from './truss-solver.mjs';
+import {planarTrussFromIFC} from './truss-ifc-import.mjs';
+import {readIFC} from './ifc-loader.js';
 
 const $=id=>document.getElementById(id);
 const number=(value,decimals=3)=>Number(value).toLocaleString('es-ES',{
@@ -31,10 +33,20 @@ export function setupTrussLesson(app,{
   const lesson=new TrussExperience(app);
   app.trussExperience=lesson;
   const select=$('truss-node-select');
-  for(const n of TRUSS_LESSON.nodes){
-    const label=n.fixX?' · articulación':n.fixZ?' · apoyo móvil':'';
-    select.add(new Option('Nodo '+n.id+' (x='+number(n.x,1)+' m)'+label,n.id));
-  }
+  const fixedSelect=$('truss-fixed-support'),rollerSelect=$('truss-roller-support');
+  const refreshNodeOptions=()=>{
+    select.replaceChildren();fixedSelect.replaceChildren();rollerSelect.replaceChildren();
+    for(const n of lesson.model.nodes){
+      const label=n.fixX?' · articulación':n.fixZ?' · apoyo móvil':'';
+      select.add(new Option('Nodo '+n.id+' (x='+number(n.x,2)+' m)'+label,n.id));
+      fixedSelect.add(new Option(n.id,n.id));
+      rollerSelect.add(new Option(n.id,n.id));
+    }
+    fixedSelect.value=lesson.model.nodes.find(n=>n.fixX)?.id||lesson.model.nodes[0].id;
+    rollerSelect.value=lesson.model.nodes.find(n=>n.fixZ&&!n.fixX)?.id||
+      lesson.model.nodes.at(-1).id;
+  };
+  refreshNodeOptions();
   const inputs=()=>{
     const load=lesson.getLoad();
     select.value=lesson.selectedNode;
@@ -71,8 +83,8 @@ export function setupTrussLesson(app,{
     $('truss-feedback').textContent=bar?
       'Barra '+bar.id+' · '+bar.state+' · ΔL '+fixed(bar.extension_mm)+' mm':
       'Nodo '+lesson.selectedNode+' seleccionado. Introduce Fx y Fz o usa el mando de Quest.';
-    $('num-nodes').textContent=String(TRUSS_LESSON.nodes.length);
-    $('num-frames').textContent=String(TRUSS_LESSON.bars.length);
+    $('num-nodes').textContent=String(lesson.model.nodes.length);
+    $('num-frames').textContent=String(lesson.model.bars.length);
     $('max-u').textContent=physical(result.maxDisplacement_m)+' mm';
     app.updateTeachingAnalysis?.('truss',result,lesson);
     app.xrControls.dirty=true;
@@ -103,6 +115,48 @@ export function setupTrussLesson(app,{
     }
     selectWorkspace?.('teaching');
   }
+  $('truss-ifc-input').addEventListener('change',async event=>{
+    const file=event.target.files?.[0];
+    if(!file)return;
+    const statusEl=$('truss-ifc-status');
+    try{
+      statusEl.textContent='Leyendo geometría IFC y reconstruyendo ejes de barras…';
+      const output=await readIFC(file);
+      const E_kN_m2=Number($('truss-ifc-e').value)*1e6;
+      const A_m2=Number($('truss-ifc-area').value)*1e-6;
+      const candidate=planarTrussFromIFC(output.items,{E_kN_m2,A_m2});
+      const ordered=[...candidate.nodes].sort((a,b)=>a.x-b.x||a.z-b.z);
+      const fixed=ordered[0].id,roller=ordered.at(-1).id;
+      if(fixed===roller)throw Error('No se reconocen dos extremos para apoyar.');
+      const model={...candidate,nodes:candidate.nodes.map(n=>({
+        ...n,fixX:n.id===fixed,fixZ:n.id===fixed||n.id===roller
+      }))};
+      // Verify stability before replacing the current lesson.
+      solveTruss2D(model,[]);
+      start();
+      app.setModel(output.items);
+      app.targetMeters=Math.min(5,Math.max(.5,Math.max(...model.nodes.map(n=>n.x))-
+        Math.min(...model.nodes.map(n=>n.x))));
+      app.updateScale();
+      lesson.setModel(model);
+      refreshNodeOptions();
+      modelLabel?.('IFC · celosía plana · '+file.name);
+      $('sap-state').textContent='Resultados: cálculo matricial sobre ejes IFC reconstruidos';
+      statusEl.textContent='IFC importado: '+model.nodes.length+' nodos, '+model.bars.length+
+        ' barras. Verifica los ejes extraídos y confirma los apoyos antes de aplicar cargas.';
+    }catch(error){
+      statusEl.textContent='No es posible calcular este IFC como celosía plana: '+error.message;
+    }finally{event.target.value='';}
+  });
+  $('truss-apply-supports').addEventListener('click',()=>{
+    try{
+      lesson.assignSupports(fixedSelect.value,rollerSelect.value);
+      refreshNodeOptions();
+      $('truss-ifc-status').textContent='Apoyos confirmados y cálculo actualizado.';
+    }catch(error){
+      $('truss-ifc-status').textContent='Error en los apoyos: '+error.message;
+    }
+  });
   $('truss-start').addEventListener('click',start);
   select.addEventListener('change',e=>lesson.selectNode(e.target.value));
   $('truss-apply').addEventListener('click',()=>{
