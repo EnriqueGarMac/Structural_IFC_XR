@@ -385,7 +385,9 @@ export class BridgeCompetitionExperience {
     }
     const assignedNodes=new Set(this.members.flatMap(m=>[m.i,m.j]));
     for(const node of nodes){
-      const p=pose(node);
+      // Grid points without assigned members remain stationary design guides.
+      // B2 can mark a load applied within a member without becoming a joint.
+      const p=assignedNodes.has(node.id)?pose(node):world(node,span);
       const chosen=node.id===this.startNode||node.id===this.selectedNode;
       const visual=new THREE.Mesh(new THREE.SphereGeometry(chosen?.016:.009,12,8),
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
