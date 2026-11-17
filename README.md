@@ -1,3 +1,36 @@
+## Edición del concurso en realidad aumentada móvil (Android)
+
+La experiencia **Pasarela entre mesas** utiliza ahora el mismo
+`BridgeCompetitionExperience` en navegador, Meta Quest y móvil Android
+compatible con WebXR `immersive-ar` y `dom-overlay`. Para editar la
+pasarela en AR, abre primero **Recursos docentes → Concurso de pasarelas**,
+entra en **AR móvil** y coloca el modelo sobre una mesa o mide el vano
+entre los dos bordes. La retícula se puede editar tocando los nudos
+directamente en la imagen AR:
+
+- **Añadir barra** → tocar el primer nudo y después el segundo. También
+  existe **Marcar nudo en el centro** para señalar con la cruz central
+  cuando un nudo sea demasiado pequeño para tocarlo cómodamente.
+- Elegir barra ligera, barra reforzada o tirante en **Sección**. Modificar
+  la carga con **− / +** en incrementos de 0,5 kN.
+- **Borrar barra** → tocar una barra. Se incluyen **Deshacer**, **Vaciar
+  diseño** y **Ejemplo**.
+- **Calcular** ejecuta exactamente el mismo análisis que el visor web y
+  las Quest, con carga creciente, deformada, fallo progresivo y contacto
+  simplificado de fragmentos con el suelo. **Ver** permite alternar
+  desplazamientos, axiles, tensiones y aprovechamiento.
+- Los controles táctiles solo seleccionan nodos tras colocar el modelo,
+  para no interferir con la detección de superficies o la medición del
+  vano. La selección de nudos usa la proyección de la cámara XR actual,
+  no coordenadas supuestas del escritorio.
+
+En iOS, Quick Look exporta una escena USDZ visualizable, pero no ofrece
+esta edición interactiva dentro de su vista AR. La interfaz táctil AR
+requiere Android con soporte WebXR adecuado. No sustituye la verificación
+de seguridad de una pasarela real.
+
+---
+
 ## Colapso docente: fragmentos apoyados y secciones ligeras
 
 En el concurso, las barras que fallan se dividen en fragmentos con
