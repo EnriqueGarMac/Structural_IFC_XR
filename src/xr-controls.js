@@ -188,6 +188,21 @@ export class StructuralXRControls {
       if(menuHit.item)this.command(menuHit.item.id);
       return;
     }
+    if(this.app.teachingAnalysis?.active&&!this.app.bridgeCompetition?.addMode){
+      const ray=this._ray(controller);
+      const section=this.app.teachingAnalysis.inspectForceXR(ray);
+      if(section){
+        this.app.teachingAnalysis.pinForce(section);
+        this.selected='Barra '+section.frameId+' · '+section.component+
+          ' '+section.value.toFixed(2)+' '+section.unit;
+        this.dirty=true;return;
+      }
+      const reaction=this.app.teachingAnalysis.inspectReactionXR(ray);
+      if(reaction){
+        this.selected='Reacción '+reaction.node;
+        this.dirty=true;return;
+      }
+    }
     if(this.app.bridgeCompetition?.active){
       const hit=this.app.bridgeCompetition.pick(this._ray(controller));
       if(hit){
@@ -856,7 +871,20 @@ export class StructuralXRControls {
       const hit=this._menuHit(controller);
       hovered??=hit?.item?.id??null;
       if(!hit&&!this.drag&&!this.placeMode&&!forceHovered){
-        if(this.app.bridgeCompetition?.active){
+        if(this.app.teachingAnalysis?.active&&!this.app.bridgeCompetition?.addMode){
+          const ray=this._ray(controller);
+          const section=this.app.teachingAnalysis.inspectForceXR(ray);
+          const reaction=section?null:this.app.teachingAnalysis.inspectReactionXR(ray);
+          if(section||reaction){
+            forceHovered=true;
+            const label=section?
+              'Barra '+section.frameId+' · '+section.component+
+                ' '+section.value.toFixed(2)+' '+section.unit:
+              'Reacción '+reaction.node;
+            if(this.selected!==label){this.selected=label;this.dirty=true;}
+          }
+        }
+        if(!forceHovered&&this.app.bridgeCompetition?.active){
           this.app.bridgeCompetition.updatePreviewRay(this._ray(controller));
           const picked=this.app.bridgeCompetition.pick(this._ray(controller));
           if(picked){
@@ -864,7 +892,7 @@ export class StructuralXRControls {
             const label=(picked.kind==='node'?'Nodo ':'Barra ')+picked.id;
             if(this.selected!==label){this.selected=label;this.dirty=true;}
           }
-        }else if(this.app.trussExperience?.active){
+        }else if(!forceHovered&&this.app.trussExperience?.active){
           const selected=this.app.trussExperience.pick(this._ray(controller));
           if(selected){
             forceHovered=true;
@@ -911,7 +939,7 @@ export class StructuralXRControls {
         }
       }
     }
-    if(!forceHovered){this.app.sapVisuals?.hideXRHover();this.app.reactionVisuals?.hideXRHover();this.app.nodeProbe?.hideXRHover();}
+    if(!forceHovered){this.app.teachingAnalysis?.hideXRHover();this.app.sapVisuals?.hideXRHover();this.app.reactionVisuals?.hideXRHover();this.app.nodeProbe?.hideXRHover();}
     if(hovered!==this.hoverId){this.hoverId=hovered;this.dirty=true;}
     if(this.moveMenu&&!this.drag){
       const ctrl=this.controllers.find(x=>x.controller.userData.xrInput)?.controller;
