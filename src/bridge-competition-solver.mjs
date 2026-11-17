@@ -205,8 +205,10 @@ function membersWithCapacities(all,raw,active,nodes){
     const activeState=active.has(m.id);
     const axial=activeState?elasticAxial:0;
     const yieldCapacity=m.fy_MPa*1000*m.A_m2;
-    const compressionCapacity=m.kind==='bar'?
-      Math.min(yieldCapacity,Math.PI**2*m.E_kN_m2*m.I_m4/m.L**2):0;
+    // This teaching exercise does not study buckling yet. Both tensile
+    // and compressive bars are checked ONLY against axial yield; cables
+    // remain tension-only and do not carry compression.
+    const compressionCapacity=m.kind==='bar'?yieldCapacity:0;
     const capacity=axial>=0?yieldCapacity:compressionCapacity;
     const utilization=activeState&&Math.abs(axial)>1e-8?
       Math.abs(axial)/Math.max(capacity,1e-12):0;
@@ -234,7 +236,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
       status='collapse';
       reason=failures.length?
         ('Tras el fallo de '+failures.map(f=>f.id+' ('+
-          ({bending:'flexión',buckling:'pandeo',yield:'límite elástico'}[f.mode]||
+          ({bending:'flexión',yield:'límite elástico'}[f.mode]||
             'resistencia')+')').join(', ')+
           ' se pierde el camino resistente de la estructura.'):
         (error.message.startsWith('La carga central')?error.message:
@@ -282,13 +284,9 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
       reason=critical.bendingUtilization>1?
         'La carga actúa entre nudos de '+critical.id+
         ': la barra supera su resistencia a flexión. Refuerza la sección o triangula el punto cargado.':
-        critical.axial_kN<0&&critical.compressionCapacity_kN<
-          critical.tensionCapacity_kN*(1-1e-8)?
-          'La barra '+critical.id+' pierde estabilidad por pandeo.':
-          'La barra '+critical.id+' alcanza su límite elástico axial.';
-      const mode=critical.bendingUtilization>1?'bending':
-        critical.axial_kN<0&&critical.compressionCapacity_kN<
-          critical.tensionCapacity_kN*(1-1e-8)?'buckling':'yield';
+        'La barra '+critical.id+' alcanza su límite elástico axial '+
+          (critical.axial_kN<0?'en compresión.':'en tracción.');
+      const mode=critical.bendingUtilization>1?'bending':'yield';
       failures.push({id:critical.id,utilization:critical.utilization,
         kind:critical.kind,mode});
       if(!progressive)break;
@@ -346,6 +344,6 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     pending:reference.pendingMemberIds??[],
     postFailure:failures.length?{members:memberResults,displacements:raw.displacements}:null,
     meta:{solver:'2D axial stiffness, nonlinear active-set tension-only cables; simplified progressive member removal',
-      assumptions:'Uniones articuladas, barras con pandeo de Euler, peso propio repartido y cargas nodales; carga entre nudos transferida estáticamente y flexión de barra simplemente apoyada comprobada por separado; sin interacción suelo ni dinámica real'}
+      assumptions:'Uniones articuladas, dos extremos con desplazamientos horizontal y vertical impedidos, límite elástico axial en tracción y compresión (sin comprobación de pandeo), peso propio y cargas nodales; carga entre nudos transferida estáticamente y flexión de barra simplemente apoyada comprobada por separado; sin interacción suelo ni dinámica real'}
   };
 }
