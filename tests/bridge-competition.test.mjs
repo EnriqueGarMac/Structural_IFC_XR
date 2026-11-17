@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {BRIDGE_DEFAULTS,BRIDGE_SECTIONS,bridgeGrid,bridgeSampleMembers,
-  addBridgeMember,calculateBridge,bridgeStageResult,bridgeLoadHistory} from '../src/bridge-competition-solver.mjs';
+  addBridgeMember,calculateBridge,calculateBridgeIncrementally,
+  bridgeStageResult,bridgeLoadHistory} from '../src/bridge-competition-solver.mjs';
 import {bridgeGapBetween,detectBridgeTableGap,applyBridgeGapPlacement}
   from '../src/bridge-table-detection.mjs';
 const near=(a,b,tol=.000001)=>assert.ok(Math.abs(a-b)<=tol,a+' != '+b);
@@ -55,6 +56,42 @@ test('two straight collinear same-section segments merge into one member',()=>{
   assert.equal(connected.length,3);
   assert.ok(connected.some(m=>m.i==='B0'||m.j==='B0'));
   assert.ok(connected.some(m=>m.i==='B2'||m.j==='B2'));
+});
+test('progressive fracture starts at the first critical load, not at full target',()=>{
+  const members=bridgeSampleMembers();
+  const initial=calculateBridgeIncrementally({members,load_kN:3});
+  assert.equal(initial.status,'stable');
+  assert.equal(initial.broken.length,0);
+  const target=calculateBridgeIncrementally({members,load_kN:35});
+  assert.equal(target.status,'collapse');
+  assert.deepEqual(target.broken.map(m=>m.id),['M6']);
+  assert.ok(target.stages[0].load_kN>18&&target.stages[0].load_kN<21);
+  assert.ok(target.stages[0].load_kN<35,
+    'Failure must start at the critical load rather than at 35 kN');
+  assert.equal(target.stages[1].status,'mechanism');
+  assert.ok(Math.abs(target.stages[0].load_kN-
+    target.stages[1].load_kN)<1e-9,
+    'A mechanism begins at the load that caused the previous fracture');
+  assert.equal(target.broken[0].load_kN,target.stages[0].load_kN);
+});
+test('recalculated member failures use the same load unless equilibrium is restored',()=>{
+  const members=bridgeSampleMembers().map(m=>({
+    ...m,sectionId:['M3','M4','M7','M9','M13'].includes(m.id)?
+      'bar_l':'bar_m'
+  }));
+  members.push(
+    {id:'M14',i:'T1',j:'B3',sectionId:'bar_m'},
+    {id:'M15',i:'B2',j:'B4',sectionId:'bar_m'},
+    {id:'M16',i:'B0',j:'B2',sectionId:'bar_l'}
+  );
+  const r=calculateBridgeIncrementally({members,load_kN:35});
+  assert.deepEqual(r.broken.map(m=>m.id),['M6','M14']);
+  assert.equal(r.stages[1].status,'overloaded');
+  assert.ok(r.stages[1].nextFailure.utilization>1);
+  assert.ok(r.stages.every(s=>Math.abs(s.load_kN-
+    r.stages[0].load_kN)<1e-9),
+    'This collapse occurs at one load; do not invent a later 35 kN state');
+  assert.equal(r.stages.at(-1).status,'mechanism');
 });
 test('quasi-static bridge load history solves increments and brackets first yield',()=>{
   const members=bridgeSampleMembers();
