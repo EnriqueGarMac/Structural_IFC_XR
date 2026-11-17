@@ -3,6 +3,7 @@ import './studio-theme.css';
 import {setupWorkspaceTabs} from './workspace-tabs.js';
 import {setupTrussLesson} from './truss-lesson-ui.js';
 import {setupBridgeCompetition} from './bridge-competition-ui.js';
+import {setupTeachingAnalysis} from './teaching-analysis-ui.js';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults, buildingTeaching } from './demo.js';
@@ -20,6 +21,7 @@ import {deformationScale,clampAmplification,formatAmplification} from './deforma
 const $=(id)=>document.getElementById(id);
 const workspace=setupWorkspaceTabs();
 const app=new StructuralScene($('canvas-wrap'));
+setupTeachingAnalysis(app,{selectWorkspace:name=>workspace.selectTab(name)});
 app.sapVisuals=new SAPVisuals(app);
 app.reactionVisuals=new ReactionVisuals(app);
 app.nodeProbe=new NodeDisplacementProbe(app);
@@ -159,6 +161,7 @@ function selectTeachingExperience(kind=null){
   }
 }
 function leaveTrussLesson(){
+  app.clearTeachingAnalysis?.();
   app.trussExperience?.deactivate();
   app.bridgeCompetition?.deactivate();
   $('stage').classList.remove('truss-mode','bridge-mode');
