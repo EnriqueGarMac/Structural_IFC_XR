@@ -335,6 +335,46 @@ export function bridgeStageResult(result,stage){
     bending:stage.step===0?result.bending:null,
     stageIndex:stage.step,stageStatus:stage.status};
 }
+// Deterministic quasi-static load history used by the teaching animation.
+// Each sample solves the actual stiffness system at an increasing external
+// load (including self-weight). For failure cases we bracket the FIRST
+// member limit and stop the elastic ramp just below that limit, rather than
+// drawing the full-load deformation before releasing the failed members.
+export function bridgeLoadHistory({span_m=1.2,load_kN=3,members=[],steps=16}={}){
+  const solve=load=>calculateBridge({span_m,load_kN:load,
+    members,progressive:false});
+  const final=solve(load_kN);
+  const overloaded=result=>Boolean(result.broken?.length);
+  let criticalLoad=load_kN;
+  const atZero=solve(0);
+  if(overloaded(atZero))criticalLoad=0;
+  else if(overloaded(final)){
+    let low=0,high=load_kN;
+    for(let i=0;i<17;i++){
+      const mid=(low+high)/2;
+      if(overloaded(solve(mid)))high=mid;
+      else low=mid;
+    }
+    criticalLoad=high;
+  }
+  const rampLoad=overloaded(final)?
+    Math.max(0,criticalLoad*(1-1e-5)):load_kN;
+  const snapshots=[];
+  const count=Math.max(2,Math.min(48,Math.floor(steps)));
+  for(let k=0;k<=count;k++){
+    const load=rampLoad*k/count;
+    const result=solve(load);
+    snapshots.push({fraction:k/count,load_kN:load,
+      displacements:result.displacements.map(d=>({...d})),
+      members:result.members.map(m=>({
+        id:m.id,axial_kN:m.axial_kN,stress_MPa:m.stress_MPa,
+        utilization:m.utilization,pending:m.pending
+      })),
+      valid:Boolean(result.displacements.length)});
+  }
+  return {targetLoad_kN:load_kN,criticalLoad_kN:criticalLoad,
+    rampLoad_kN:rampLoad,snapshots};
+}
 export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=true}={}){
   if(!Number.isFinite(load_kN)||load_kN<0||load_kN>50)
     throw Error('Carga central fuera de rango (0 a 50 kN).');
