@@ -7,14 +7,14 @@ const file=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const html=file('index.html'),theme=file('src/studio-theme.css'),main=file('src/main.js');
 
 test('scientific workbench separates model, analysis, visualization and settings',()=>{
-  const names=['model','analysis','view','advanced'];
+  const names=['model','analysis','view','advanced','teaching','contest'];
   for(const name of names){
     assert.match(html,new RegExp('id="tab-'+name+'"[^>]*role="tab"|'+'role="tab"[^>]*id="tab-'+name+'"'));
     assert.match(html,new RegExp('id="panel-'+name+'"[^>]*role="tabpanel"'));
     assert.match(html,new RegExp('aria-controls="panel-'+name+'"'));
     assert.match(html,new RegExp('aria-labelledby="tab-'+name+'"'));
   }
-  assert.equal((html.match(/class="workspace-panel/g)||[]).length,4);
+  assert.equal((html.match(/class="workspace-panel/g)||[]).length,6);
   assert.match(main,/setupWorkspaceTabs\(\)/);
   assert.match(main,/import '\.\/studio-theme\.css'/);
   assert.match(theme,/grid-template-columns:310px minmax\(0,1fr\)/);
@@ -33,7 +33,9 @@ test('existing viewer, IFC, structural and XR controls keep stable unique IDs',(
     'ifc-transparency','ifc-opacity-scope','hide-ground','show-supports',
     'legend','legend-palette-toggle','result-palette','canvas-wrap',
     'btn-3d','btn-cam','btn-xr','btn-vr','btn-mobile-ar','reset-view',
-    'scene-label','xr-status','status-summary','mobile-ar-place'
+    'scene-label','xr-status','status-summary','mobile-ar-place',
+    'truss-start','truss-node-select','truss-fx','truss-fz',
+    'bridge-start','bridge-span','bridge-load','bridge-section','bridge-evaluate'
   ])assert.ok(ids.includes(id),'Missing control ID '+id);
   const calls=[...main.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1]);
   for(const id of new Set(calls))assert.ok(ids.includes(id),'JS uses absent DOM ID '+id);
@@ -59,7 +61,7 @@ function stubPanel(name){
   }};
 }
 test('workspace tabs are accessible by pointer and keyboard, one visible panel at a time',()=>{
-  const names=['model','analysis','view','advanced'];
+  const names=['model','analysis','view','advanced','teaching','contest'];
   const tabs=names.map(stubTab),panels=names.map(stubPanel);
   const root={querySelectorAll(s){
     if(s==='[role="tab"][data-tab]')return tabs;
@@ -67,7 +69,7 @@ test('workspace tabs are accessible by pointer and keyboard, one visible panel a
     throw Error('Unexpected selector '+s);
   }};
   const ui=setupWorkspaceTabs(root);
-  assert.equal(ui.tabs.length,4);
+  assert.equal(ui.tabs.length,6);
   assert.equal(panels.filter(p=>!p.hidden).length,1);
   tabs[2].fire('click');
   assert.equal(panels.find(p=>!p.hidden).id,'panel-view');
