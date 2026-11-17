@@ -438,7 +438,7 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
       if(section||reaction){
         forceReadout.textContent=section?
           'Barra '+section.frameId+' · '+section.component+
-            '\nN '+section.value.toFixed(3)+' '+section.unit:
+            '\n'+section.value.toFixed(3)+' '+section.unit:
           'Nudo '+reaction.node+' · '+reaction.caseName+
             '\n'+reactionText(reaction.reaction);
         const stage=$('stage').getBoundingClientRect();
