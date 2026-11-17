@@ -1,6 +1,7 @@
 import './style.css';
 import './studio-theme.css';
 import {setupWorkspaceTabs} from './workspace-tabs.js';
+import {setupTrussLesson} from './truss-lesson-ui.js';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
 import { demoGeometry, demoResults, buildingTeaching } from './demo.js';
@@ -16,7 +17,7 @@ import * as THREE from 'three';
 import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
 import {deformationScale,clampAmplification,formatAmplification} from './deformation-scale.mjs';
 const $=(id)=>document.getElementById(id);
-setupWorkspaceTabs();
+const workspace=setupWorkspaceTabs();
 const app=new StructuralScene($('canvas-wrap'));
 app.sapVisuals=new SAPVisuals(app);
 app.reactionVisuals=new ReactionVisuals(app);
@@ -146,10 +147,17 @@ const demos={
     definition:industrialTeaching,levels:[0],filename:'NAVE_INDUSTRIAL_IMIS'
   }
 };
+function leaveTrussLesson(){
+  app.trussExperience?.deactivate();
+  $('stage').classList.remove('truss-mode');
+  $('truss-stage-status').hidden=true;
+  $('truss-controls').hidden=true;
+}
 let activeDemo='frame';
 function showDemo(kind='frame'){
   const selected=demos[kind];
   if(!selected)throw Error('Ejemplo de demostración desconocido.');
+  leaveTrussLesson();
   demoActive=true;syntheticResults=true;sapGeometryActive=false;originalIFC=null;importedIFCName='';activeDemo=kind;
   $('alignment-status').textContent='Importa un IFC y un JSON para alinear.';
   // Start with legible combined views, without inheriting an empty SAP-only mode.
@@ -212,6 +220,7 @@ $('ifc-input').addEventListener('change',async(e)=>{
     originalIFC=res.items.map(item=>({...item,geometry:item.geometry.clone()}));
     importedIFCName=file.name;
     ifcElementCount=res.elementCount;
+    leaveTrussLesson();
     app.setModel(res.items);
     // Never accidentally apply synthetic example results to a real IFC.
     if(syntheticResults){app.setResults(null);$('sap-state').textContent='Resultados: carga un archivo JSON';$('num-nodes').textContent='—';$('num-frames').textContent='—';$('case-select').innerHTML='<option>Sin resultados</option>'; $('pattern-select').innerHTML='<option value="all">Todos</option>';}
@@ -235,6 +244,7 @@ $('sap-input').addEventListener('change',async(e)=>{
       originalIFC=null;importedIFCName='';
       const geometry=makeSAPGeometry(data);
       if(!geometry.length)throw Error('El JSON no contiene barras ni placas válidas para visualizar.');
+      leaveTrussLesson();
       app.setResults(null);
       app.setModel(geometry);
       demoActive=false;sapGeometryActive=true;
@@ -379,6 +389,30 @@ $('apply-offset').addEventListener('click',()=>{
 
 const forceReadout=$('force-readout');
 app.renderer.domElement.addEventListener('pointermove',event=>{
+  if(app.trussExperience?.active){
+    if(app.isXR){forceReadout.hidden=true;return;}
+    const rect=app.renderer.domElement.getBoundingClientRect();
+    if(rect.width<=0||rect.height<=0)return;
+    app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
+      -(event.clientY-rect.top)/rect.height*2+1);
+    app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+    const hit=app.trussExperience.pick(app.pickRaycaster);
+    if(!hit){forceReadout.hidden=true;return;}
+    const result=app.trussExperience.result;
+    const entry=hit.kind==='node'?
+      result.displacements.find(d=>d.nodeId===hit.id):
+      result.bars.find(b=>b.id===hit.id);
+    forceReadout.textContent=hit.kind==='node'?
+      'Nodo '+hit.id+' · Ux '+(entry.ux_m*1000).toFixed(3)+' mm'+
+      '\nUz '+(entry.uz_m*1000).toFixed(3)+' mm · |u| '+(entry.magnitude_m*1000).toFixed(3)+' mm':
+      'Barra '+hit.id+' · N '+entry.axial_kN.toFixed(3)+' kN'+
+      '\nσ '+entry.stress_MPa.toFixed(3)+' MPa · ε '+entry.strain.toExponential(3);
+    const stage=$('stage').getBoundingClientRect();
+    forceReadout.style.left=Math.max(8,Math.min(stage.width-260,event.clientX-stage.left+15))+'px';
+    forceReadout.style.top=Math.max(8,Math.min(stage.height-105,event.clientY-stage.top+15))+'px';
+    forceReadout.hidden=false;
+    return;
+  }
   const view=app.sapVisuals.view;
   if(app.isXR||(view!=='forces'&&view!=='reactions'&&view!=='deformation')){
     forceReadout.hidden=true;app.nodeProbe?.hideXRHover();
@@ -536,6 +570,19 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
     await app.enterXR({mobile:true});
     $('btn-mobile-ar').textContent='Salir de AR';
   }catch(e){info('AR móvil: '+e.message,true);}
+});
+
+setupTrussLesson(app,{
+  selectWorkspace:name=>workspace.selectTab(name),
+  clearPrevious:()=>{
+    demoActive=false;syntheticResults=true;sapGeometryActive=false;
+    originalIFC=null;importedIFCName='';
+    for(const conf of Object.values(demos)){
+      $(conf.button).classList.remove('is-current');
+      $(conf.button).setAttribute('aria-pressed','false');
+    }
+  },
+  modelLabel:setModelLabel,status
 });
 
 (async()=>{
