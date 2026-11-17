@@ -158,6 +158,36 @@ test('central load arrow tip coincides with B2 in reference and deformed views',
   checkTip();
   exercise.deactivate();
 });
+test('the bridge increases its real solved load and deformation before fracture',()=>{
+  const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
+  bridge.activate();bridge.sample();bridge.setLoad(35);
+  const result=bridge.evaluate();
+  assert.ok(result.broken.length>0);
+  assert.equal(bridge.mode,'displacement');
+  const history=bridge.loadRamp.snapshots;
+  assert.equal(history[0].load_kN,0);
+  assert.ok(history.every((sample,i)=>i===0||
+    sample.load_kN>=history[i-1].load_kN));
+  assert.ok(history.at(-1).load_kN<35,
+    'Failure is reached at its first yielding load, not immediately at 35 kN');
+  const middle=history[Math.floor(history.length/2)];
+  assert.ok(middle.displacements.length>0);
+  const marker=bridge.rampMarkers.find(n=>n.id==='B2').object;
+  const z0=marker.position.z,applied=[];
+  bridge.onLoadProgress=(load)=>applied.push(load);
+  bridge.animate(100);
+  bridge.animate(800);
+  const zMid=marker.position.z;
+  assert.notEqual(zMid,z0,'Nodal deformation follows intermediate load steps');
+  assert.ok(bridge.breakAnimation.physics.broken.size===0);
+  bridge.animate(1520);
+  assert.equal(bridge.loadRamp.complete,true);
+  assert.equal(bridge.breakAnimation.physics.broken.size,0);
+  assert.ok(applied[0]<=applied[1]&&applied[1]<=applied[2]);
+  bridge.animate(1770);
+  assert.ok(bridge.breakAnimation.physics.broken.size>0);
+  bridge.deactivate();
+});
 test('equally loaded mirror members break in the same animation frame',()=>{
   const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
   bridge.activate();
@@ -170,7 +200,11 @@ test('equally loaded mirror members break in the same animation frame',()=>{
   assert.equal(bridge.breakAnimation.failureTimes.M3,
     bridge.breakAnimation.failureTimes.M4);
   bridge.animate(100);
-  bridge.animate(750);
+  bridge.animate(900);
+  assert.equal(bridge.breakAnimation.physics.broken.size,0,
+    'No element fractures before the load has increased to its limit');
+  bridge.animate(1520);
+  bridge.animate(1770);
   const broken=bridge.breakAnimation.physics.broken;
   assert.equal(broken.has('M3'),true);
   assert.equal(broken.has('M4'),true);
@@ -196,11 +230,14 @@ test('progressive failure animation follows the actual recalculated sequence',()
   const r=bridge.evaluate();
   assert.deepEqual(r.broken.map(f=>f.id),['M6','M14']);
   bridge.animate(100);
-  bridge.animate(950);
+  bridge.animate(900);
+  assert.equal(updates.length,0,'No failure before the gradual loading phase');
+  bridge.animate(1520);
+  bridge.animate(1770);
   assert.deepEqual(updates[0],{removed:['M6'],next:'M14'});
   assert.equal(bridge.breakAnimation.physics.broken.has('M6'),true);
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),false);
-  bridge.animate(2300);
+  bridge.animate(2900);
   assert.deepEqual(updates[1],{removed:['M6','M14'],next:null});
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),true);
   bridge.deactivate();
