@@ -78,28 +78,51 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         'Naranja: tracción · azul: compresión · rojo: fallo · deformada amplificada';
     }
     report.hidden=!result;
+    const undeformed=$('bridge-undeformed');
+    if(undeformed){
+      undeformed.disabled=!result;
+      undeformed.setAttribute('aria-pressed',String(challenge.undeformedView));
+      undeformed.textContent=challenge.undeformedView?
+        'Mostrar deformada calculada':'Ver geometría sin deformar';
+    }
     if(result){
-      const statusLabel=result.status==='stable'?'Resiste · cumple resistencia y flecha':
-        result.status==='service'?'No cumple flecha de servicio':
-        'No resiste · colapso esquemático';
-      report.innerHTML='<span><strong>'+statusLabel+'</strong></span>'+
-        (challenge.bestEligibleMass_kg===null?'':
-          '<span>Mejor propuesta válida: <strong>'+fmt(challenge.bestEligibleMass_kg,2)+' kg</strong></span>')+
-        '<span>Razón: '+result.reason+'</span>'+
-        (result.bending?
-          '<span><strong>Carga aplicada dentro de la barra '+result.bending.memberId+
-          ':</strong> momento máximo '+fmt(result.bending.moment_kNm,3)+
-          ' kN·m · tensión de flexión '+fmt(result.bending.stress_MPa,1)+
-          ' MPa · flecha local '+fmt(result.bending.localDeflection_mm,2)+
-          ' mm. Comprobación aproximada de viga simplemente apoyada.</span>':'')+
-        (result.pending?.length?'<span>'+result.pending.length+
-          ' barra(s) pendientes de conexión: no intervienen todavía en la rigidez ni en las cargas aplicadas, pero sí cuentan para el peso total.</span>':'')+
-        '<span>Vano <strong>'+fmt(challenge.span_m,2)+' m</strong> · Carga '+fmt(challenge.load_kN,2)+' kN</span>'+
-        '<span>Peso de acero: <strong>'+fmt(result.totalMass_kg,2)+' kg</strong></span>'+
-        '<span>Aprovechamiento máximo: <strong>'+
-          (result.maxUtilization===null?'—':fmt(result.maxUtilization*100,1)+' %')+'</strong></span>'+
-        '<span>Flecha máxima: <strong>'+fmt(result.maxDeflection_mm,3)+
-          ' mm</strong> · Límite '+fmt(result.serviceLimit_mm,3)+' mm</span>';
+      const statusLabel=result.status==='stable'?'Resiste':
+        result.status==='service'?'No cumple la flecha':
+        result.broken?.length?'Rotura de elemento':'Mecanismo inestable';
+      const failureNames={yield:'límite elástico',buckling:'pandeo',
+        bending:'flexión',axial:'resistencia axial'};
+      const rows=[
+        ['Diagnóstico',statusLabel],
+        ['Motivo',result.reason],
+        ['Vano y carga',fmt(challenge.span_m,2)+' m · '+fmt(challenge.load_kN,2)+' kN'],
+        ['Peso del diseño',fmt(result.totalMass_kg,2)+' kg']
+      ];
+      if(challenge.bestEligibleMass_kg!==null)
+        rows.push(['Mejor diseño válido',fmt(challenge.bestEligibleMass_kg,2)+' kg']);
+      if(result.broken?.length)
+        rows.push(['Elementos que fallan',result.broken.map(f=>
+          f.id+' ('+(failureNames[f.mode]??'resistencia')+
+          ', '+fmt(f.utilization*100,1)+' %)').join(', ')]);
+      if(result.pending?.length)
+        rows.push(['Barras pendientes',result.pending.length+
+          ' · se cuentan en el peso, pero no en la rigidez mientras no estén conectadas']);
+      if(result.maxUtilization!=null)
+        rows.push(['Aprovechamiento máximo',fmt(result.maxUtilization*100,1)+' %']);
+      if(result.maxDeflection_mm!=null)
+        rows.push(['Flecha máxima',fmt(result.maxDeflection_mm,3)+' mm'+
+          (result.serviceLimit_mm!=null?
+            ' · Límite '+fmt(result.serviceLimit_mm,3)+' mm':'')]);
+      if(result.bending)
+        rows.push(['Carga entre nudos',result.bending.memberId+
+          ' · M '+fmt(result.bending.moment_kNm,3)+' kN·m'+
+          ' · σ flexión '+fmt(result.bending.stress_MPa,1)+' MPa'+
+          ' · flecha local '+fmt(result.bending.localDeflection_mm,2)+' mm']);
+      if(result.maxDeflection_mm==null)
+        rows.push(['Resultados parciales','No se pueden obtener esfuerzos y desplazamientos válidos para un mecanismo']);
+      report.innerHTML=rows.map(([label,value],index)=>
+        '<div class="bridge-result-row'+(index===0?' bridge-result-status':'')+'">'+
+        '<span class="bridge-result-label">'+label+'</span>'+
+        '<strong class="bridge-result-value">'+value+'</strong></div>').join('');
       $('bridge-feedback').textContent=result.reason+
         (result.broken.length?' Rotura: '+result.broken.map(x=>x.id).join(', ')+'.':'');
       const memberRows=result.members.map(m=>[
@@ -191,6 +214,9 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     if(e.key==='Escape'&&challenge.active&&challenge.addMode)challenge.cancelAdd();
   });
   $('bridge-evaluate').addEventListener('click',()=>challenge.evaluate());
+  $('bridge-undeformed').addEventListener('click',()=>{
+    if(challenge.result)challenge.setUndeformedView(!challenge.undeformedView);
+  });
   $('bridge-export').addEventListener('click',()=>downloadBridge(challenge));
   $('bridge-detect').addEventListener('click',()=>{
     if(!challenge.active)run();
