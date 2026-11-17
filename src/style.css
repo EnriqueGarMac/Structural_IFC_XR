@@ -215,3 +215,14 @@ body.teaching-results-active #bridge-result.bridge-report{display:grid}
 #mobile-ar-bridge-calc{background:#167f81;border-color:#4de0c6;font-weight:800}
 #mobile-ar-bridge-feedback{font-size:11px;line-height:1.4;color:#d2ebee;min-height:15px}
 @media(max-width:380px){.mobile-ar-bridge-buttons button{font-size:10px;padding:7px 3px}.mobile-ar-bridge-config{grid-template-columns:1fr 1fr}}
+
+/* In the AR bridge contest, the span is controlled by the two supports;
+   generic model zoom, SAP visibility and unrelated amplification sliders
+   obscure the grid and would not control the bridge's own results. */
+.mobile-ar-overlay.bridge-editor-active #mobile-ar-smaller,
+.mobile-ar-overlay.bridge-editor-active #mobile-ar-larger,
+.mobile-ar-overlay.bridge-editor-active #mobile-ar-sap-only,
+.mobile-ar-overlay.bridge-editor-active .mobile-ar-range{display:none!important}
+.mobile-ar-overlay.bridge-editor-active .mobile-ar-toolbar{max-height:min(55dvh,490px);padding:9px;gap:6px}
+.mobile-ar-overlay.bridge-editor-active .mobile-ar-actions button{font-size:11px;padding:8px}
+.mobile-ar-overlay.bridge-editor-active .mobile-ar-bridge-editor{padding:8px;gap:6px}
