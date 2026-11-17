@@ -289,14 +289,22 @@ export class BridgeCompetitionExperience {
         new THREE.MeshBasicMaterial({color:0xb0c8cf,transparent:true,opacity:.65}));
       marker.position.copy(p);grid.add(marker);
     }
-    // Braced support feet: distinct from design members.
+    // Both end joints are fixed in X and Z (the plane of this pin-jointed
+    // truss). Identical anchored support markers avoid implying a roller.
     for(const n of [nodes[0],nodes[4]]){
       const p=world(n,span);
-      const support=new THREE.Mesh(new THREE.ConeGeometry(.048,.072,4),
-        new THREE.MeshStandardMaterial({color:0x77a79e,roughness:.78}));
-      support.rotation.x=Math.PI/2;
-      support.position.copy(p).add(new THREE.Vector3(0,0,-.065));
+      const material=new THREE.MeshStandardMaterial({
+        color:0x77a79e,metalness:.10,roughness:.76});
+      const support=new THREE.Mesh(new THREE.BoxGeometry(.10,.03,.042),material);
+      support.name='Apoyo fijo '+n.id;
+      support.position.copy(p).add(new THREE.Vector3(0,0,-.054));
       this.root.add(support);
+      for(const side of [-1,1]){
+        const bolt=new THREE.Mesh(new THREE.SphereGeometry(.009,8,6),
+          new THREE.MeshStandardMaterial({color:0xd2e6dc,metalness:.4,roughness:.45}));
+        bolt.position.copy(p).add(new THREE.Vector3(side*.033,0,-.033));
+        this.root.add(bolt);
+      }
     }
     const results=new Map((this.result?.members??[]).map(m=>[m.id,m]));
     for(const m of this.members){
@@ -535,21 +543,14 @@ export class BridgeCompetitionExperience {
       if(first>=0){
         const start=.38+first*.22;
         const t=Math.max(0,elapsed-start);
-        // Material yielding receives an amber warning before fracture;
-        // buckling bends visibly before separating. A geometric mechanism
-        // has no invented member fracture because it has no failed member.
+        // Material yielding receives an amber warning before schematic
+        // fracture. This exercise does not model buckling or claim that
+        // the first yield of real steel implies immediate brittle rupture.
         const warning=Math.max(0,Math.min(1,(elapsed-(start-.3))/.3));
         if(t<=0&&warning>0&&part.failureMode==='yield'){
           part.object.material.color.setHex(0xf2b24c);
           for(const segment of part.object.userData.curvedPieces??[])
             segment.material.color.setHex(0xf2b24c);
-        }
-        if(t<=0&&warning>0&&part.failureMode==='buckling'){
-          part.object.position.copy(part.origin);
-          part.object.position.y-=.04*warning;
-          part.object.quaternion.copy(part.baseRotation);
-          part.object.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
-            new THREE.Vector3(0,0,1),.18*warning));
         }
         part.object.visible=t<=0&&!part.object.userData.curvedPieces;
         for(const segment of part.object.userData.curvedPieces??[])
