@@ -101,7 +101,10 @@ export class TrussExperience {
        !Number.isFinite(A_m2)||A_m2<=0)
       throw Error('El módulo E y el área A deben ser positivos.');
     const model={...this.model,E_kN_m2,A_m2,
-      bars:this.model.bars.map(b=>({...b,E_kN_m2,A_m2})),
+      // Respect individually edited areas when global material/supports change.
+      bars:this.model.bars.map(b=>({...b,E_kN_m2,
+        A_m2:Math.abs((b.A_m2??this.model.A_m2)-(this.model.A_m2??A_m2))<1e-12?
+          A_m2:b.A_m2})),
       nodes:this.model.nodes.map(n=>({
         ...n,fixX:n.id===fixedNode,fixZ:n.id===fixedNode||n.id===rollerNode
       }))};
