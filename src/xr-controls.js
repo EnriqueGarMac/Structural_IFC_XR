@@ -295,7 +295,11 @@ export class StructuralXRControls {
   setAmplification(value){
     const max=this.app.ampMax??150,step=this.app.ampStep??1;
     const next=Number((Math.round(clamp(value,0,max)/step)*step).toFixed(2));
-    if(next===this.app.amp)return false;
+    const teaching=this.app.teachingAnalysis?.active;
+    const exp=teaching?(this.app.bridgeCompetition?.active?
+      this.app.bridgeCompetition:this.app.trussExperience):null;
+    const current=teaching?Math.round((exp?.ampFactor??1)*15):this.app.amp;
+    if(next===current)return false;
     const input=$('amp');
     input.value=String(next);
     input.dispatchEvent(new Event('input'));
@@ -442,8 +446,12 @@ export class StructuralXRControls {
     }else if(this.page==='results'){
       // Controls that do not apply to the active view are drawn frozen,
       // as in the desktop panel (see view-controls.mjs).
-      const view=app.sapVisuals?.view||'deformation';
-      const on=control=>isControlActive(view,control);
+      const teaching=Boolean(app.teachingAnalysis?.active);
+      const view=teaching?($('analysis-view')?.value||'forces'):
+        (app.sapVisuals?.view||'deformation');
+      const on=control=>teaching?
+        (control==='amplification'&&view==='deformation'):
+        isControlActive(view,control);
       btn('back','‹ Volver',38,117,230,66);
       txt('RESULTADOS ESTRUCTURALES',38,225,28,'#e6f6fc');
       txt('Caso / combinación',38,283,22,on('case')?uiColour.muted:uiColour.dim);
@@ -464,10 +472,17 @@ export class StructuralXRControls {
       }else{
         const enabled=on('amplification');
         txt('AMPLIFICACIÓN DE LA DEFORMADA',38,584,21,enabled?uiColour.muted:uiColour.dim);
-        txt(formatAmplification(app.amp),712,584,29,enabled?'#8bf6df':uiColour.dim,'right');
+        const ampDisplay=teaching?
+          Math.round(((app.bridgeCompetition?.active?
+            app.bridgeCompetition:app.trussExperience)?.ampFactor??1)*15):
+          app.amp;
+        txt(teaching?'×'+(ampDisplay/15).toFixed(1):
+          formatAmplification(ampDisplay),712,584,29,
+          enabled?'#8bf6df':uiColour.dim,'right');
         const left=163,right=604,y=660;
         rounded(c,left-7,y-8,right-left+14,16,8,'#254859');
-        const x=sliderXFromAmplification(app.amp,163,604,app.ampMax??150);
+        const x=sliderXFromAmplification(ampDisplay,163,604,
+          teaching?150:(app.ampMax??150));
         rounded(c,left-7,y-8,Math.max(10,x-left+7),16,8,enabled?'#45c6ae':'#2b4651');
         c.beginPath();c.arc(x,y,21,0,Math.PI*2);c.fillStyle=enabled?'#e8ffff':'#4a626d';c.fill();
         c.strokeStyle=enabled?'#72eed9':'#38525d';c.lineWidth=4;c.stroke();
@@ -475,23 +490,27 @@ export class StructuralXRControls {
         btn('amp:-','−',38,622,102,75,false,enabled);
         btn('amp:+','+',629,622,101,75,false,enabled);
         txt('×0',157,713,18,enabled?'#a2c6d1':uiColour.dim);
-        txt(formatAmplification(app.ampMax??150),613,713,18,enabled?'#a2c6d1':uiColour.dim,'right');
+        txt(teaching?'×10':formatAmplification(app.ampMax??150),
+          613,713,18,enabled?'#a2c6d1':uiColour.dim,'right');
       }
       const viewLabel={deformation:'Deformadas y cargas',forces:'Diagramas de esfuerzos',
         reactions:'Reacciones en apoyos',modes:'Modos de vibración',buckling:'Modos de pandeo'};
       btn('view:next','VISTA: '+viewLabel[view],38,756,692,73,true);
       const buckled=(app.results?.bucklingModes||[])[app.sapVisuals?.modeIndex||0];
-      const detail=view==='forces'?'Esfuerzo: '+(app.sapVisuals?.component||'M3'):
+      const detail=view==='forces'?'Esfuerzo: '+(teaching?
+        app.teachingForceRenderer?.component:app.sapVisuals?.component||'M3'):
         view==='buckling'?'Pandeo '+(buckled?.number??'—')+' · '+(bucklingSummary(buckled)?.label??'—'):
         view==='modes'?'Modo '+((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.number??'—')+
           ' · '+Number((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.frequency_hz||0).toFixed(2)+' Hz':
           'Patrón: '+(app.pattern==='all'?'Todos':app.pattern);
       if(view==='reactions'){
-        const summary=app.reactionVisuals?.lastSummary;
+        const summary=teaching?app.teachingReactionRenderer?.lastSummary:
+          app.reactionVisuals?.lastSummary;
         const z=summary?.force?.[2];
         txt('Reacción vertical total: '+(Number.isFinite(z)?z.toFixed(3)+' kN':'—'),
           385,881,23,'#a6eeea','center');
-        btn('reaction-values','VALORES: '+(app.reactionVisuals?.showValues?'SÍ':'NO'),
+        btn('reaction-values','VALORES: '+((teaching?
+          app.teachingReactionRenderer:app.reactionVisuals)?.showValues?'SÍ':'NO'),
           38,932,334,77,true);
         btn('sap-only',app.showSAPOnly?'IFC: OCULTO':'IFC: VISIBLE',
           394,932,336,77);
@@ -502,7 +521,8 @@ export class StructuralXRControls {
         txt(textFit(detail,37),385,881,23,'#edffff','center');
         btn('detail:+','›',606,847,124,69);
       if(view==='forces'){
-        btn('force-values','ETIQUETAS: '+(app.sapVisuals?.showCharacteristics?'SÍ':'NO'),
+        btn('force-values','ETIQUETAS: '+((teaching?
+          app.teachingForceRenderer:app.sapVisuals)?.showCharacteristics?'SÍ':'NO'),
           38,932,334,77,true);
         btn('sap-only',app.showSAPOnly?'IFC: OCULTO':'IFC: VISIBLE',
           394,932,336,77);
@@ -717,15 +737,23 @@ export class StructuralXRControls {
       }
     }
     else if(id==='view:next'){
-      const choices=['deformation','forces','reactions','modes','buckling'];
-      const active=app.sapVisuals?.view||'deformation';
+      const teaching=Boolean(app.teachingAnalysis?.active);
+      const choices=teaching?[...$('analysis-view').options].map(o=>o.value):
+        ['deformation','forces','reactions','modes','buckling'];
+      const active=teaching?$('analysis-view').value:
+        (app.sapVisuals?.view||'deformation');
       const next=choices[(choices.indexOf(active)+1)%choices.length];
       const el=$('analysis-view');if(el){el.value=next;el.dispatchEvent(new Event('change'));}
     }
     else if(id==='detail:+'||id==='detail:-'){
-      const step=id==='detail:+'?1:-1,kind=app.sapVisuals?.view||'deformation';
+      const step=id==='detail:+'?1:-1;
+      const teaching=Boolean(app.teachingAnalysis?.active);
+      const kind=teaching?$('analysis-view').value:(app.sapVisuals?.view||'deformation');
       if(kind==='forces'){
-        const options=['P','V2','V3','T','M2','M3'],i=options.indexOf(app.sapVisuals.component);
+        const options=teaching?[...$('force-component').options]
+          .filter(o=>!o.disabled).map(o=>o.value):['P','V2','V3','T','M2','M3'];
+        const i=options.indexOf(teaching?app.teachingForceRenderer?.component:
+          app.sapVisuals.component);
         const selected=options[rotateIndex(Math.max(0,i),step,options.length)];
         $('force-component').value=selected;$('force-component').dispatchEvent(new Event('change'));
       }else if(kind==='modes'||kind==='buckling'){
