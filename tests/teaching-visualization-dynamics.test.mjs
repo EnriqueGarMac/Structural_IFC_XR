@@ -107,5 +107,10 @@ test('fractured members fall, roll, and settle horizontally without ground penet
     assert.ok(Math.abs(part.z-(floor+part.radius))<1e-4);
     assert.ok(Math.abs(part.vx)<1e-6&&Math.abs(part.vz)<1e-6,
       'Fragment velocity dissipates after impact');
+    assert.equal(part.settled,true,'The final resting pose must be explicit');
+    const raisedFloor=floor+.12;
+    stepBridgeLooseFragment(part,1/60,raisedFloor);
+    assert.equal(part.z,raisedFloor+part.radius,
+      'A resting fragment must follow a corrected detected floor');
   }
 });
