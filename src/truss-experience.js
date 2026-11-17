@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {TRUSS_LESSON,defaultTrussLoads,normaliseTrussLoads,solveTruss2D} from './truss-solver.mjs';
-import {resultColourHex} from './visual-palettes.mjs';
+import {resultColourHex,forceSignColour} from './visual-palettes.mjs';
+import {makeAxialLabel} from './teaching-axial-label.js';
 
 const V=(n)=>new THREE.Vector3(n.x,0,n.z);
 
@@ -38,7 +39,7 @@ function clearGroup(group){
     obj.traverse(item=>{
       item.geometry?.dispose();
       const mats=Array.isArray(item.material)?item.material:[item.material];
-      mats.forEach(mat=>mat?.dispose());
+      mats.forEach(mat=>{mat?.map?.dispose();mat?.dispose();});
     });
   }
 }
@@ -66,6 +67,7 @@ export class TrussExperience {
     this.mode='axial';
     this.ampFactor=1;
     this.palette='classic';
+    this.showAxialLabels=false;
     this.result=solveTruss2D(this.model,this.loads);
     this.pickNodes=[];
     this.pickBars=[];
@@ -160,6 +162,7 @@ export class TrussExperience {
     this.ampFactor=n;this.draw();
   }
   setPalette(palette){this.palette=palette;this.draw();}
+  setAxialLabels(enabled){this.showAxialLabels=Boolean(enabled);this.draw();}
   getSelectedBar(){
     return this.result.bars.find(b=>b.id===this.selectedBarId)??null;
   }
@@ -199,8 +202,7 @@ export class TrussExperience {
     for(const bar of result.bars){
       const na=this.nodeMap.get(bar.i),nb=this.nodeMap.get(bar.j);
       const da=disp.get(bar.i),db=disp.get(bar.j);
-      let color=bar.axial_kN>1e-6?COLORS.tension:
-        bar.axial_kN< -1e-6?COLORS.compression:COLORS.neutral;
+      let color=forceSignColour(bar.axial_kN,this.palette);
       if(this.mode==='displacement'){
         const t=(da.magnitude_m+db.magnitude_m)/(2*maxNode);
         color=resultColourHex(t,this.palette);
@@ -216,6 +218,12 @@ export class TrussExperience {
         bar.id===this.selectedBarId?COLORS.selected:color);
       mesh.userData={trussBarId:bar.id};
       this.root.add(mesh);this.pickBars.push(mesh);
+      if(this.showAxialLabels){
+        const mid=mesh.position.clone().add(new THREE.Vector3(0,-.08,.12));
+        const sprite=makeAxialLabel(bar.axial_kN,mid,{scale:Math.max(.14,Math.min(.3,
+          this.model.bars.length>40?.14:.23))});
+        if(sprite)this.root.add(sprite);
+      }
     }
     for(const node of this.model.nodes){
       const p=moved(node);
