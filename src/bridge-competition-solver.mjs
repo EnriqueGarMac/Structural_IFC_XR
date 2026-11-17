@@ -241,7 +241,9 @@ function analysis(nodes,members,load_kN,active){
   if([...loadIds].some(id=>!retained.has(id)))
     throw Error('La carga central no dispone de camino hasta los apoyos.');
   for(const m of all){
-    if(!retained.has(m.i)||!retained.has(m.j))continue;
+    // A member that has fractured no longer carries its dead load through
+    // the surviving truss. The falling fragments are handled visually.
+    if(!active.has(m.id)||!retained.has(m.i)||!retained.has(m.j))continue;
     const dead=m.mass_kg*9.81/1000;
     nodal.get(m.i).fz_kN-=dead/2;
     nodal.get(m.j).fz_kN-=dead/2;
@@ -375,12 +377,14 @@ export function bridgeLoadHistory({span_m=1.2,load_kN=3,members=[],steps=16}={})
   return {targetLoad_kN:load_kN,criticalLoad_kN:criticalLoad,
     rampLoad_kN:rampLoad,snapshots};
 }
-export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=true}={}){
+export function calculateBridge({span_m=1.2,load_kN=3,members=[],
+  progressive=true,removedIds=[]}={}){
   if(!Number.isFinite(load_kN)||load_kN<0||load_kN>50)
     throw Error('Carga central fuera de rango (0 a 50 kN).');
   const nodes=bridgeGrid(span_m),all=physical(nodes,members);
   const totalMass_kg=all.reduce((s,m)=>s+m.mass_kg,0);
-  const active=new Set(members.map(m=>m.id));
+  const excluded=new Set(removedIds);
+  const active=new Set(members.filter(m=>!excluded.has(m.id)).map(m=>m.id));
   const failures=[],slackIds=new Set(),visited=new Set(),stages=[];
   let original=null,raw=null,memberResults=null;
   let status='stable',reason='Estructura resistente';
@@ -437,7 +441,8 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     }
     memberResults=current;
     if(!original)original={...raw,members:current};
-    const overloaded=current.filter(m=>active.has(m.id)&&m.utilization>1+1e-7)
+    const overloaded=current.filter(m=>active.has(m.id)&&!m.pending&&
+      m.utilization>1+1e-7)
       .sort((a,b)=>b.utilization-a.utilization);
     const critical=overloaded[0];
     // Exact structural symmetries produce equal utilization within solver
