@@ -135,7 +135,7 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     status?.('PASARELA · DISEÑO DOCENTE');
   };
   $('bridge-start').addEventListener('click',()=>{
-    run();selectWorkspace?.('contest');
+    run();selectWorkspace?.('teaching');
   });
   $('bridge-span').addEventListener('change',event=>{
     try{
