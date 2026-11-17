@@ -75,6 +75,13 @@ export function setupTrussLesson(app,{
       result.displacements.map(d=>({selected:d.nodeId===lesson.selectedNode,
         cells:[d.nodeId,physical(d.ux_m),physical(d.uz_m),
           physical(d.magnitude_m)]})));
+    const selectedModelBar=lesson.model.bars.find(b=>b.id===lesson.selectedBarId);
+    const selectedArea=selectedModelBar?.A_m2??lesson.model.A_m2;
+    $('truss-selected-member').textContent=selectedModelBar?
+      'Barra '+selectedModelBar.id+' · '+selectedModelBar.i+'–'+selectedModelBar.j:
+      'Señala una barra con el ratón o el mando.';
+    if(selectedModelBar&&document.activeElement!==$('truss-member-area'))
+      $('truss-member-area').value=String(Math.round(selectedArea*1e6));
     const s=lesson.getLoad(),bar=lesson.getSelectedBar();
     $('truss-stage-detail').textContent=bar?
       'Barra '+bar.id+' · N = '+fixed(bar.axial_kN)+' kN · σ = '+fixed(bar.stress_MPa)+' MPa':
@@ -159,6 +166,16 @@ export function setupTrussLesson(app,{
     }catch(error){
       $('truss-ifc-status').textContent='Error en los apoyos: '+error.message;
     }
+  });
+  $('truss-member-apply').addEventListener('click',()=>{
+    try{
+      lesson.setMemberArea(lesson.selectedBarId,Number($('truss-member-area').value));
+      $('truss-feedback').textContent='Sección de '+lesson.selectedBarId+
+        ' actualizada a '+number(Number($('truss-member-area').value),0)+' mm². Cálculo actualizado.';
+    }catch(error){$('truss-feedback').textContent=error.message;}
+  });
+  $('truss-member-area').addEventListener('keydown',e=>{
+    if(e.key==='Enter')$('truss-member-apply').click();
   });
   $('truss-start').addEventListener('click',start);
   select.addEventListener('change',e=>lesson.selectNode(e.target.value));
