@@ -126,7 +126,10 @@ export class BridgeCompetitionExperience {
   addMember(i,j,sectionId=this.sectionId){
     this.members=addBridgeMember(this.members,bridgeGrid(this.span_m),i,j,sectionId);
     this.result=null;this.breakAnimation=null;this.startNode=null;
-    this.selectedMemberId=this.members.at(-1).id;
+    // Merging straight segments can remove the newest temporary ID.
+    // Select the resulting continuous member instead of a stale segment.
+    this.selectedMemberId=this.members.find(m=>m.i===i||m.j===j||
+      m.i===j||m.j===i)?.id??this.members.at(-1)?.id??null;
     this.draw();
   }
   removeMember(id){
@@ -150,6 +153,9 @@ export class BridgeCompetitionExperience {
   }
   evaluate(){
     this.undeformedView=false;
+    // Load application opens the actual deformed response, not axial colours.
+    // The shared Analysis tab follows this same mode via updateTeachingAnalysis.
+    this.mode='displacement';
     this.result=calculateBridge({span_m:this.span_m,
       load_kN:this.load_kN,members:this.members});
     if(this.result.status==='stable')
