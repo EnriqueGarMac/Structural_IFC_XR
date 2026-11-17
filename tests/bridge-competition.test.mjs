@@ -29,6 +29,29 @@ test('bridge contest grid, materials and member edit validation',()=>{
   const sample=bridgeSampleMembers();
   assert.equal(new Set(sample.map(m=>[m.i,m.j].sort().join('|'))).size,sample.length);
 });
+test('two straight collinear same-section segments merge into one member',()=>{
+  const grid=bridgeGrid(1.2);
+  let members=addBridgeMember([],grid,'B0','B1','bar_m');
+  members=addBridgeMember(members,grid,'B1','B2','bar_m');
+  assert.equal(members.length,1);
+  assert.deepEqual([members[0].i,members[0].j],['B0','B2']);
+  assert.equal(members[0].id,'M1');
+  // Endpoints of the centre load must be retained as joints.
+  members=addBridgeMember(members,grid,'B2','B3','bar_m');
+  assert.equal(members.length,2);
+  // Two different areas cannot be merged into an invented uniform section.
+  let dissimilar=addBridgeMember([],grid,'B0','B1','bar_m');
+  dissimilar=addBridgeMember(dissimilar,grid,'B1','B2','bar_l');
+  assert.equal(dissimilar.length,2);
+  // The geometry remains editable: adding a new branch at the old
+  // construction point restores the joint and the two original intervals.
+  members=addBridgeMember(members,grid,'B1','T1','bar_m');
+  assert.equal(members.length,4);
+  const connected=members.filter(m=>m.i==='B1'||m.j==='B1');
+  assert.equal(connected.length,3);
+  assert.ok(connected.some(m=>m.i==='B0'||m.j==='B0'));
+  assert.ok(connected.some(m=>m.i==='B2'||m.j==='B2'));
+});
 test('reference pedestrian truss resists its central teaching load with equilibrium',()=>{
   const r=calculateBridge({members:bridgeSampleMembers()});
   assert.ok(r.totalMass_kg>0);
