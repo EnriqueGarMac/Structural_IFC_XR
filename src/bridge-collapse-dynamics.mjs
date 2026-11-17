@@ -146,3 +146,27 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
   }
   return body;
 }
+
+// Small, reproducible variation within a single collapse replay.
+// The seed changes between calculations but does not change structural
+// forces, failure thresholds, or the contact solver. Each half gets its
+// own kick so paired fragments do not reassemble visually on the floor.
+export function bridgeFragmentScatter(seed,memberId,half){
+  let h=(Number(seed)>>>0)^0x9e3779b9;
+  for(const ch of String(memberId))
+    h=Math.imul(h^ch.charCodeAt(0),16777619)>>>0;
+  h=Math.imul(h^(half+1),2246822519)>>>0;
+  const next=()=>{
+    h^=h>>>16;h=Math.imul(h,0x7feb352d)>>>0;
+    h^=h>>>15;h=Math.imul(h,0x846ca68b)>>>0;
+    h^=h>>>16;return (h>>>0)/4294967296;
+  };
+  const outward=half===0?-1:1;
+  return {
+    vx:outward*(.13+.20*next())+(.05*next()-.025),
+    vz:(next()-.5)*.09,
+    omega:outward*(.55+1.5*next()),
+    depth:(next()-.5)*.026,
+    delay:.015+.070*next()
+  };
+}
