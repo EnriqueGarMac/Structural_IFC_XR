@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {planeFromDetection} from './ar-placement.mjs';
+import {forceSignColour,resultColourHex} from './visual-palettes.mjs';
+import {makeAxialLabel} from './teaching-axial-label.js';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge} from './bridge-competition-solver.mjs';
 
@@ -48,6 +50,7 @@ export class BridgeCompetitionExperience {
     this.members=[];
     this.result=null;
     this.mode='axial';
+    this.palette='classic';this.ampFactor=1;this.showAxialLabels=false;
     this.editMode=true;
     this.removeMode=false;
     this.startNode=null;
@@ -89,6 +92,13 @@ export class BridgeCompetitionExperience {
     this.bestEligibleMass_kg=null;
     this.result=null;this.breakAnimation=null;this.draw();
   }
+  setPalette(palette){this.palette=palette;this.draw();}
+  setAmplification(factor){
+    const n=Number(factor);
+    if(!Number.isFinite(n)||n<0||n>10)throw Error('Amplificación de 0 a 10.');
+    this.ampFactor=n;this.draw();
+  }
+  setAxialLabels(enabled){this.showAxialLabels=Boolean(enabled);this.draw();}
   setMode(mode){
     if(!['axial','stress','utilization','displacement'].includes(mode))return;
     this.mode=mode;this.draw();
@@ -168,7 +178,7 @@ export class BridgeCompetitionExperience {
     const disp=new Map((this.result?.displacements??[]).map(d=>[d.nodeId,d]));
     const maxDeflection=this.result?.maxDeflection_mm??0;
     const amp=maxDeflection>1e-9?
-      Math.min(500,BASE*.17/(maxDeflection*.001*BASE/span)):0;
+      Math.min(500,BASE*.17/(maxDeflection*.001*BASE/span))*this.ampFactor:0;
     const pose=n=>{
       const d=disp.get(n.id);
       const p=world(n,span);
@@ -212,20 +222,18 @@ export class BridgeCompetitionExperience {
       const a=pose(byNode.get(m.i)),b=pose(byNode.get(m.j));
       const actual=results.get(m.id);
       const broken=this.result?.broken.some(v=>v.id===m.id);
-      let colour=actual?.axial_kN>1e-7?0xd39d6c:
-        actual?.axial_kN< -1e-7?0x6eaac6:
+      let colour=actual?forceSignColour(actual.axial_kN,this.palette):
         section.kind==='tie'?TIE_COLOUR:STEEL_COLOUR;
       if(actual&&!broken){
         if(this.mode==='utilization'){
           const u=Math.min(1,Math.max(0,actual.utilization||0));
-          colour=new THREE.Color(0x51bda4).lerp(new THREE.Color(0xe96d60),u).getHex();
+          colour=resultColourHex(u,this.palette);
         }else if(this.mode==='displacement'){
           const da=disp.get(m.i),db=disp.get(m.j);
           const max=Math.max(1e-9,...this.result.displacements.map(d=>d.magnitude_m||Math.hypot(d.ux_m,d.uz_m)));
           const aU=da?.magnitude_m??Math.hypot(da?.ux_m||0,da?.uz_m||0);
           const bU=db?.magnitude_m??Math.hypot(db?.ux_m||0,db?.uz_m||0);
-          colour=new THREE.Color(0x5bc5b3).lerp(new THREE.Color(0xe8a568),
-            Math.min(1,(aU+bU)/(2*max))).getHex();
+          colour=resultColourHex(Math.min(1,(aU+bU)/(2*max)),this.palette);
         }else if(this.mode==='stress'){
           const max=Math.max(1e-9,...this.result.members.map(x=>Math.abs(x.stress_MPa||0)));
           colour=new THREE.Color(colour).lerp(new THREE.Color(0x9cacb5),
@@ -236,6 +244,11 @@ export class BridgeCompetitionExperience {
       const beam=lineBetween(a,b,width,colour);
       beam.userData.bridgeMember=m.id;
       this.root.add(beam);
+      if(this.showAxialLabels&&actual){
+        const label=makeAxialLabel(actual.axial_kN,beam.position.clone().add(
+          new THREE.Vector3(0,-.07,.07)),{scale:.14});
+        if(label)this.root.add(label);
+      }
       const hit=lineBetween(a,b,Math.max(.036,width*1.7),colour);
       hit.userData.bridgeMember=m.id;
       hit.material.transparent=true;hit.material.opacity=.015;
