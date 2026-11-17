@@ -186,6 +186,18 @@ export class StructuralXRControls {
       if(menuHit.item)this.command(menuHit.item.id);
       return;
     }
+    // In the teaching experience the controller selects nodes or members,
+    // rather than grabbing the entire model. Loads are entered in the XR menu.
+    if(this.app.trussExperience?.active){
+      const hit=this.app.trussExperience.pick(this._ray(controller));
+      if(hit){
+        if(hit.kind==='node')this.app.trussExperience.selectNode(hit.id);
+        else this.app.trussExperience.selectBar(hit.id);
+        this.page='truss';
+        this.selected=(hit.kind==='node'?'Nodo ':'Barra ')+hit.id;
+        this.dirty=true;return;
+      }
+    }
     // A force-diagram click queries a section instead of rotating the structure.
     // The live hover also works without pressing the trigger.
     if(this.app.sapVisuals?.view==='forces'){
@@ -299,10 +311,42 @@ export class StructuralXRControls {
       btn('size:+','+',586,645,144,78);
       btn('reset-model','Recentrar estructura',38,769,335,76);
       btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
-      txt('CAMBIAR MODELO DE EJEMPLO',38,861,18,'#afcdd7');
-      btn('demo-frame','EDIFICIO · 3 PLANTAS',38,880,335,67);
-      btn('demo-roof','NAVE INDUSTRIAL',395,880,335,67,true);
-      btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,979,692,77);
+      txt('CAMBIAR MODELO',38,846,18,'#afcdd7');
+      btn('demo-frame','EDIFICIO · 3 PLANTAS',38,867,335,60);
+      btn('demo-roof','NAVE INDUSTRIAL',395,867,335,60);
+      btn('truss-open','RECURSOS DOCENTES · CELOSÍAS',38,941,692,61,true);
+      btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,1016,692,65);
+    }else if(this.page==='truss'){
+      const lesson=app.trussExperience;
+      btn('back','‹ Volver',38,117,230,66);
+      txt('RECURSOS DOCENTES · CELOSÍAS',38,221,29,'#e4f8ff');
+      if(!lesson?.active){
+        txt('Abre primero la experiencia.',38,340,23);
+        btn('truss-open','ABRIR CELOSÍA',38,440,692,94,true);
+      }else{
+        const node=lesson.selectedNode,load=lesson.getLoad();
+        txt('SELECCIONA UN NODO (O APUNTA CON EL GATILLO)',38,294,18);
+        btn('truss-node:-','‹',38,326,130,77);
+        txt('NODO '+node,384,365,30,'#f5d899','center');
+        btn('truss-node:+','›',600,326,130,77);
+        txt('CARGA HORIZONTAL Fx (kN)',38,464,21);
+        btn('truss-fx:-','− 5 kN',38,497,188,78);
+        txt((load.fx_kN>0?'+':'')+load.fx_kN.toFixed(1),384,537,29,'#edffff','center');
+        btn('truss-fx:+','+ 5 kN',542,497,188,78);
+        txt('CARGA VERTICAL Fz (kN) · POSITIVO HACIA ARRIBA',38,621,18);
+        btn('truss-fz:-','− 5 kN',38,660,188,78);
+        txt((load.fz_kN>0?'+':'')+load.fz_kN.toFixed(1),384,699,29,'#edffff','center');
+        btn('truss-fz:+','+ 5 kN',542,660,188,78);
+        const modeName={axial:'ESFUERZO AXIAL',stress:'TENSIÓN NORMAL',
+          strain:'DEFORMACIÓN UNITARIA',displacement:'DESPLAZAMIENTOS'};
+        btn('truss-mode','REPRESENTAR: '+modeName[lesson.mode],38,778,692,74,true);
+        txt('Rz izquierda = '+lesson.result.reactions[0].rz_kN.toFixed(2)+
+          ' kN · Rz derecha = '+lesson.result.reactions.at(-1).rz_kN.toFixed(2)+' kN',
+          38,893,19,'#c6ebec');
+        btn('truss-reset','RESTAURAR',38,933,333,70);
+        btn('truss-clear','QUITAR CARGAS',396,933,334,70);
+        txt(textFit(this.selected,46),38,1056,19,'#85d9d5');
+      }
     }else if(this.page==='results'){
       // Controls that do not apply to the active view are drawn frozen,
       // as in the desktop panel (see view-controls.mjs).
@@ -437,6 +481,32 @@ export class StructuralXRControls {
     if(id==='back'){this.page='main';}
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='exit'){this.session?.end();return;}
+    else if(id==='truss-open'){
+      document.getElementById('truss-start')?.click();
+      this.page='truss';
+      this.selected='Celosía interactiva';
+    }
+    else if(id.startsWith('truss-')){
+      const lesson=app.trussExperience;
+      if(!lesson?.active){this.notice='Abre la experiencia de celosías.';}
+      else if(id==='truss-node:-'||id==='truss-node:+'){
+        lesson.changeNode(id.endsWith(':+')?1:-1);
+        this.selected='Nodo '+lesson.selectedNode;
+      }else if(id==='truss-fx:-'||id==='truss-fx:+'){
+        lesson.adjustSelected('x',id.endsWith(':+')?5:-5);
+        this.selected='Carga horizontal actualizada';
+      }else if(id==='truss-fz:-'||id==='truss-fz:+'){
+        lesson.adjustSelected('z',id.endsWith(':+')?5:-5);
+        this.selected='Carga vertical actualizada';
+      }else if(id==='truss-reset'){lesson.reset();this.selected='Cargas iniciales';}
+      else if(id==='truss-clear'){lesson.clearLoads();this.selected='Sin cargas';}
+      else if(id==='truss-mode'){
+        const modes=['axial','stress','strain','displacement'];
+        const next=modes[(modes.indexOf(lesson.mode)+1)%modes.length];
+        const select=document.getElementById('truss-display');
+        if(select){select.value=next;select.dispatchEvent(new Event('change'));}
+      }
+    }
     else if(id==='demo-frame'||id==='demo-roof'){
       const button=$((id==='demo-roof')?'roof-demo-btn':'demo-btn');
       button?.click();
@@ -634,7 +704,14 @@ export class StructuralXRControls {
       const hit=this._menuHit(controller);
       hovered??=hit?.item?.id??null;
       if(!hit&&!this.drag&&!this.placeMode&&!forceHovered){
-        if(this.app.sapVisuals?.view==='forces'){
+        if(this.app.trussExperience?.active){
+          const selected=this.app.trussExperience.pick(this._ray(controller));
+          if(selected){
+            forceHovered=true;
+            const label=(selected.kind==='node'?'Nodo ':'Barra ')+selected.id;
+            if(this.selected!==label){this.selected=label;this.dirty=true;}
+          }
+        }else if(this.app.sapVisuals?.view==='forces'){
           const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
           if(selected)forceHovered=true;
         }else if(this.app.sapVisuals?.view==='deformation'){
