@@ -50,6 +50,14 @@
         </section>
         <section id="panel-analysis" class="workspace-panel" role="tabpanel" aria-labelledby="tab-analysis" hidden>
           <div class="panel-heading"><span class="panel-eyebrow">Resultados</span><h2>Análisis estructural</h2><p>Explora las acciones y la respuesta de la estructura.</p></div>
+        <div id="teaching-analysis-results" class="teaching-analysis-results" hidden>
+          <p id="teaching-analysis-context" class="field-help">Resultados de la experiencia docente activa.</p>
+          <label for="teaching-analysis-mode">Magnitud representada</label>
+          <select id="teaching-analysis-mode"></select>
+          <div id="teaching-analysis-legend" class="bridge-results-legend"></div>
+          <div id="teaching-analysis-summary" class="truss-summary"></div>
+          <div id="teaching-analysis-tables" class="truss-table-scroll"></div>
+        </div>
         <div class="control"><label for="analysis-view">Vista de resultados</label>
           <select id="analysis-view">
             <option value="deformation">Desplazamientos</option>
