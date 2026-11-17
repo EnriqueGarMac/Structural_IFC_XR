@@ -13,6 +13,7 @@ import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
 import {resultColourHex,cssResultGradient} from './visual-palettes.mjs';
 import {WebSun} from './web-sun.js';
 import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
+import {detectBridgeTableGap,applyBridgeGapPlacement} from './bridge-table-detection.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t,palette)=>new THREE.Color(resultColourHex(t,palette));
@@ -509,7 +510,7 @@ export class StructuralScene {
     this.mobileShadowPlane.visible=true;
   }
   async startMobileAR(session){
-    const st={session,source:null,preview:null,previewPlane:null,lastCandidate:null,stableFrames:0,scanning:true,placeRequested:false,placed:false};
+    const st={session,source:null,preview:null,previewPlane:null,lastCandidate:null,stableFrames:0,scanning:true,placeRequested:false,placed:false,bridgeScan:false,bridgeStable:0,bridgeLast:null};
     this.mobileARState=st;
     this.xrControls.reticle.visible=false;
     this.xrControls.contact.visible=false;
@@ -536,10 +537,40 @@ export class StructuralScene {
       if(status)status.textContent='No se pudo detectar el suelo: '+e.message;
     }
   }
+  startMobileBridgeScan(){
+    const st=this.mobileARState;
+    if(!st||!this.mobileAR||!this.bridgeCompetition?.active)return false;
+    st.bridgeScan=true;st.bridgeStable=0;st.bridgeLast=null;
+    const status=$('mobile-ar-status');
+    if(status)status.textContent='Buscando contornos de dos mesas. Mueve el móvil para observar ambas superficies…';
+    return true;
+  }
   updateMobileAR(frame){
     const st=this.mobileARState;
     if(!frame||!st||!this.xrSession)return;
     const ref=this.renderer.xr.getReferenceSpace();
+    if(st.bridgeScan&&ref&&this.bridgeCompetition?.active){
+      const gap=detectBridgeTableGap(frame,ref);
+      const previous=st.bridgeLast;
+      const consistent=gap&&previous&&Math.abs(previous.span_m-gap.span_m)<.035&&
+        previous.start.distanceTo(gap.start)<.06&&previous.end.distanceTo(gap.end)<.06;
+      st.bridgeStable=gap?(consistent?st.bridgeStable+1:1):0;
+      st.bridgeLast=gap;
+      if(st.bridgeStable>=7){
+        const span=applyBridgeGapPlacement(this,gap,this.bridgeCompetition);
+        st.bridgeScan=false;st.scanning=false;st.placed=true;
+        this.xrControls.reticle.visible=false;
+        const input=$('bridge-span');if(input)input.value=String(Number(span.toFixed(3)));
+        const message='Dos mesas detectadas: hueco '+span.toFixed(2)+' m. Pasarela anclada entre los bordes.';
+        const status=$('mobile-ar-status');if(status)status.textContent=message;
+        const feedback=$('bridge-detection-status');if(feedback)feedback.textContent=message;
+      }else{
+        const status=$('mobile-ar-status');
+        if(status)status.textContent=gap?
+          'Dos mesas visibles. Estabilizando medición ('+st.bridgeStable+'/7)…':
+          'No hay dos mesas identificadas. Recorre sus bordes o ajusta el vano manualmente.';
+      }
+    }
     if(st.scanning&&st.source&&ref){
       try{
         let candidate=null,normal=null;
@@ -566,8 +597,10 @@ export class StructuralScene {
       const field=document.getElementById('mobile-ar-status');
       const message=st.previewPlane?'Mesa detectada. Se ajustará el tamaño automáticamente.':
         st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
-      if(field&&field.textContent!==message)field.textContent=message;
+      if(field&&!st.bridgeScan&&field.textContent!==message)field.textContent=message;
     }
+    const scan=$('mobile-ar-bridge-scan');
+    if(scan)scan.hidden=!this.bridgeCompetition?.active;
     const place=document.getElementById('mobile-ar-place');
     if(place)place.disabled=!st.preview;
     if(st.placeRequested){
@@ -604,6 +637,8 @@ export class StructuralScene {
   stopMobileAR(){
     this.mobileARState?.source?.cancel();
     this.mobileARState=null;this.mobileAR=false;
+    const mobileScan=$('mobile-ar-bridge-scan');if(mobileScan)mobileScan.hidden=true;
+    const mobileLegend=$('mobile-ar-bridge-legend');if(mobileLegend)mobileLegend.hidden=true;
     this.mobileShadowPlane.visible=false;
     this.mobileShadowLight.visible=false;
     this.disableMobileCastShadows();
