@@ -155,23 +155,39 @@ export class BridgeCompetitionExperience {
     this.draw();
   }
   cancelAdd(){this.addMode=false;this.startNode=null;this.previewPoint=null;this.draw();}
-  updatePreviewRay(raycaster){
-    if(!this.active||!this.addMode||!this.startNode||!this.previewMesh)return;
-    // Raycast against the bridge design plane, in model-local coordinates.
-    this.app.worldRoot.updateWorldMatrix(true,true);
+  designRayPoint(raycaster){
+    // The canvas and the bridge share a local XZ plane (Y=0). Intersect
+    // the pointer ray with that plane rather than selecting overlapping
+    // transparent rod and node meshes in the increasingly dense lattice.
+    this.root.updateWorldMatrix(true,false);
     const inverse=this.root.matrixWorld.clone().invert();
     const origin=raycaster.ray.origin.clone().applyMatrix4(inverse);
     const direction=raycaster.ray.direction.clone().transformDirection(inverse);
-    if(Math.abs(direction.y)<1e-7)return;
+    if(Math.abs(direction.y)<1e-7)return null;
     const distance=-origin.y/direction.y;
-    if(distance<0)return;
-    const intersection=origin.addScaledVector(direction,distance);
-    const nodes=bridgeGrid(this.span_m);
-    const nearest=nodes.reduce((best,n)=>{
-      const p=world(n,this.span_m),d=p.distanceTo(intersection);
-      return d<best.d?{d,n,p}:best;
-    },{d:Infinity,n:null,p:null});
-    const point=nearest.d<.05?nearest.p:intersection;
+    if(!Number.isFinite(distance)||distance<0)return null;
+    return origin.addScaledVector(direction,distance);
+  }
+  pickDesignNode(raycaster){
+    if(!this.active)return null;
+    const point=this.designRayPoint(raycaster);
+    if(!point)return null;
+    const nearest=bridgeGrid(this.span_m).reduce((best,n)=>{
+      const p=world(n,this.span_m);
+      const distance=Math.hypot(p.x-point.x,p.z-point.z);
+      return distance<best.distance?{distance,id:n.id}:best;
+    },{distance:Infinity,id:null});
+    // Grid spacing is 0.084 m vertically in the displayed 1.2 m plane.
+    // A 0.023 m snap radius is comfortably below half that distance.
+    return nearest.distance<=.023?{kind:'node',id:nearest.id}:null;
+  }
+  updatePreviewRay(raycaster){
+    if(!this.active||!this.addMode||!this.startNode||!this.previewMesh)return;
+    const intersection=this.designRayPoint(raycaster);
+    if(!intersection)return;
+    const snapped=this.pickDesignNode(raycaster);
+    const node=snapped&&bridgeGrid(this.span_m).find(n=>n.id===snapped.id);
+    const point=node?world(node,this.span_m):intersection;
     this.previewPoint=point.clone();this.positionPreview(point);
   }
   positionPreview(point){
@@ -293,7 +309,11 @@ export class BridgeCompetitionExperience {
             .55*(1-Math.min(1,Math.abs(actual.stress_MPa||0)/max))).getHex();
         }
       }
-      const width=section.kind==='tie'?.009:.016+Math.sqrt(section.A_m2)*.40;
+      // Draw a physical-equivalent circular area in the normalized 1.2 m
+      // span. The displayed diameter scales with the physical span, while
+      // a modest upper clamp avoids visually massive teaching rods.
+      const width=clamp(Math.sqrt(section.A_m2/Math.PI)*BASE/span,
+        section.kind==='tie'?.002:.003,.015);
       const beam=lineBetween(a,b,width,colour);
       beam.userData.bridgeMember=m.id;
       this.root.add(beam);
@@ -302,7 +322,7 @@ export class BridgeCompetitionExperience {
           new THREE.Vector3(0,-.07,.07)),{scale:.14});
         if(label)this.root.add(label);
       }
-      const hit=lineBetween(a,b,Math.max(.036,width*1.7),colour);
+      const hit=lineBetween(a,b,Math.max(.012,width*1.6),colour);
       hit.userData.bridgeMember=m.id;
       hit.material.transparent=true;hit.material.opacity=.015;
       hit.material.depthWrite=false;hit.material.depthTest=false;
@@ -343,7 +363,7 @@ export class BridgeCompetitionExperience {
         new THREE.MeshStandardMaterial({color:chosen?0xf1cf82:0xe1edf0}));
       visual.position.copy(p);this.root.add(visual);
       if(this.breakAnimation)this.breakAnimation.nodeMarkers.push({id:node.id,object:visual});
-      const picker=new THREE.Mesh(new THREE.SphereGeometry(.025,12,8),
+      const picker=new THREE.Mesh(new THREE.SphereGeometry(.017,12,8),
         new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,
           opacity:.01,depthTest:false,depthWrite:false}));
       picker.position.copy(p);picker.userData.bridgeNode=node.id;
@@ -353,7 +373,9 @@ export class BridgeCompetitionExperience {
     // the pointer until a second grid node is selected.
     if(this.addMode&&this.startNode){
       this.previewMesh=new THREE.Mesh(
-        new THREE.CylinderGeometry(.011,.011,1,8),
+        new THREE.CylinderGeometry(clamp(Math.sqrt(BRIDGE_SECTIONS[this.sectionId].A_m2/Math.PI)*BASE/span,
+          .002,.015),clamp(Math.sqrt(BRIDGE_SECTIONS[this.sectionId].A_m2/Math.PI)*BASE/span,
+          .002,.015),1,8),
         new THREE.MeshBasicMaterial({color:0xf4db90,transparent:true,opacity:.7,
           depthTest:false,depthWrite:false}));
       this.previewMesh.renderOrder=12000;
