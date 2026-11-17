@@ -97,6 +97,7 @@ export class StructuralScene {
         else this.xrControls.update(time,frame);
       }else this.controls.update();
       this.sapVisuals?.updateModalAnimation(time);
+      this.bridgeCompetition?.animate(time);
       this.renderer.render(this.scene,this.camera);
     });
     this.resize();
@@ -427,6 +428,14 @@ export class StructuralScene {
     if(this.isXR||!this.pickStart||Math.hypot(this.pickStart.x-evt.clientX,this.pickStart.y-evt.clientY)>4)return;
     const r=this.renderer.domElement.getBoundingClientRect();this.mouse.set((evt.clientX-r.left)/r.width*2-1,-(evt.clientY-r.top)/r.height*2+1);
     this.pickRaycaster.setFromCamera(this.mouse,this.camera);
+    if(this.bridgeCompetition?.active){
+      const hit=this.bridgeCompetition.pick(this.pickRaycaster);
+      if(hit?.kind==='node'){
+        try{this.bridgeCompetition.chooseNode(hit.id);}
+        catch(error){this.onXRMessage?.(error.message);}
+      }else if(hit?.kind==='member')this.bridgeCompetition.chooseMember(hit.id);
+      return;
+    }
     if(this.trussExperience?.active){
       const selected=this.trussExperience.pick(this.pickRaycaster);
       if(selected?.kind==='node')this.trussExperience.selectNode(selected.id);
