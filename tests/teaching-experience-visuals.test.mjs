@@ -264,6 +264,9 @@ test('bridge editor merges two aligned segments and selects the resulting bar',(
   assert.equal(bridge.members[0].i,'B0');
   assert.equal(bridge.members[0].j,'B2');
   bridge.addMember('B1','T1','bar_m');
+  assert.equal(bridge.members.length,2,
+    'The unfinished leaf must not split the continuous load-bearing bar');
+  bridge.addMember('T1','B2','bar_m');
   assert.equal(bridge.members.filter(m=>m.i==='B1'||m.j==='B1').length,3);
   bridge.deactivate();
 });
