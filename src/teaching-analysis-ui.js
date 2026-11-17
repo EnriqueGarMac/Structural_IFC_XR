@@ -113,7 +113,7 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     else{
       current.result=result;
       if(current.lastMode!==experience.mode){
-        if(current.view!=='reactions')current.view=viewForMode[experience.mode]??'forces';
+        current.view=viewForMode[experience.mode]??'forces';
         current.lastMode=experience.mode;
       }
     }
@@ -124,6 +124,7 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     if(!teachingViews[current.kind].some(([id])=>id===value))return false;
     current.view=value;
     const target=modeForView[value];
+    current.lastMode=target;
     if(target!==current.experience.mode)current.experience.setMode(target);
     else refresh();
     return true;
