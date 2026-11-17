@@ -157,9 +157,15 @@ export class BridgeCompetitionExperience {
         this.result.totalMass_kg:Math.min(this.bestEligibleMass_kg,this.result.totalMass_kg);
     // Serviceability alone never triggers a collapse animation.
     // Follow the ordered failure sequence reported by the member-removal solver.
+    const failureStages=(this.result.stages??[])
+      .filter(stage=>stage.nextFailures?.length);
+    const failureTimes={};
+    for(const [index,stage] of failureStages.entries())
+      for(const member of stage.nextFailures)
+        failureTimes[member.id]=.48+index*1.05;
     this.breakAnimation=['collapse','failure'].includes(this.result.status)?
       {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[],
-        stageDisplayed:0}:null;
+        failureStages,failureTimes,stageDisplayed:0}:null;
     this.draw();
     return this.result;
   }
@@ -528,23 +534,24 @@ export class BridgeCompetitionExperience {
     if(elapsed>.38){
       // Remove failed members exactly when their fracture becomes visible.
       // The remaining constraints then redistribute motion between nodes.
-      state.sequence.forEach((id,i)=>{
-        if(elapsed<FRACTURE_START+i*FRACTURE_INTERVAL||
-            physics.broken.has(id))return;
-        physics.broken.add(id);
-        physics.edges=physics.edges.filter(edge=>edge.id!==id);
-        // Every removal corresponds to an already solved redistribution
-        // state. In that state the next critical member can be overloaded.
-        const stage=this.result?.stages?.[i+1];
-        if(stage&&state.stageDisplayed!==i+1){
-          state.stageDisplayed=i+1;
+      state.failureStages.forEach((failureStage,i)=>{
+        const at=FRACTURE_START+i*FRACTURE_INTERVAL;
+        if(elapsed<at||state.stageDisplayed>i)return;
+        // One event may contain several identical critical utilization
+        // ratios; remove these members in the same simulated instant.
+        for(const failure of failureStage.nextFailures)
+          physics.broken.add(failure.id);
+        physics.edges=physics.edges.filter(edge=>!physics.broken.has(edge.id));
+        const stage=this.result?.stages?.[failureStage.step+1];
+        state.stageDisplayed=i+1;
+        if(stage){
           const byId=new Map((stage.members??[]).map(m=>[m.id,m]));
+          const nextIds=new Set(stage.nextFailures?.map(f=>f.id)??[]);
           for(const part of state.dropped){
             if(physics.broken.has(part.id))continue;
             const member=byId.get(part.id);
             if(!member)continue;
-            const isNext=stage.nextFailure?.id===part.id;
-            part.object.material.color.setHex(isNext?0xf2b24c:
+            part.object.material.color.setHex(nextIds.has(part.id)?0xf2b24c:
               forceSignColour(member.axial_kN,this.palette));
           }
           this.onFailureProgress?.(stage);
@@ -560,7 +567,8 @@ export class BridgeCompetitionExperience {
     for(const part of state.dropped){
       const first=state.sequence.indexOf(part.id);
       if(first>=0){
-        const start=FRACTURE_START+first*FRACTURE_INTERVAL;
+        const start=state.failureTimes[part.id]??
+          (FRACTURE_START+first*FRACTURE_INTERVAL);
         const t=Math.max(0,elapsed-start);
         // Material yielding receives an amber warning before schematic
         // fracture. This exercise does not model buckling or claim that
