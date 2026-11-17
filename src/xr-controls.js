@@ -879,6 +879,12 @@ export class StructuralXRControls {
     this.locatePanel();
     this.updateHitTesting(frame);
     this.updateBridgeScan(frame);
+    // Update the bridge's collision plane from actual detected floor
+    // surfaces on every Quest AR frame, not only during initial table scan.
+    if(this.app.xrMode==='ar'&&this.app.bridgeCompetition?.active&&frame){
+      const ref=this.app.renderer.xr.getReferenceSpace();
+      this.app.bridgeCompetition.observeFloor(frame,ref);
+    }
     if(this.drag){
       const d=this.drag;
       if(d.kind==='amp-slider'){
