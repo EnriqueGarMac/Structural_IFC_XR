@@ -359,15 +359,33 @@ export function calculateBridgeIncrementally({
   };
   for(let event=0;event<Math.max(1,maxEvents);event++){
     const atCurrent=evaluate(applied);
+    if(atCurrent.stages?.[0]?.status==='mechanism'){
+      // The very same load that caused the preceding fracture no longer
+      // admits equilibrium: collapse begins NOW, not at the target load.
+      const stage=nextStage(atCurrent,applied);
+      if(stage)stages.push(stage);
+      latest=atCurrent;
+      mechanism=true;
+      reason=atCurrent.reason;
+      break;
+    }
     const target=applied<load_kN-1e-8?evaluate(load_kN):atCurrent;
     if(target.stages?.[0]?.status==='mechanism'){
-      // No valid static configuration even at the current load. If target
-      // alone is singular, do not fabricate any intermediate overloads.
-      const stage=nextStage(target,load_kN);
+      // If a change of cable activity produces a singularity at a higher
+      // load, identify the onset instead of attributing it to 35 kN.
+      let low=applied,high=load_kN;
+      for(let k=0;k<17;k++){
+        const mid=(low+high)*.5,state=evaluate(mid);
+        if(state.stages?.[0]?.status==='mechanism')high=mid;
+        else low=mid;
+      }
+      const terminal=evaluate(high);
+      const stage=nextStage(terminal,high);
       if(stage)stages.push(stage);
-      latest=target;
+      latest=terminal;
+      applied=high;
       mechanism=true;
-      reason=target.reason;
+      reason=terminal.reason;
       break;
     }
     let critical=load_kN;
