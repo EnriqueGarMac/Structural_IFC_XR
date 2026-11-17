@@ -4,13 +4,13 @@ import {solveTruss2D} from './truss-solver.mjs';
 // Units kN / m / MPa. Values are illustrative design parameters, not code
 // verification nor an engineering certification of real bridge safety.
 export const BRIDGE_SECTIONS={
-  // Reduced educational sizes: 120 / 550 / 80 mm². Moderate strengths
-  // permit both valid lightweight designs and visible tensile yielding.
-  // I represents representative tube/section stiffness, independent of
-  // the area-equivalent rendering diameter.
-  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.00012,I_m4:6e-9,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
+  // Educational sizes: 75 / 550 / 50 mm². The light bar reaches
+  // axial yield at substantially smaller loads than the reinforced one.
+  // Keep a representative section inertia for the optional simplified
+  // bending check, scaled consistently with the smaller area.
+  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.000075,I_m4:2.34375e-9,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
   bar_l:{label:'Barra · reforzada',kind:'bar',A_m2:.00055,I_m4:1.5e-7,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
-  tie_m:{label:'Tirante · solo tracción',kind:'tie',A_m2:.00008,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
+  tie_m:{label:'Tirante · solo tracción',kind:'tie',A_m2:.00005,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
 };
 export const BRIDGE_DEFAULTS={span_m:1.2,centralLoad_kN:3,
   deflectionLimit:250,maxIterations:16};
