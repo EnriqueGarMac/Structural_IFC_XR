@@ -333,9 +333,20 @@ export class StructuralXRControls {
       txt('CAMBIAR MODELO',38,846,18,'#afcdd7');
       btn('demo-frame','EDIFICIO · 3 PLANTAS',38,867,335,60);
       btn('demo-roof','NAVE INDUSTRIAL',395,867,335,60);
-      btn('truss-open','CELOSÍAS',38,941,335,61,true);
-      btn('bridge-open','CONCURSO · PASARELA',395,941,335,61,true);
+      btn('teaching-menu','RECURSOS DOCENTES · ELEGIR EXPERIENCIA',38,941,692,61,true);
       btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,1016,692,65);
+    }else if(this.page==='teaching'){
+      btn('back','‹ Volver',38,117,230,66);
+      txt('RECURSOS DOCENTES',38,236,31,'#e4f8ff');
+      txt('ELIGE UNA EXPERIENCIA',38,311,20,'#b6dbe2');
+      btn('truss-open','01 · CÁLCULO DE CELOSÍAS',38,365,692,123,true);
+      txt('Aplica cargas nodales y consulta los resultados matriciales.',
+        38,528,20,'#a8d4d9');
+      btn('bridge-open','02 · CONCURSO DE PASARELAS',38,624,692,123,true);
+      txt('Diseña una estructura ligera que salve el hueco entre mesas.',
+        38,781,20,'#a8d4d9');
+      txt('Ambas experiencias funcionan con los mandos.',
+        38,957,19,'#b0d5d8');
     }else if(this.page==='bridge'){
       const bridge=app.bridgeCompetition;
       btn('back','‹ Volver',38,117,230,66);
@@ -532,8 +543,11 @@ export class StructuralXRControls {
   }
   command(id){
     const app=this.app;
-    if(id==='back'){this.page='main';}
+    if(id==='back'){
+      this.page=['bridge','truss'].includes(this.page)?'teaching':'main';
+    }
     else if(['results','layers','placement'].includes(id))this.page=id;
+    else if(id==='teaching-menu')this.page='teaching';
     else if(id==='exit'){this.session?.end();return;}
     else if(id==='bridge-open'){
       document.getElementById('bridge-start')?.click();
