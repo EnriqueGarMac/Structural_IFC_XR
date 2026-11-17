@@ -53,7 +53,7 @@ test('mouse design rays snap to grid endpoints and ghost bar follows pointer',()
     );
   };
   assert.equal(exercise.pickDesignNode(pointerAt(.6,0))?.id,'B2');
-  assert.equal(exercise.pickDesignNode(pointerAt(.6,.07)),null,
+  assert.equal(exercise.pickDesignNode(pointerAt(.6,.042)),null,
     'No snapping at arbitrary points between grid nodes');
   exercise.chooseNode('B0');
   exercise.updatePreviewRay(pointerAt(.22,.14));
