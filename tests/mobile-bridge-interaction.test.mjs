@@ -62,7 +62,7 @@ test('Android AR touch toolbar edits same structural model and calls same calcul
   class FakeElement {
     constructor(id){this.id=id;this.hidden=false;this.disabled=false;
       this.textContent='';this.value='';this.listeners=new Map();this.attrs={};
-      this.options=[];}
+      this.options=[];this.classList={toggle(){}};}
     addEventListener(name,listener){this.listeners.set(name,listener);}
     setAttribute(name,value){this.attrs[name]=value;}
     add(option){this.options.push(option);}
