@@ -46,6 +46,9 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     $('bridge-load').value=String(challenge.load_kN);
     $('bridge-section').value=challenge.sectionId;
     if(challenge.startNode)from.value=challenge.startNode;
+    $('bridge-add').textContent=challenge.addMode?
+      (challenge.startNode?'Selecciona el segundo nodo…':'Selecciona el primer nodo…'):
+      'Añadir elemento a la retícula';
     if(challenge.selectedNode&&challenge.startNode!==challenge.selectedNode)
       to.value=challenge.selectedNode;
     const masses=challenge.members.reduce((sum,m)=>{
@@ -178,8 +181,9 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
   });
   section.addEventListener('change',event=>challenge.setSection(event.target.value));
   $('bridge-add').addEventListener('click',()=>{
-    try{challenge.addMember(from.value,to.value,section.value);}
-    catch(e){$('bridge-feedback').textContent='No se pudo añadir: '+e.message;}
+    challenge.beginAdd();
+    $('bridge-feedback').textContent=
+      'Selecciona el primer nodo con el ratón o mando. La barra seguirá al puntero hasta seleccionar el segundo.';
   });
   $('bridge-remove').addEventListener('click',()=>{
     if(challenge.selectedMemberId)challenge.removeMember(challenge.selectedMemberId);
@@ -193,6 +197,9 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
   });
   $('bridge-example').addEventListener('click',()=>challenge.sample());
   $('bridge-clear').addEventListener('click',()=>challenge.reset());
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&challenge.active&&challenge.addMode)challenge.cancelAdd();
+  });
   $('bridge-evaluate').addEventListener('click',()=>challenge.evaluate());
   $('bridge-export').addEventListener('click',()=>downloadBridge(challenge));
   $('bridge-detect').addEventListener('click',()=>{
