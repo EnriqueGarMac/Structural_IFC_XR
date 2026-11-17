@@ -4,11 +4,9 @@ import {solveTruss2D} from './truss-solver.mjs';
 // Units kN / m / MPa. Values are illustrative design parameters, not code
 // verification nor an engineering certification of real bridge safety.
 export const BRIDGE_SECTIONS={
-  bar_s:{label:'Barra · ligera',kind:'bar',A_m2:.00030,I_m4:1.2e-8,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
-  bar_m:{label:'Barra · media',kind:'bar',A_m2:.00080,I_m4:8.2e-8,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
-  bar_l:{label:'Barra · robusta',kind:'bar',A_m2:.0018,I_m4:3.9e-7,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
-  tie_s:{label:'Tirante · fino',kind:'tie',A_m2:.00009,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850},
-  tie_m:{label:'Tirante · medio',kind:'tie',A_m2:.00022,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
+  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.00080,I_m4:8.2e-8,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
+  bar_l:{label:'Barra · reforzada',kind:'bar',A_m2:.0018,I_m4:3.9e-7,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
+  tie_m:{label:'Tirante · solo tracción',kind:'tie',A_m2:.00022,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
 };
 export const BRIDGE_DEFAULTS={span_m:1.2,centralLoad_kN:3,
   deflectionLimit:250,maxIterations:16};
@@ -37,9 +35,9 @@ export function addBridgeMember(members,nodes,i,j,sectionId){
 export function bridgeSampleMembers(){
   const edges=[
     ['B0','B1','bar_m'],['B1','B2','bar_m'],['B2','B3','bar_m'],['B3','B4','bar_m'],
-    ['T1','T2','bar_s'],['T2','T3','bar_s'],
-    ['B0','T1','bar_m'],['T1','B1','bar_s'],['B1','T2','bar_s'],
-    ['T2','B2','bar_s'],['B2','T3','bar_s'],['T3','B3','bar_s'],
+    ['T1','T2','bar_m'],['T2','T3','bar_m'],
+    ['B0','T1','bar_m'],['T1','B1','bar_m'],['B1','T2','bar_m'],
+    ['T2','B2','bar_m'],['B2','T3','bar_m'],['T3','B3','bar_m'],
     ['T3','B4','bar_m']
   ];
   return edges.map(([i,j,sectionId],k)=>({id:'M'+(k+1),i,j,sectionId}));
@@ -66,11 +64,21 @@ function analysis(nodes,members,load_kN,active){
     nodal.get(m.i).fz_kN-=dead/2;
     nodal.get(m.j).fz_kN-=dead/2;
   }
-  const model={nodes,bars:all.filter(m=>active.has(m.id)).map(m=>({
+  // Remove disconnected, unloaded free nodes from the stiffness system.
+  // They otherwise create artificial zero rows when cables go slack, even
+  // though they have no mechanical influence on the remaining structure.
+  const connected=new Set(all.filter(m=>active.has(m.id)).flatMap(m=>[m.i,m.j]));
+  const keptNodes=nodes.filter(n=>connected.has(n.id));
+  if(nodes.some(n=>!connected.has(n.id)&&
+    (Math.abs(nodal.get(n.id).fx_kN)+Math.abs(nodal.get(n.id).fz_kN)>1e-9)))
+    throw Error('Carga aplicada a un nodo desconectado.');
+  if(!keptNodes.some(n=>n.fixX||n.fixZ))
+    throw Error('No hay camino hasta los apoyos.');
+  const model={nodes:keptNodes,bars:all.filter(m=>active.has(m.id)).map(m=>({
     id:m.id,i:m.i,j:m.j,E_kN_m2:m.E_kN_m2,A_m2:m.A_m2
   }))};
   if(!model.bars.length)throw Error('Sin barras que transmitan cargas a los apoyos.');
-  return solveTruss2D(model,[...nodal.values()]);
+  return solveTruss2D(model,[...nodal.values()].filter(n=>connected.has(n.nodeId)));
 }
 function extension(nodes,displacements,m){
   const byNode=new Map(nodes.map(n=>[n.id,n]));
@@ -78,6 +86,7 @@ function extension(nodes,displacements,m){
   const a=byNode.get(m.i),b=byNode.get(m.j);
   const dx=(b.x-a.x)/m.L,dz=(b.z-a.z)/m.L;
   const ua=byU.get(m.i),ub=byU.get(m.j);
+  if(!ua||!ub)return 0;
   return (ub.ux_m-ua.ux_m)*dx+(ub.uz_m-ua.uz_m)*dz;
 }
 function membersWithCapacities(all,raw,active,nodes){
@@ -168,7 +177,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
   if(!memberResults)memberResults=membersWithCapacities(all,raw,active,nodes);
   const reference=original??{...raw,members:memberResults};
   const mid=reference.displacements.find(d=>d.nodeId==='B2');
-  const maxDeflection_mm=Math.max(...reference.displacements.map(d=>Math.abs(d.uz_m)))*1000;
+  const maxDeflection_mm=Math.max(0,...reference.displacements.map(d=>Math.abs(d.uz_m)))*1000;
   const maxUtilization=Math.max(0,...reference.members.map(m=>m.utilization));
   const serviceLimit_mm=span_m*1000/BRIDGE_DEFAULTS.deflectionLimit;
   if(status==='stable'&&maxDeflection_mm>serviceLimit_mm){
