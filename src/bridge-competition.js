@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {planeFromDetection} from './ar-placement.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge} from './bridge-competition-solver.mjs';
 
@@ -56,6 +57,7 @@ export class BridgeCompetitionExperience {
     this.onChange=null;
     this.breakAnimation=null;
     this.detectedGap=null;
+    this.collisionFloorZ=null;
     this.bestEligibleMass_kg=null;
     this.defaultWorldQuaternion=new THREE.Quaternion().setFromEuler(
       new THREE.Euler(-Math.PI/2,0,0));
@@ -75,6 +77,7 @@ export class BridgeCompetitionExperience {
     const span=Number(value);
     if(!Number.isFinite(span)||span<.3||span>3)throw Error('Vano entre 0,30 y 3,00 m.');
     this.span_m=span;this.bestEligibleMass_kg=null;this.result=null;this.breakAnimation=null;
+    this.collisionFloorZ=null;
     if(this.app?.maxSize){
       this.app.targetMeters=span;this.app.updateScale();
     }
@@ -270,6 +273,21 @@ export class BridgeCompetitionExperience {
     this.app.xrControls && (this.app.xrControls.dirty=true);
     this.onChange?.(this.result);
   }
+  observeFloor(frame,referenceSpace){
+    if(!this.active||!this.breakAnimation||!this.detectedGap||
+      !frame?.detectedPlanes||!referenceSpace)return;
+    const tableY=this.detectedGap.start.y;
+    let nearest=null;
+    for(const plane of frame.detectedPlanes){
+      let candidate;
+      try{candidate=planeFromDetection(plane,frame,referenceSpace);}catch{continue;}
+      if(!candidate||candidate.top>=tableY-.25||candidate.top<tableY-2.5)continue;
+      const label=candidate.label.toLowerCase();
+      if(label&&label!=='floor'&&label!=='unknown')continue;
+      if(!nearest||candidate.top>nearest.top)nearest=candidate;
+    }
+    if(nearest)this.collisionFloorZ=(nearest.top-tableY)*BASE/this.span_m;
+  }
   animate(timeMs){
     if(!this.active||!this.breakAnimation)return;
     const state=this.breakAnimation;
@@ -278,7 +296,7 @@ export class BridgeCompetitionExperience {
     // A simple kinematic illustration, not physical fracture dynamics:
     // the failed member moves first; members that lose support follow.
     // Approximate tabletop height above the floor in the local Z frame.
-    const floorZ=-.75*BASE/this.span_m;
+    const floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
     const gravity=1.7; // scene-units/s²
     for(const item of state.dropped){
       const {object,origin,baseRotation,index,length,radius}=item;
