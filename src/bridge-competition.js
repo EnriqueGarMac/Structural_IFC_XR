@@ -317,6 +317,33 @@ export class BridgeCompetitionExperience {
       const beam=lineBetween(a,b,width,colour);
       beam.userData.bridgeMember=m.id;
       this.root.add(beam);
+      // A load in the interior of a continuous bar causes bending.
+      // Draw the simply-supported elastic curve with the same display
+      // amplification, instead of moving the load-point marker away from
+      // an apparently straight (but bending) bar.
+      const bending=this.result?.bending;
+      if(bending?.memberId===m.id&&section.I_m4>0){
+        const L=bending.length_m,at=L*bending.t,other=L-at;
+        const E=section.E_kN_m2,I=section.I_m4,P=bending.load_kN;
+        const points=[];
+        for(let k=0;k<=14;k++){
+          const fraction=k/14,x=fraction*L;
+          const deflection=x<=at?
+            P*other*x*(L*L-other*other-x*x)/(6*L*E*I):
+            P*at*(L-x)*(L*L-at*at-(L-x)*(L-x))/(6*L*E*I);
+          const point=a.clone().lerp(b,fraction);
+          point.z-=deflection*amp*BASE/span;
+          points.push(point);
+        }
+        beam.visible=false;
+        beam.userData.curvedPieces=[];
+        for(let k=0;k<points.length-1;k++){
+          const segment=lineBetween(points[k],points[k+1],width,colour);
+          segment.userData.bridgeMember=m.id;
+          this.root.add(segment);
+          beam.userData.curvedPieces.push(segment);
+        }
+      }
       if(this.showAxialLabels&&actual){
         const label=makeAxialLabel(actual.axial_kN,beam.position.clone().add(
           new THREE.Vector3(0,-.07,.07)),{scale:.14});
@@ -448,7 +475,9 @@ export class BridgeCompetitionExperience {
       if(first>=0){
         const start=.38+first*.22;
         const t=Math.max(0,elapsed-start);
-        part.object.visible=t<=0;
+        part.object.visible=t<=0&&!part.object.userData.curvedPieces;
+        for(const segment of part.object.userData.curvedPieces??[])
+          segment.visible=t<=0;
         if(part.fragments)for(const fragment of part.fragments){
           fragment.object.visible=t>0;
           if(t<=0)continue;
