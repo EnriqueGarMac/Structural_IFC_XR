@@ -54,6 +54,8 @@
           <p id="teaching-analysis-context" class="field-help">Resultados de la experiencia docente activa.</p>
           <label for="teaching-analysis-mode">Magnitud representada</label>
           <select id="teaching-analysis-mode"></select>
+          <div class="range-control"><div class="range-head"><label for="teaching-amp">Amplificación visual de la deformada</label><output id="teaching-amp-value">×1,0</output></div><input type="range" id="teaching-amp" min="0" max="10" step=".1" value="1"></div>
+          <label class="checkrow"><input type="checkbox" id="teaching-axial-labels"><span>Mostrar valores axiles sobre las barras (kN)</span></label>
           <div id="teaching-analysis-legend" class="bridge-results-legend"></div>
           <div id="teaching-analysis-summary" class="truss-summary"></div>
           <div id="teaching-analysis-tables" class="truss-table-scroll"></div>
@@ -193,6 +195,7 @@
               <option value="displacement">Desplazamientos de nodos |u| (mm)</option>
             </select>
             <div class="truss-colour-guide"><span><i class="truss-colour-tension"></i> Tracción (+)</span><span><i class="truss-colour-compression"></i> Compresión (−)</span></div>
+            <div class="truss-member-editor"><strong>Sección de la barra seleccionada</strong><p id="truss-selected-member">Señala una barra con el ratón o el mando.</p><label for="truss-member-area">Área A (mm²)</label><input type="number" id="truss-member-area" min="1" max="100000" step="100" value="6000"><button type="button" id="truss-member-apply" class="secondary-btn">Aplicar área a esta barra</button></div>
             <div id="truss-summary" class="truss-summary" aria-live="polite"></div>
             <div class="truss-subheading">Reacciones en apoyos</div>
             <div id="truss-reactions" class="truss-data"></div>
