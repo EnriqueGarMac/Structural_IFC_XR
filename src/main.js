@@ -636,7 +636,12 @@ $('mobile-ar-place').addEventListener('click',()=>{
   if(app.mobileARState)app.mobileARState.placeRequested=true;
 });
 $('mobile-ar-redetect').addEventListener('click',()=>app.resetMobilePlacement());
-$('mobile-ar-bridge-scan').addEventListener('click',()=>app.startMobileBridgeScan());
+$('mobile-ar-bridge-scan').addEventListener('click',()=>{
+  const state=app.mobileARState;
+  if(state?.bridgeGuide)app.captureMobileBridgePoint();
+  else if(state?.bridgeScan)app.startMobileBridgeScan({guided:true});
+  else app.startMobileBridgeScan();
+});
 function adjustMobileSize(delta){
   app.targetMeters=Math.max(.12,Math.min(5,Math.round((app.targetMeters+delta)*100)/100));
   $('model-size').value=String(app.targetMeters);
