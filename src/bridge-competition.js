@@ -112,6 +112,7 @@ export class BridgeCompetitionExperience {
   reset(){
     this.members=[];this.result=null;this.breakAnimation=null;
     this.startNode=null;this.selectedMemberId=null;this.detectedGap=null;
+    this.collisionFloorZ=null;
     this.draw();
   }
   sample(){
