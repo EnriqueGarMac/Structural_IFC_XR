@@ -1,3 +1,21 @@
+## Colapso docente: fragmentos apoyados y secciones ligeras
+
+En el concurso, las barras que fallan se dividen en fragmentos con
+traslación y giro durante la caída. El contacto usa el volumen completo
+del cilindro. Después de perder energía, cada fragmento alcanza una
+**posición horizontal de reposo**, con su parte inferior exactamente
+sobre el plano de suelo estimado o detectado en Quest. La posición de
+reposo se actualiza si cambia la altura del suelo detectado.
+Se trata de una representación educativa, no de un cálculo de impacto.
+
+La sección ligera es ahora de **75 mm²** (antes 120 mm²) y los tirantes
+de **50 mm²** (antes 80 mm²). La sección reforzada sigue siendo de
+**550 mm²**. El ejemplo de referencia resiste 3 kN, pero con la nueva
+sección ligera pueden producirse fallos por límite elástico a cargas
+más moderadas (por ejemplo, 20 kN en la configuración de referencia).
+
+---
+
 ## Diseño interactivo de pasarelas: retícula densa y barras provisionales
 
 El **Concurso de pasarelas** dispone ahora de una retícula de **45 nodos**
@@ -116,8 +134,10 @@ los valores físicos.
 puntos (9 columnas × 5 alturas), sobre la que se dibujan elementos
 seleccionando dos nudos con el ratón o los mandos de Quest. Las barras
 resisten tracción y compresión. Los tirantes trabajan **solo a tracción**.
-Los elementos tienen áreas de **120 mm²** (barra ligera), **550 mm²**
-(barra reforzada) y **80 mm²** (tirante). Los dos apoyos extremos tienen
+Los elementos tienen áreas de **75 mm²** (barra ligera), **550 mm²**
+(barra reforzada) y **50 mm²** (tirante). La barra ligera se ha
+reducido para ilustrar el agotamiento por límite elástico con cargas
+moderadas, manteniendo opciones reforzadas para diseños resistentes. Los dos apoyos extremos tienen
 impedidos los desplazamientos horizontal y vertical, manteniendo uniones
 articuladas (sin momento de empotramiento).
 El alumno define el vano (0,30–3,00 m) y la carga central (0–50 kN).
