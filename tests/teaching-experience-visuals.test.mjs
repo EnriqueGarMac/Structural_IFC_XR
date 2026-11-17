@@ -40,6 +40,51 @@ test('Warren truss renderer creates selectable geometry and recalculates real lo
   assert.equal(experience.root.visible,false);
   assert.equal(experience.root.children.length,0);
 });
+test('mouse design rays snap to grid endpoints and ghost bar follows pointer',()=>{
+  const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
+  exercise.activate();
+  exercise.beginAdd();
+  const pointerAt=(x,z)=>{
+    exercise.root.updateWorldMatrix(true,false);
+    const root=exercise.root.matrixWorld;
+    return new THREE.Raycaster(
+      new THREE.Vector3(x,1,z).applyMatrix4(root),
+      new THREE.Vector3(0,-1,0).transformDirection(root)
+    );
+  };
+  assert.equal(exercise.pickDesignNode(pointerAt(.6,0))?.id,'B2');
+  assert.equal(exercise.pickDesignNode(pointerAt(.6,.07)),null,
+    'No snapping at arbitrary points between grid nodes');
+  exercise.chooseNode('B0');
+  exercise.updatePreviewRay(pointerAt(.22,.14));
+  assert.ok(exercise.previewMesh?.visible);
+  assert.ok(Math.abs(exercise.previewPoint.x-.22)<1e-6);
+  assert.ok(Math.abs(exercise.previewPoint.z-.14)<1e-6);
+  exercise.updatePreviewRay(pointerAt(.3,.336));
+  assert.equal(exercise.pickDesignNode(pointerAt(.3,.336))?.id,'T1');
+  exercise.chooseNode('T1');
+  assert.equal(exercise.members.length,1);
+  assert.equal(exercise.addMode,false);
+  exercise.deactivate();
+});
+test('bridge visual tube diameter scales with physical section and span',()=>{
+  const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
+  exercise.activate();exercise.sample();
+  const diameter=()=>{
+    const member=exercise.root.children.find(x=>x.userData.bridgeMember==='M1'&&
+      x.geometry?.type==='CylinderGeometry'&&
+      x.material?.opacity!==.015);
+    assert.ok(member,'Rendered member exists');
+    return member.geometry.parameters.radiusTop*2;
+  };
+  const diameter12=diameter();
+  assert.ok(diameter12<.023,'Light bar must not look oversized at 1.2 m');
+  exercise.setSpan(2.4);
+  const diameter24=diameter();
+  assert.ok(Math.abs(diameter12/diameter24-2)<1e-6,
+    'Same steel area shown across twice the span must appear half as thick');
+  exercise.deactivate();
+});
 test('bridge renderer allows a lightweight design, editing and animated failure',()=>{
   const app=makeApp();
   assert.equal(bridgeReferenceGeometry().length,2);
