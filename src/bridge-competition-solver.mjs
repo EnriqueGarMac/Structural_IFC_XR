@@ -226,7 +226,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
   const nodes=bridgeGrid(span_m),all=physical(nodes,members);
   const totalMass_kg=all.reduce((s,m)=>s+m.mass_kg,0);
   const active=new Set(members.map(m=>m.id));
-  const failures=[],slackIds=new Set(),visited=new Set();
+  const failures=[],slackIds=new Set(),visited=new Set(),stages=[];
   let original=null,raw=null,memberResults=null;
   let status='stable',reason='Estructura resistente';
   for(let iteration=0;iteration<BRIDGE_DEFAULTS.maxIterations;iteration++){
@@ -241,6 +241,11 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
           ' se pierde el camino resistente de la estructura.'):
         (error.message.startsWith('La carga central')?error.message:
           'Mecanismo inestable o sin camino resistente entre los apoyos.');
+      // No invertible stiffness system exists after the listed removals.
+      // Record the terminal mechanism rather than fabricating further
+      // member forces or claiming additional fractures.
+      stages.push({step:stages.length,removed:failures.map(f=>f.id),
+        status:'mechanism',reason,members:[],reactions:[],displacements:[]});
       if(!original)original=null;
       break;
     }
@@ -277,8 +282,20 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     }
     memberResults=current;
     if(!original)original={...raw,members:current};
-    const critical=current.filter(m=>m.utilization>1+1e-7)
+    const critical=current.filter(m=>active.has(m.id)&&m.utilization>1+1e-7)
       .sort((a,b)=>b.utilization-a.utilization)[0];
+    // Each stable equilibrium state is a distinct recalculation following
+    // member loss. The next fracture is selected from the UPDATED forces.
+    stages.push({step:stages.length,removed:failures.map(f=>f.id),
+      status:critical?'overloaded':'equilibrium',
+      members:current.map(m=>({id:m.id,axial_kN:m.axial_kN,
+        utilization:m.utilization,active:active.has(m.id),
+        pending:m.pending,slack:m.slack})),
+      reactions:raw.reactions.map(r=>({...r})),
+      displacements:raw.displacements.map(d=>({...d})),
+      maxUtilization:Math.max(0,...current.map(m=>m.utilization)),
+      nextFailure:critical?{id:critical.id,utilization:critical.utilization,
+        mode:critical.bendingUtilization>1?'bending':'yield'}:null});
     if(critical){
       status='failure';
       reason=critical.bendingUtilization>1?
@@ -294,8 +311,12 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
       continue;
     }
     if(failures.length){
-      status='collapse';
-      reason='Rotura progresiva de '+failures.length+' elemento(s).';
+      // A redundant structure can regain equilibrium after some members
+      // fail. It still fails the challenge, but is not falsely called a
+      // geometric collapse if its remaining members carry the load.
+      status='failure';
+      reason='Tras la pérdida de '+failures.length+
+        ' elemento(s), la estructura restante recupera el equilibrio.';
     }
     break;
   }
@@ -303,7 +324,8 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     return {status:'collapse',reason,span_m,load_kN,loads:[],
       nodes,members:all.map(m=>({...m,utilization:0,axial_kN:0,
         stress_MPa:0,strain:0,slack:false})),
-      broken:failures,slack:[...slackIds],pending:members.map(m=>m.id),totalMass_kg,
+      broken:failures,slack:[...slackIds],stages,
+      pending:members.map(m=>m.id),totalMass_kg,
       maxDeflection_mm:null,maxUtilization:null,reactions:[],displacements:[],
       equilibrium:null};
   }
@@ -340,7 +362,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
           bending.verticalAtLoad_mm/1000)
       }]:reference.displacements,
     reactions:reference.reactions,equilibrium:reference.equilibrium,
-    broken:failures,slack:[...slackIds],
+    broken:failures,slack:[...slackIds],stages,
     pending:reference.pendingMemberIds??[],
     postFailure:failures.length?{members:memberResults,displacements:raw.displacements}:null,
     meta:{solver:'2D axial stiffness, nonlinear active-set tension-only cables; simplified progressive member removal',
