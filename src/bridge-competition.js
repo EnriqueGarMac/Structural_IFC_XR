@@ -211,8 +211,7 @@ export class BridgeCompetitionExperience {
       const a=pose(byNode.get(m.i)),b=pose(byNode.get(m.j));
       const actual=results.get(m.id);
       const broken=this.result?.broken.some(v=>v.id===m.id);
-      let colour=broken?FAILED_COLOUR:
-        actual?.axial_kN>1e-7?0xd39d6c:
+      let colour=actual?.axial_kN>1e-7?0xd39d6c:
         actual?.axial_kN< -1e-7?0x6eaac6:
         section.kind==='tie'?TIE_COLOUR:STEEL_COLOUR;
       if(actual&&!broken){
@@ -243,12 +242,29 @@ export class BridgeCompetitionExperience {
       this.root.add(hit);this.pickers.push(hit);
       if(this.breakAnimation){
         const index=this.breakAnimation.sequence.indexOf(m.id);
+        let fragments=null;
+        if(index>=0){
+          // Two separate half-bars replace the intact member at fracture.
+          const mid=a.clone().add(b).multiplyScalar(.5);
+          fragments=[
+            lineBetween(a,mid,width,FAILED_COLOUR),
+            lineBetween(mid,b,width,FAILED_COLOUR)
+          ].map((piece,k)=>{
+            piece.visible=false;
+            this.root.add(piece);
+            return {object:piece,origin:piece.position.clone(),
+              baseRotation:piece.quaternion.clone(),
+              length:piece.geometry.parameters.height,radius:width,
+              index,fragment:k};
+          });
+        }
         this.breakAnimation.dropped.push({
           object:beam,origin:beam.position.clone(),
           baseRotation:beam.quaternion.clone(),
           length:a.distanceTo(b),radius:width,
           index:index>=0?index:this.breakAnimation.sequence.length+
-            this.members.findIndex(other=>other.id===m.id)
+            this.members.findIndex(other=>other.id===m.id),
+          fragments
         });
       }
     }
@@ -298,30 +314,34 @@ export class BridgeCompetitionExperience {
     // Approximate tabletop height above the floor in the local Z frame.
     const floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
     const gravity=1.7; // scene-units/s²
-    for(const item of state.dropped){
+    const move=(item,t,twist=1)=>{
       const {object,origin,baseRotation,index,length,radius}=item;
-      const start=.18+index*.24;
-      const t=Math.max(0,elapsed-start);
       object.position.copy(origin);
       object.quaternion.copy(baseRotation);
-      if(t<=0)continue;
-      // Rotate around the local vertical as the member separates.
-      object.rotateY(Math.min(t,1.6)*(index%2===0?.6:-.6));
-      const fall=.5*gravity*t*t;
-      object.position.z-=fall;
-      // Plane collision: clamp lowest tip of a rotated rod to the floor.
+      if(t<=0)return;
+      object.rotateY(Math.min(t,1.6)*(index%2===0?.6:-.6)*twist);
+      object.position.z-=.5*gravity*t*t;
       const axis=new THREE.Vector3(0,1,0).applyQuaternion(object.quaternion);
       const lowest=object.position.z-Math.abs(axis.z)*length*.5-radius;
       if(lowest<floorZ){
         object.position.z+=floorZ-lowest;
-        // Small damped bounce on impact, preserving the floor constraint.
-        const penetrationTime=Math.sqrt(Math.max(0,2*(origin.z-floorZ)/gravity));
-        const reboundTime=Math.max(0,t-penetrationTime);
-        if(reboundTime>0)object.position.z+=
-          Math.max(0,.035*Math.exp(-3*reboundTime)*Math.abs(Math.sin(12*reboundTime)));
+        const impactT=Math.sqrt(Math.max(0,2*(origin.z-floorZ)/gravity));
+        const rebound=Math.max(0,t-impactT);
+        if(rebound>0)object.position.z+=
+          .035*Math.exp(-3*rebound)*Math.abs(Math.sin(12*rebound));
       }
-      if(state.sequence.includes(this.members.find(m=>m.id===object.userData.bridgeMember)?.id))
-        object.material.color.setHex(FAILED_COLOUR);
+    };
+    for(const item of state.dropped){
+      const start=.18+item.index*.24;
+      const t=Math.max(0,elapsed-start);
+      if(item.fragments){
+        item.object.visible=t<=0;
+        for(const part of item.fragments){
+          part.object.visible=t>0;
+          if(t>0)move(part,t,part.fragment===0?1:-1);
+        }
+      }else move(item,t);
+
     }
   }
 }
