@@ -177,3 +177,5 @@ body.teaching-results-active #bridge-controls .truss-subheading{display:none!imp
 body.teaching-results-active #truss-display,
 body.teaching-results-active label[for="truss-display"],
 body.teaching-results-active #truss-controls .truss-colour-guide{display:none!important}
+
+body.teaching-results-active #legend{display:none!important}
