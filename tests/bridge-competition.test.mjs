@@ -4,8 +4,8 @@ import * as THREE from 'three';
 import {BRIDGE_DEFAULTS,BRIDGE_SECTIONS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge,calculateBridgeIncrementally,
   bridgeStageResult,bridgeLoadHistory} from '../src/bridge-competition-solver.mjs';
-import {bridgeGapBetween,detectBridgeTableGap,applyBridgeGapPlacement}
-  from '../src/bridge-table-detection.mjs';
+import {bridgeGapBetween,detectBridgeTableGap,applyBridgeGapPlacement,
+  bridgeGapFromHitPoints} from '../src/bridge-table-detection.mjs';
 const near=(a,b,tol=.000001)=>assert.ok(Math.abs(a-b)<=tol,a+' != '+b);
 test('bridge contest grid, materials and member edit validation',()=>{
   const nodes=bridgeGrid(1.2);
@@ -309,6 +309,44 @@ test('table-plane finder works only with two level facing surfaces of measured e
   assert.equal(bridgeGapBetween(a,{...b,bounds:new THREE.Box3(
     new THREE.Vector3(1.8,.74,3),new THREE.Vector3(2.8,.78,3.9))}),null);
   assert.equal(detectBridgeTableGap({detectedPlanes:new Set()},{}),null);
+});
+test('Android AR can measure two table edges with hit-tests when polygons are unavailable',()=>{
+  const first=new THREE.Vector3(.30,-.82,.40);
+  const second=new THREE.Vector3(1.23,-.79,.52);
+  const gap=bridgeGapFromHitPoints(first,second);
+  near(gap.span_m,Math.hypot(.93,.12));
+  near(gap.start.y,-.805);
+  near(gap.end.y,-.805);
+  near(gap.direction.length(),1);
+  assert.match(gap.source,/hit-test/);
+  assert.throws(()=>bridgeGapFromHitPoints(
+    first,new THREE.Vector3(1.2,-.45,.5)),/altura similar/);
+  assert.throws(()=>bridgeGapFromHitPoints(
+    first,new THREE.Vector3(.35,-.8,.4)),/entre/);
+  assert.throws(()=>bridgeGapFromHitPoints(
+    first,new THREE.Vector3(5,-.8,.4)),/entre/);
+});
+test('automatic mobile plane detection accepts a tabletop below the XR local origin',()=>{
+  const rectangles=[
+    {x:0,y:-.8,z:0},{x:1.5,y:-.8,z:0}
+  ].map(point=>({
+    semanticLabel:'table',planeSpace:{point},
+    polygon:[
+      {x:-.4,y:0,z:-.4},{x:.4,y:0,z:-.4},
+      {x:.4,y:0,z:.4},{x:-.4,y:0,z:.4}
+    ]
+  }));
+  const frame={
+    detectedPlanes:new Set(rectangles),
+    getPose(space){return {transform:{matrix:[
+      1,0,0,0,0,1,0,0,0,0,1,0,
+      space.point.x,space.point.y,space.point.z,1
+    ]}};}
+  };
+  const gap=detectBridgeTableGap(frame,{});
+  assert.ok(gap,'Negative local-space Y is normal in handheld WebXR');
+  near(gap.span_m,.7);
+  near(gap.start.y,-.8);
 });
 test('Quest placement maps exact measured endpoints without inventing scale',()=>{
   const app={worldRoot:new THREE.Object3D(),targetMeters:1,arAnchorPoint:null,
