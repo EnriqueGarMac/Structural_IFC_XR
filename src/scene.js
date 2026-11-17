@@ -427,6 +427,12 @@ export class StructuralScene {
     if(this.isXR||!this.pickStart||Math.hypot(this.pickStart.x-evt.clientX,this.pickStart.y-evt.clientY)>4)return;
     const r=this.renderer.domElement.getBoundingClientRect();this.mouse.set((evt.clientX-r.left)/r.width*2-1,-(evt.clientY-r.top)/r.height*2+1);
     this.pickRaycaster.setFromCamera(this.mouse,this.camera);
+    if(this.trussExperience?.active){
+      const selected=this.trussExperience.pick(this.pickRaycaster);
+      if(selected?.kind==='node')this.trussExperience.selectNode(selected.id);
+      else if(selected?.kind==='bar')this.trussExperience.selectBar(selected.id);
+      return;
+    }
     if(this.sapVisuals?.view==='forces'&&this.sapVisuals.pickForce(this.pickRaycaster))return;
     if(this.sapVisuals?.view==='deformation'&&this.nodeProbe?.pick(this.pickRaycaster))return;
     const hit=this.pickRaycaster.intersectObjects([...this.originalGroup.children,...this.deformedGroup.children],false)[0];
