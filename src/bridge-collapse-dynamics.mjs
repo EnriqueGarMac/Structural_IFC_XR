@@ -83,3 +83,40 @@ export function resolveBridgeCylinderFloor(centerZ,axisZ,length,radius,floorZ){
   return {centerZ:corrected,contact:corrected>centerZ,
     lowestZ:corrected-halfExtent};
 }
+
+// Integrate a free fractured half-member as a 2D rigid body. Contact acts
+// on its finite-length, finite-radius footprint; after an impact, damping
+// and a small roll settle the member flat rather than pinning a tilted rod
+// at a fixed height forever. The output is in the same local coordinates
+// as the bridge's floor plane. Does not model member/member collisions.
+export function stepBridgeLooseFragment(body,dt,floorZ){
+  const step=Math.min(.035,Math.max(0,dt));
+  if(!step)return body;
+  const radius=Math.max(0,body.radius??0);
+  const length=Math.max(0,body.length??0);
+  body.vz-=3.5*step;
+  body.x+=body.vx*step;
+  body.z+=body.vz*step;
+  body.angle+=body.omega*step;
+  let axisZ=body.axisZ*Math.cos(body.angle)-
+    body.axisX*Math.sin(body.angle);
+  let contact=resolveBridgeCylinderFloor(body.z,axisZ,length,radius,floorZ);
+  if(contact.contact){
+    body.z=contact.centerZ;
+    body.vz=0;
+    // The only angular degree of freedom is within the vertical bridge
+    // plane. Choose the nearest horizontal orientation (either polarity).
+    const horizontal=Math.atan2(body.axisZ,body.axisX);
+    let delta=horizontal-body.angle;
+    delta=((delta+Math.PI/2)%Math.PI+Math.PI)%Math.PI-Math.PI/2;
+    body.omega=body.omega*.20+delta*step*5;
+    body.angle+=delta*Math.min(.22,4*step);
+    body.vx*=Math.exp(-6*step);
+    axisZ=body.axisZ*Math.cos(body.angle)-
+      body.axisX*Math.sin(body.angle);
+    contact=resolveBridgeCylinderFloor(body.z,axisZ,length,radius,floorZ);
+    body.z=contact.centerZ;
+    body.touchingFloor=true;
+  }
+  return body;
+}
