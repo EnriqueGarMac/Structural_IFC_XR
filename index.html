@@ -191,7 +191,7 @@
           </div>
           <div id="bridge-controls" class="bridge-controls" hidden>
             <div class="teaching-active-head"><strong>Concurso de pasarelas</strong><span>Diseña, calcula y optimiza por peso</span></div>
-            <div class="truss-method-note">Modelo docente 2D de celosía articulada. Barras: tracción o compresión. Tirantes: solo tracción. Peso propio incluido.</div>
+            <div class="truss-method-note">Modelo docente 2D de celosía articulada. Dos apoyos extremos con desplazamiento horizontal y vertical impedidos. Barras: tracción o compresión, comprobadas por límite elástico. Tirantes: solo tracción. Peso propio incluido. No se estudia el pandeo.</div>
             <button id="bridge-detect" type="button" class="secondary-btn">Detectar dos mesas (Quest RM / Android AR)</button>
             <p id="bridge-detection-status" class="field-help" role="status">Si el dispositivo no proporciona dos planos detectados, introduce el vano manualmente.</p>
             <div class="truss-load-grid">
@@ -223,7 +223,7 @@
             <div id="bridge-detail" class="truss-table-scroll"></div>
             <button type="button" id="bridge-open-analysis" class="secondary-btn teaching-primary">Ver resultados en Análisis</button>
             <button type="button" id="bridge-export" class="secondary-btn">Exportar diseño y resultados (JSON)</button>
-            <p class="truss-method-note">La animación de rotura es ilustrativa. No representa un colapso dinámico real ni valida la seguridad de una pasarela física. Las verificaciones de resistencia, pandeo y flecha son simplificadas.</p>
+            <p class="truss-method-note">La animación de fallo es ilustrativa: superar el límite elástico no implica una rotura instantánea real. Se comprueban límite elástico axial, flexión simplificada si hay cargas entre nudos y flecha. No se comprueba el pandeo ni se certifica la seguridad de una pasarela real.</p>
           </div>
         </section>
 
