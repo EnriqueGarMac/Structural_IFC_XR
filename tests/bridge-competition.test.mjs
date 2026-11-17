@@ -14,9 +14,9 @@ test('bridge contest grid, materials and member edit validation',()=>{
   assert.ok(BRIDGE_SECTIONS.bar_m.A_m2>BRIDGE_SECTIONS.tie_m.A_m2);
   const start=addBridgeMember([],nodes,'B0','T1','bar_m');
   assert.equal(start.length,1);
-  assert.throws(()=>addBridgeMember(start,nodes,'T1','B0','tie_s'),/Ya existe/);
-  assert.throws(()=>addBridgeMember(start,nodes,'B0','B0','bar_s'),/distintos/);
-  assert.throws(()=>addBridgeMember(start,nodes,'B0','X','bar_s'),/no válidos/);
+  assert.throws(()=>addBridgeMember(start,nodes,'T1','B0','tie_m'),/Ya existe/);
+  assert.throws(()=>addBridgeMember(start,nodes,'B0','B0','bar_m'),/distintos/);
+  assert.throws(()=>addBridgeMember(start,nodes,'B0','X','bar_m'),/no válidos/);
   assert.throws(()=>bridgeGrid(5),/rango/);
   const sample=bridgeSampleMembers();
   assert.equal(new Set(sample.map(m=>[m.i,m.j].sort().join('|'))).size,sample.length);
@@ -44,7 +44,7 @@ test('empty or mechanically unstable design is rejected, not assigned fictitious
   assert.match(r.reason,/inestable|camino resistente|Sin barras/);
 });
 test('a stressed weak bridge triggers failed members and a failure result',()=>{
-  const members=bridgeSampleMembers().map(m=>({...m,sectionId:'bar_s'}));
+  const members=bridgeSampleMembers().map(m=>({...m,sectionId:'bar_m'}));
   const r=calculateBridge({members,load_kN:50,span_m:2.9});
   assert.ok(['collapse','failure','service'].includes(r.status));
   assert.ok(r.totalMass_kg>0);
