@@ -242,6 +242,37 @@ test('progressive failure animation follows the actual recalculated sequence',()
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),true);
   bridge.deactivate();
 });
+test('two pieces of each failed member receive independently scattered 3D trajectories',()=>{
+  const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
+  bridge.activate();bridge.sample();bridge.setLoad(35);
+  const result=bridge.evaluate();
+  assert.ok(result.broken.length>0);
+  const part=bridge.breakAnimation.dropped.find(p=>p.fragments);
+  assert.equal(part.fragments.length,2);
+  const [left,right]=part.fragments;
+  assert.notEqual(left.scatter.vx,right.scatter.vx);
+  assert.ok(left.scatter.vx<0&&right.scatter.vx>0);
+  assert.ok(left.scatter.delay<=.085&&right.scatter.delay<=.085);
+  assert.ok(left.split>=.44&&left.split<=.56);
+  assert.equal(left.split,right.split);
+  const updates=[];
+  bridge.onLoadProgress=load=>updates.push(load);
+  for(let ms=100;ms<7000;ms+=16)bridge.animate(ms);
+  assert.ok(updates.length>5);
+  assert.ok(left.motion?.settled&&right.motion?.settled);
+  assert.ok(Math.abs(left.motion.x-right.motion.x)>.05,
+    'Both halves must not line up again on the floor');
+  for(const fragment of part.fragments){
+    const displayedAxis=new THREE.Vector3(0,1,0)
+      .applyQuaternion(fragment.object.quaternion);
+    assert.ok(Math.abs(displayedAxis.z)<1e-6);
+    assert.ok(Math.abs(fragment.object.position.z-
+      fragment.radius-bridge.breakAnimation.physics.floorZ)<1e-6);
+    assert.ok(Math.abs(fragment.object.position.y-fragment.origin.y-
+      fragment.scatter.depth)<1e-6);
+  }
+  bridge.deactivate();
+});
 test('falling rods are visually horizontal in 3D, not only in the contact solver',()=>{
   const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
   bridge.activate();bridge.sample();bridge.setLoad(35);
