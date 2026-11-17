@@ -218,11 +218,12 @@
             </div>
             <label class="truss-label" for="bridge-section">Elemento a colocar</label>
             <select id="bridge-section"></select>
-            <div class="truss-load-grid">
+            <div class="truss-load-grid" hidden>
               <label for="bridge-from">Nodo inicial<select id="bridge-from"></select></label>
               <label for="bridge-to">Nodo final<select id="bridge-to"></select></label>
             </div>
             <button type="button" id="bridge-add" class="secondary-btn teaching-primary">Añadir elemento a la retícula</button>
+            <p class="field-help">Pulsa «Añadir elemento», selecciona el primer nodo sobre el modelo y desplaza el ratón o mando hasta el segundo nodo. Un clic final coloca la barra. Pulsa Esc para cancelar. Los nodos que no utilices no afectan al cálculo.</p>
             <div class="truss-actions">
               <button id="bridge-remove" type="button" class="secondary-btn">Eliminar seleccionado</button>
               <button id="bridge-undo" type="button" class="secondary-btn">Deshacer última barra</button>
