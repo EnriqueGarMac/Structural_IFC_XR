@@ -286,6 +286,10 @@ $('sap-input').addEventListener('change',async(e)=>{
   e.target.value='';
 });
 $('analysis-view').addEventListener('change',e=>{
+  if(app.teachingAnalysis?.active){
+    app.teachingAnalysis.selectView(e.target.value);
+    return;
+  }
   const kind=e.target.value;
   // The buckling view keeps the loads visible: it shows the reference loads.
   app.showDeformed=kind==='deformation'||kind==='modes'||kind==='buckling';
@@ -307,6 +311,10 @@ $('analysis-view').addEventListener('change',e=>{
 });
 $('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
 $('toggle-force-values').addEventListener('click',()=>{
+  if(app.teachingAnalysis?.active){
+    app.teachingAnalysis.toggleAxialValues();
+    return;
+  }
   const enabled=!app.sapVisuals.showCharacteristics;
   app.sapVisuals.setCharacteristics(enabled);
   $('toggle-force-values').setAttribute('aria-pressed',String(enabled));
@@ -387,6 +395,10 @@ $('show-sap-only').addEventListener('change',e=>{
 });
 $('hide-ground').addEventListener('change',e=>app.setHideGround(e.target.checked));
 $('amp').addEventListener('input',e=>{
+  if(app.teachingAnalysis?.active){
+    app.teachingAnalysis.setAmplification(Number(e.target.value));
+    return;
+  }
   app.amp=clampAmplification(e.target.value,app.ampMax);
   showAmplitude();
   app.updateVisualization(app.showSAPOnly);
