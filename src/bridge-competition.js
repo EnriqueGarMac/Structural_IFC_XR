@@ -127,9 +127,18 @@ export class BridgeCompetitionExperience {
     this.members=addBridgeMember(this.members,bridgeGrid(this.span_m),i,j,sectionId);
     this.result=null;this.breakAnimation=null;this.startNode=null;
     // Merging straight segments can remove the newest temporary ID.
-    // Select the resulting continuous member instead of a stale segment.
-    this.selectedMemberId=this.members.find(m=>m.i===i||m.j===j||
-      m.i===j||m.j===i)?.id??this.members.at(-1)?.id??null;
+    // Select the actual bar that contains the newly drawn interval.
+    const byId=new Map(bridgeGrid(this.span_m).map(n=>[n.id,n]));
+    const belongs=(point,a,b)=>{
+      const dx=b.x-a.x,dz=b.z-a.z,L2=dx*dx+dz*dz;
+      const t=((point.x-a.x)*dx+(point.z-a.z)*dz)/L2;
+      return t>=-1e-7&&t<=1+1e-7&&
+        Math.abs((point.x-a.x)*dz-(point.z-a.z)*dx)<=1e-7*L2;
+    };
+    this.selectedMemberId=this.members.find(m=>
+      m.sectionId===sectionId&&belongs(byId.get(i),byId.get(m.i),byId.get(m.j))&&
+      belongs(byId.get(j),byId.get(m.i),byId.get(m.j)))?.id??
+      this.members.at(-1)?.id??null;
     this.draw();
   }
   removeMember(id){
