@@ -21,6 +21,7 @@
           <button type="button" class="workspace-tab" role="tab" id="tab-view" data-tab="view" aria-controls="panel-view" aria-selected="false" tabindex="-1">Visualizar</button>
           <button type="button" class="workspace-tab" role="tab" id="tab-advanced" data-tab="advanced" aria-controls="panel-advanced" aria-selected="false" tabindex="-1">Ajustes</button>
           <button type="button" class="workspace-tab workspace-tab-resource" role="tab" id="tab-teaching" data-tab="teaching" aria-controls="panel-teaching" aria-selected="false" tabindex="-1">Recursos docentes</button>
+          <button type="button" class="workspace-tab workspace-tab-contest" role="tab" id="tab-contest" data-tab="contest" aria-controls="panel-contest" aria-selected="false" tabindex="-1">Concurso</button>
         </nav>
       <div class="panel-content">
         <section id="panel-model" class="workspace-panel is-current" role="tabpanel" aria-labelledby="tab-model">
@@ -169,6 +170,50 @@
             <button type="button" id="truss-export" class="secondary-btn">Exportar resultados (CSV)</button>
           </div>
         </section>
+        <section id="panel-contest" class="workspace-panel" role="tabpanel" aria-labelledby="tab-contest" hidden>
+          <div class="panel-heading"><span class="panel-eyebrow">Desafío estructural</span>
+            <h2>Concurso de pasarelas</h2>
+            <p>Diseña una estructura ligera para salvar un hueco entre dos mesas y resistir una carga en centro de vano.</p>
+          </div>
+          <article class="teaching-resource">
+            <span class="teaching-resource-index">RETO 01 · DISEÑO Y RESISTENCIA</span>
+            <h3>Pasarela entre mesas</h3>
+            <p>Añade barras rígidas y tirantes entre nodos de una retícula. Menor peso y resistencia suficiente mejoran el diseño.</p>
+            <button id="bridge-start" type="button" class="secondary-btn teaching-primary">Iniciar concurso</button>
+          </article>
+          <div id="bridge-controls" class="bridge-controls" hidden>
+            <div class="truss-method-note">Modelo docente 2D de celosía articulada. Barras: tracción o compresión. Tirantes: solo tracción. Peso propio incluido.</div>
+            <button id="bridge-detect" type="button" class="secondary-btn">Detectar dos mesas (Quest RM)</button>
+            <p id="bridge-detection-status" class="field-help" role="status">Si el dispositivo no proporciona dos planos detectados, introduce el vano manualmente.</p>
+            <div class="truss-load-grid">
+              <label for="bridge-span">Vano entre mesas (m)<input id="bridge-span" type="number" min=".3" max="3" step=".05" value="1.2" inputmode="decimal"></label>
+              <label for="bridge-load">Carga central (kN)<input id="bridge-load" type="number" min="0" max="50" step=".5" value="3" inputmode="decimal"></label>
+            </div>
+            <label class="truss-label" for="bridge-section">Elemento a colocar</label>
+            <select id="bridge-section"></select>
+            <div class="truss-load-grid">
+              <label for="bridge-from">Nodo inicial<select id="bridge-from"></select></label>
+              <label for="bridge-to">Nodo final<select id="bridge-to"></select></label>
+            </div>
+            <button type="button" id="bridge-add" class="secondary-btn teaching-primary">Añadir elemento a la retícula</button>
+            <div class="truss-actions">
+              <button id="bridge-remove" type="button" class="secondary-btn">Eliminar seleccionado</button>
+              <button id="bridge-undo" type="button" class="secondary-btn">Deshacer última barra</button>
+              <button id="bridge-example" type="button" class="secondary-btn">Ejemplo resistente</button>
+              <button id="bridge-clear" type="button" class="secondary-btn">Vaciar diseño</button>
+            </div>
+            <div class="truss-method-note">En Quest puedes señalar dos nodos consecutivos con el gatillo para crear el elemento seleccionado. También puedes seleccionar una barra para eliminarla. Los tirantes son más ligeros al utilizar secciones menores.</div>
+            <button type="button" id="bridge-evaluate" class="secondary-btn teaching-primary">Aplicar carga y comprobar resistencia</button>
+            <p id="bridge-feedback" class="field-help" role="status" aria-live="polite">Construye una pasarela sobre la retícula.</p>
+            <div id="bridge-result" class="truss-summary" hidden aria-live="polite"></div>
+            <div class="truss-subheading">Elementos del diseño</div>
+            <div id="bridge-members" class="truss-table-scroll"></div>
+            <div class="truss-subheading">Resultados y reacciones</div>
+            <div id="bridge-detail" class="truss-table-scroll"></div>
+            <button type="button" id="bridge-export" class="secondary-btn">Exportar diseño y resultados (JSON)</button>
+            <p class="truss-method-note">La animación de rotura es ilustrativa. No representa un colapso dinámico real ni valida la seguridad de una pasarela física. Las verificaciones de resistencia, pandeo y flecha son simplificadas.</p>
+          </div>
+        </section>
       </div>
       <div class="panel-footer"><span class="connection-dot" aria-hidden="true"></span><span>IMIS-Lab · Universidad de Granada</span></div>
     </aside>
@@ -198,6 +243,10 @@
           </div>
         </div>
         <div class="force-readout" id="force-readout" hidden></div>
+        <div class="bridge-stage-status" id="bridge-stage-status" hidden>
+          <strong>Concurso de pasarelas · retícula de diseño</strong>
+          <span id="bridge-stage-detail">Define los elementos y calcula la resistencia</span>
+        </div>
         <div class="truss-stage-status" id="truss-stage-status" hidden>
           <strong>Celosía Warren · práctica interactiva</strong>
           <span id="truss-stage-detail">Selecciona un nodo para aplicar cargas</span>
