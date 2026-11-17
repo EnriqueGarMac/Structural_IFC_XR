@@ -554,6 +554,7 @@ $('mobile-ar-place').addEventListener('click',()=>{
   if(app.mobileARState)app.mobileARState.placeRequested=true;
 });
 $('mobile-ar-redetect').addEventListener('click',()=>app.resetMobilePlacement());
+$('mobile-ar-bridge-scan').addEventListener('click',()=>app.startMobileBridgeScan());
 function adjustMobileSize(delta){
   app.targetMeters=Math.max(.12,Math.min(5,Math.round((app.targetMeters+delta)*100)/100));
   $('model-size').value=String(app.targetMeters);
