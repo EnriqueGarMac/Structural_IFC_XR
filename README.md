@@ -1,3 +1,76 @@
+## Recursos docentes: celosías y concurso de pasarelas
+
+**Recursos docentes → Celosías articuladas** abre un ejemplo independiente
+de las demostraciones BIM: una celosía Warren de 12 m, con un apoyo
+articulado y otro móvil. El alumno selecciona nodos en el visor web,
+desde el menú de escritorio/móvil o apuntando con el mando de Quest.
+Puede fijar componentes nodales `Fx` y `Fz` en kN, restaurar las cargas
+iniciales o dejarla descargada. La aplicación calcula con el
+**método matricial de rigidez para celosías planas articuladas**:
+
+- desplazamientos nodales `Ux` y `Uz` (mm);
+- reacciones `Rx` y `Rz` (kN) y comprobación `ΣFx`, `ΣFz`, `ΣM`;
+- esfuerzo axial `N` (kN), tensión `σ` (MPa), deformación unitaria
+  `ε` y alargamiento `ΔL` (mm) de cada barra.
+
+Se distinguen los esfuerzos de tracción y compresión, se puede consultar
+una barra concreta y exportar resultados en CSV. Las deformadas están
+amplificadas exclusivamente a efectos de visualización, sin modificar
+los valores físicos.
+
+**Concurso → Pasarela entre mesas** presenta una retícula de 8 nodos
+para crear elementos entre nodos desde formularios web/móvil o con el
+gatillo de Quest. Las barras de acero pueden trabajar a tracción y
+compresión; los tirantes de acero, de sección menor y por tanto más
+ligeros, **solo trabajan a tracción**. Se ofrecen varias áreas y
+rigideces de sección. Un apoyo está articulado y el otro es móvil.
+El alumno define el vano (0,30–3,00 m) y la carga central (0–50 kN).
+
+La comprobación docente incorpora peso propio distribuido a los nodos,
+cálculo matricial de desplazamientos, reacciones y esfuerzos axiles,
+aprovechamiento axial, resistencia a compresión por pandeo de Euler
+con extremos articulados y límite simplificado de flecha **L/250**.
+La experiencia distingue tres estados:
+
+- **Apta:** cumple comprobaciones resistentes y de flecha.
+- **Flecha excesiva:** no cumple servicio, aunque no haya rotura.
+- **Colapso:** inestabilidad geométrica/resistente o elemento que
+  supera su capacidad; se muestra una animación **esquemática** de
+  rotura y caída, no una simulación de dinámica estructural.
+
+Entre los diseños válidos del mismo vano/carga se conserva el menor
+peso calculado durante la sesión. Se puede cargar una celosía de
+referencia y descargar el diseño y los resultados en JSON.
+
+### Espacio físico entre mesas en Quest RM
+
+Pulsar **Detectar hueco entre dos mesas** en el menú de Quest RM o
+en el panel del concurso cuando hay una sesión activa solicita la
+detección de dos planos horizontales. Si **Quest Browser ofrece
+WebXR Plane Detection** y proporciona polígonos de dos superficies
+próximas en altura, enfrentadas y separadas 0,20–3,00 m, el visor
+calcula el hueco a partir de los bordes de ambos planos, pide varias
+observaciones coherentes y sitúa la pasarela en la posición medida.
+La escala de la pasarela se adapta al vano detectado.
+
+Si la plataforma **solo ofrece WebXR Hit Test**, no es posible
+determinar con fiabilidad los límites de dos mesas, por lo que se
+mantiene la introducción manual del vano y el ajuste espacial con
+los mandos. El detector usa cajas envolventes alineadas con los
+ejes del entorno, por lo que las mesas deben estar aproximadamente
+enfrentadas y alineadas para una medición fiable. En Apple AR Quick
+Look la colocación depende de los controles nativos de iOS.
+
+**Nota importante de seguridad y alcance:** las comprobaciones de ambas
+experiencias son modelos didácticos 2D de celosías articuladas con
+hipótesis simplificadas. No incluyen uniones reales, solicitaciones
+fuera del plano, vibraciones de personas, efectos dinámicos,
+estabilidad global de montaje ni códigos estructurales. **No se
+deben usar sus resultados para diseñar o probar pasarelas físicas.**
+La animación de fallo no predice trayectorias reales de colapso.
+
+---
+
 ## Sombras del visor web y colocación en superficies AR
 
 En **Vista 3D**, el IFC recibe iluminación desde un sol fijo inclinado:

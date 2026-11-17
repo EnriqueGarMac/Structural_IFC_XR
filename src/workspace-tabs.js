@@ -5,7 +5,7 @@ export function setupWorkspaceTabs(root=document){
   const panels=[...root.querySelectorAll('[role="tabpanel"]')];
   const tabMap=new Map(tabs.map(tab=>[tab.dataset.tab,tab]));
   const panelMap=new Map(panels.map(panel=>[panel.id.replace(/^panel-/,''),panel]));
-  if(tabs.length!==4||panels.length!==4||
+  if(tabs.length!==6||panels.length!==6||
      tabs.some(tab=>!panelMap.has(tab.dataset.tab)))throw new Error('Pestañas del visor incompletas.');
   function selectTab(name,{focus=false}={}){
     const target=tabMap.get(name);

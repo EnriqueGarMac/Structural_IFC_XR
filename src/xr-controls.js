@@ -7,6 +7,8 @@ import {bucklingSummary} from './results.mjs';
 import {isControlActive} from './view-controls.mjs';
 import {FORCE_PALETTES,nextPalette} from './visual-palettes.mjs';
 import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
+import {detectBridgeTableGap,applyBridgeGapPlacement} from './bridge-table-detection.mjs';
+import {BRIDGE_SECTIONS} from './bridge-competition-solver.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
 // All model/result operations are routed to the same StructuralScene used on PC.
@@ -23,7 +25,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
-    this.dirty=true;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
+    this.dirty=true;this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -186,6 +188,35 @@ export class StructuralXRControls {
       if(menuHit.item)this.command(menuHit.item.id);
       return;
     }
+    if(this.app.bridgeCompetition?.active){
+      const hit=this.app.bridgeCompetition.pick(this._ray(controller));
+      if(hit){
+        try{
+          if(hit.kind==='node')this.app.bridgeCompetition.chooseNode(hit.id);
+          else this.app.bridgeCompetition.chooseMember(hit.id);
+          this.page='bridge';
+          this.selected=(hit.kind==='node'?'Nodo ':'Elemento ')+hit.id;
+        }catch(error){
+          this.selected=error.message;
+        }
+        this.dirty=true;return;
+      }
+      // Do not rotate the bridge by grabbing a design member; the trigger
+      // is reserved for placing rods/cables between grid nodes.
+      return;
+    }
+    // In the teaching experience the controller selects nodes or members,
+    // rather than grabbing the entire model. Loads are entered in the XR menu.
+    if(this.app.trussExperience?.active){
+      const hit=this.app.trussExperience.pick(this._ray(controller));
+      if(hit){
+        if(hit.kind==='node')this.app.trussExperience.selectNode(hit.id);
+        else this.app.trussExperience.selectBar(hit.id);
+        this.page='truss';
+        this.selected=(hit.kind==='node'?'Nodo ':'Barra ')+hit.id;
+        this.dirty=true;return;
+      }
+    }
     // A force-diagram click queries a section instead of rotating the structure.
     // The live hover also works without pressing the trigger.
     if(this.app.sapVisuals?.view==='forces'){
@@ -299,10 +330,77 @@ export class StructuralXRControls {
       btn('size:+','+',586,645,144,78);
       btn('reset-model','Recentrar estructura',38,769,335,76);
       btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
-      txt('CAMBIAR MODELO DE EJEMPLO',38,861,18,'#afcdd7');
-      btn('demo-frame','EDIFICIO · 3 PLANTAS',38,880,335,67);
-      btn('demo-roof','NAVE INDUSTRIAL',395,880,335,67,true);
-      btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,979,692,77);
+      txt('CAMBIAR MODELO',38,846,18,'#afcdd7');
+      btn('demo-frame','EDIFICIO · 3 PLANTAS',38,867,335,60);
+      btn('demo-roof','NAVE INDUSTRIAL',395,867,335,60);
+      btn('truss-open','CELOSÍAS',38,941,335,61,true);
+      btn('bridge-open','CONCURSO · PASARELA',395,941,335,61,true);
+      btn('exit',app.xrMode==='vr'?'SALIR DE REALIDAD VIRTUAL':'SALIR DE REALIDAD MIXTA',38,1016,692,65);
+    }else if(this.page==='bridge'){
+      const bridge=app.bridgeCompetition;
+      btn('back','‹ Volver',38,117,230,66);
+      txt('CONCURSO DOCENTE · PASARELA',38,218,29,'#e4f8ff');
+      if(!bridge?.active){
+        txt('Inicia el reto para construir sobre la retícula.',38,335,22);
+        btn('bridge-open','ABRIR CONCURSO',38,453,692,92,true);
+      }else{
+        const keys=Object.keys(BRIDGE_SECTIONS),section=BRIDGE_SECTIONS[bridge.sectionId];
+        txt('SECCIÓN · '+section.label.toUpperCase(),38,279,19);
+        btn('bridge-section:-','‹',38,307,138,68);
+        txt((section.A_m2*1e6).toFixed(0)+' mm²',385,342,27,'#ecfdff','center');
+        btn('bridge-section:+','›',592,307,138,68);
+        txt('GATILLO EN DOS NODOS PARA AÑADIR UNA BARRA',38,413,19);
+        btn('bridge-edit',bridge.editMode?'CREACIÓN: ACTIVA':'CREACIÓN: INACTIVA',
+          38,448,330,69,true);
+        btn('bridge-remove-mode',bridge.removeMode?'BORRAR: ACTIVO':'MODO BORRAR',
+          400,448,330,69);
+        txt('CARGA CENTRAL: '+bridge.load_kN.toFixed(1)+' kN',38,570,22);
+        btn('bridge-load:-','− 0,5 kN',38,598,185,75);
+        btn('bridge-load:+','+ 0,5 kN',542,598,188,75);
+        txt('VANO: '+bridge.span_m.toFixed(2)+' m · '+bridge.members.length+' elementos',
+          38,725,22,'#b1dfe0');
+        btn('bridge-scan','DETECTAR HUECO ENTRE DOS MESAS',38,750,692,70,true,
+          app.xrMode==='ar');
+        btn('bridge-evaluate','COMPROBAR RESISTENCIA',38,833,692,78,true);
+        btn('bridge-sample','EJEMPLO',38,925,335,65);
+        btn('bridge-clear','VACIAR',395,925,335,65);
+        const state=bridge.result;
+        txt(state?(state.status==='stable'?'APTA · ':state.status==='service'?'FLECHA EXCESIVA · ':'COLAPSO · ')+
+          'Peso '+state.totalMass_kg.toFixed(2)+' kg':
+          'Sin comprobar · selecciona nodos y secciones',
+          38,1040,19,state?.status==='stable'?'#8fedc9':'#ffce9d');
+      }
+    }else if(this.page==='truss'){
+      const lesson=app.trussExperience;
+      btn('back','‹ Volver',38,117,230,66);
+      txt('RECURSOS DOCENTES · CELOSÍAS',38,221,29,'#e4f8ff');
+      if(!lesson?.active){
+        txt('Abre primero la experiencia.',38,340,23);
+        btn('truss-open','ABRIR CELOSÍA',38,440,692,94,true);
+      }else{
+        const node=lesson.selectedNode,load=lesson.getLoad();
+        txt('SELECCIONA UN NODO (O APUNTA CON EL GATILLO)',38,294,18);
+        btn('truss-node:-','‹',38,326,130,77);
+        txt('NODO '+node,384,365,30,'#f5d899','center');
+        btn('truss-node:+','›',600,326,130,77);
+        txt('CARGA HORIZONTAL Fx (kN)',38,464,21);
+        btn('truss-fx:-','− 5 kN',38,497,188,78);
+        txt((load.fx_kN>0?'+':'')+load.fx_kN.toFixed(1),384,537,29,'#edffff','center');
+        btn('truss-fx:+','+ 5 kN',542,497,188,78);
+        txt('CARGA VERTICAL Fz (kN) · POSITIVO HACIA ARRIBA',38,621,18);
+        btn('truss-fz:-','− 5 kN',38,660,188,78);
+        txt((load.fz_kN>0?'+':'')+load.fz_kN.toFixed(1),384,699,29,'#edffff','center');
+        btn('truss-fz:+','+ 5 kN',542,660,188,78);
+        const modeName={axial:'ESFUERZO AXIAL',stress:'TENSIÓN NORMAL',
+          strain:'DEFORMACIÓN UNITARIA',displacement:'DESPLAZAMIENTOS'};
+        btn('truss-mode','REPRESENTAR: '+modeName[lesson.mode],38,778,692,74,true);
+        txt('Rz izquierda = '+lesson.result.reactions[0].rz_kN.toFixed(2)+
+          ' kN · Rz derecha = '+lesson.result.reactions.at(-1).rz_kN.toFixed(2)+' kN',
+          38,893,19,'#c6ebec');
+        btn('truss-reset','RESTAURAR',38,933,333,70);
+        btn('truss-clear','QUITAR CARGAS',396,933,334,70);
+        txt(textFit(this.selected,46),38,1056,19,'#85d9d5');
+      }
     }else if(this.page==='results'){
       // Controls that do not apply to the active view are drawn frozen,
       // as in the desktop panel (see view-controls.mjs).
@@ -437,6 +535,67 @@ export class StructuralXRControls {
     if(id==='back'){this.page='main';}
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='exit'){this.session?.end();return;}
+    else if(id==='bridge-open'){
+      document.getElementById('bridge-start')?.click();
+      this.page='bridge';this.selected='Concurso de pasarelas';
+    }
+    else if(id.startsWith('bridge-')){
+      const bridge=app.bridgeCompetition;
+      if(!bridge?.active){this.notice='Abre primero el concurso.';}
+      else if(id==='bridge-section:+'||id==='bridge-section:-'){
+        const keys=Object.keys(BRIDGE_SECTIONS);
+        const i=keys.indexOf(bridge.sectionId);
+        bridge.setSection(keys[(i+(id.endsWith(':+')?1:-1)+keys.length)%keys.length]);
+        const el=$('bridge-section');
+        if(el)el.value=bridge.sectionId;
+      }else if(id==='bridge-load:+'||id==='bridge-load:-'){
+        bridge.setLoad(Math.max(0,Math.min(50,bridge.load_kN+(id.endsWith(':+')?.5:-.5))));
+      }else if(id==='bridge-edit'){
+        bridge.editMode=!bridge.editMode;bridge.removeMode=false;bridge.startNode=null;
+        bridge.draw();
+      }else if(id==='bridge-remove-mode'){
+        bridge.removeMode=!bridge.removeMode;
+        if(bridge.removeMode)bridge.editMode=false;
+        bridge.startNode=null;bridge.draw();
+      }else if(id==='bridge-scan'){
+        if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
+        else {
+          this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
+          this.notice='Busca dos mesas horizontales y enfrentadas.';
+        }
+      }else if(id==='bridge-evaluate'){
+        const r=bridge.evaluate();
+        this.selected=r.status==='stable'?'APTA · Peso '+r.totalMass_kg.toFixed(2)+' kg':
+          'NO RESISTE · '+r.reason;
+      }else if(id==='bridge-sample')bridge.sample();
+      else if(id==='bridge-clear')bridge.reset();
+    }
+    else if(id==='truss-open'){
+      document.getElementById('truss-start')?.click();
+      this.page='truss';
+      this.selected='Celosía interactiva';
+    }
+    else if(id.startsWith('truss-')){
+      const lesson=app.trussExperience;
+      if(!lesson?.active){this.notice='Abre la experiencia de celosías.';}
+      else if(id==='truss-node:-'||id==='truss-node:+'){
+        lesson.changeNode(id.endsWith(':+')?1:-1);
+        this.selected='Nodo '+lesson.selectedNode;
+      }else if(id==='truss-fx:-'||id==='truss-fx:+'){
+        lesson.adjustSelected('x',id.endsWith(':+')?5:-5);
+        this.selected='Carga horizontal actualizada';
+      }else if(id==='truss-fz:-'||id==='truss-fz:+'){
+        lesson.adjustSelected('z',id.endsWith(':+')?5:-5);
+        this.selected='Carga vertical actualizada';
+      }else if(id==='truss-reset'){lesson.reset();this.selected='Cargas iniciales';}
+      else if(id==='truss-clear'){lesson.clearLoads();this.selected='Sin cargas';}
+      else if(id==='truss-mode'){
+        const modes=['axial','stress','strain','displacement'];
+        const next=modes[(modes.indexOf(lesson.mode)+1)%modes.length];
+        const select=document.getElementById('truss-display');
+        if(select){select.value=next;select.dispatchEvent(new Event('change'));}
+      }
+    }
     else if(id==='demo-frame'||id==='demo-roof'){
       const button=$((id==='demo-roof')?'roof-demo-btn':'demo-btn');
       button?.click();
@@ -603,10 +762,33 @@ export class StructuralXRControls {
     this.reticle.visible=stable;
     if(stable)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
   }
+  updateBridgeScan(frame){
+    if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
+      this.app.xrMode!=='ar'||!frame)return;
+    const ref=this.app.renderer.xr.getReferenceSpace();
+    const gap=detectBridgeTableGap(frame,ref);
+    if(!gap){this.bridgeScanStable=0;this.bridgeLastGap=null;return;}
+    const previous=this.bridgeLastGap;
+    const consistent=previous&&Math.abs(previous.span_m-gap.span_m)<.035&&
+      previous.start.distanceTo(gap.start)<.06&&previous.end.distanceTo(gap.end)<.06;
+    this.bridgeScanStable=consistent?this.bridgeScanStable+1:1;
+    this.bridgeLastGap=gap;
+    if(this.bridgeScanStable<7)return;
+    this.bridgeScan=false;
+    const measured=applyBridgeGapPlacement(this.app,gap,this.app.bridgeCompetition);
+    const input=document.getElementById('bridge-span');
+    if(input)input.value=String(Number(measured.toFixed(3)));
+    const feedback=document.getElementById('bridge-detection-status');
+    if(feedback)feedback.textContent='Dos mesas detectadas. Vano '+measured.toFixed(2)+
+      ' m. La pasarela se ha colocado entre sus bordes.';
+    this.selected='Vano detectado · '+measured.toFixed(2)+' m';
+    this.dirty=true;
+  }
   update(time,frame){
     if(!this.session)return;
     this.locatePanel();
     this.updateHitTesting(frame);
+    this.updateBridgeScan(frame);
     if(this.drag){
       const d=this.drag;
       if(d.kind==='amp-slider'){
@@ -634,7 +816,21 @@ export class StructuralXRControls {
       const hit=this._menuHit(controller);
       hovered??=hit?.item?.id??null;
       if(!hit&&!this.drag&&!this.placeMode&&!forceHovered){
-        if(this.app.sapVisuals?.view==='forces'){
+        if(this.app.bridgeCompetition?.active){
+          const picked=this.app.bridgeCompetition.pick(this._ray(controller));
+          if(picked){
+            forceHovered=true;
+            const label=(picked.kind==='node'?'Nodo ':'Barra ')+picked.id;
+            if(this.selected!==label){this.selected=label;this.dirty=true;}
+          }
+        }else if(this.app.trussExperience?.active){
+          const selected=this.app.trussExperience.pick(this._ray(controller));
+          if(selected){
+            forceHovered=true;
+            const label=(selected.kind==='node'?'Nodo ':'Barra ')+selected.id;
+            if(this.selected!==label){this.selected=label;this.dirty=true;}
+          }
+        }else if(this.app.sapVisuals?.view==='forces'){
           const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
           if(selected)forceHovered=true;
         }else if(this.app.sapVisuals?.view==='deformation'){
