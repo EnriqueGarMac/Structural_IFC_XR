@@ -614,8 +614,14 @@ export class BridgeCompetitionExperience {
         if(p)marker.object.position.set(p.x,0,p.z);
       }
       const centre=current.get('B2');
-      if(centre&&this.loadArrow)this.loadArrow.position.set(
-        centre.x,0,centre.z+.16);
+      if(centre&&this.loadArrow){
+        // The arrow grows with the actually applied load, and its TIP
+        // always stays on B2 (even while the joint is deforming).
+        const length=.055+.105*progress;
+        this.loadArrow.setLength(length,
+          Math.min(.05,length*.45),.035);
+        this.loadArrow.position.set(centre.x,0,centre.z+length);
+      }
       if(this.breakAnimation?.physics){
         for(const [id,p] of current){
           const particle=this.breakAnimation.physics.positions.get(id);
@@ -658,6 +664,15 @@ export class BridgeCompetitionExperience {
       if(progress>=1){
         ramp.complete=true;
         if(this.breakAnimation){
+          // Initialize the remaining rigid links in their actual loaded
+          // geometry, not the undeformed construction grid, preventing
+          // a sudden snap when the first member is removed.
+          const physics=this.breakAnimation.physics;
+          for(const edge of physics.edges){
+            const a=physics.positions.get(edge.i);
+            const b=physics.positions.get(edge.j);
+            if(a&&b)edge.rest=Math.hypot(a.x-b.x,a.z-b.z);
+          }
           // Keep one continuous simulation clock: fracture follows
           // the end of loading rather than starting a second timer.
           this.breakAnimation.startedAt=ramp.startedAt;
@@ -694,6 +709,7 @@ export class BridgeCompetitionExperience {
         state.stageDisplayed=i+1;
         if(stage){
           state.stageResult=bridgeStageResult(this.result,stage);
+          if(stage.status==='mechanism')state.mechanismStarted=true;
           const byId=new Map((stage.members??[]).map(m=>[m.id,m]));
           const nextIds=new Set(stage.nextFailures?.map(f=>f.id)??[]);
           const stageDisplacements=new Map((stage.displacements??[])
@@ -757,8 +773,13 @@ export class BridgeCompetitionExperience {
           this.onFailureProgress?.(stage,state.stageResult);
         }
       });
-      for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
-        stepBridgeCollapseDynamics(physics,dt/Math.max(1,Math.ceil(dt/.016)));
+      // Only a true mechanism is released into gravitational movement.
+      // While the remaining truss is statically admissible, use its
+      // recalculated equilibrium rather than adding spurious acceleration.
+      if(state.mechanismStarted)
+        for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
+          stepBridgeCollapseDynamics(physics,
+            dt/Math.max(1,Math.ceil(dt/.016)));
     }
     // Recalculated deformations are interpolated to avoid an abrupt jump
     // when a failed member changes the equilibrium of its neighbours.
