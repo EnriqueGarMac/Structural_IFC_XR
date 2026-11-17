@@ -373,7 +373,9 @@ export class StructuralXRControls {
           38,725,22,'#b1dfe0');
         btn('bridge-scan','DETECTAR HUECO ENTRE DOS MESAS',38,750,692,70,true,
           app.xrMode==='ar');
-        btn('bridge-evaluate','COMPROBAR RESISTENCIA',38,833,692,78,true);
+        btn('bridge-evaluate','COMPROBAR',38,833,430,78,true);
+        btn('bridge-reference',bridge.undeformedView?'VER DEFORMADA':'SIN DEFORMAR',
+          480,833,250,78,false,Boolean(bridge.result));
         btn('bridge-sample','EJEMPLO',38,925,335,65);
         btn('bridge-clear','VACIAR',395,925,335,65);
         const state=bridge.result;
@@ -591,6 +593,12 @@ export class StructuralXRControls {
         const r=bridge.evaluate();
         this.selected=r.status==='stable'?'APTA · Peso '+r.totalMass_kg.toFixed(2)+' kg':
           'NO RESISTE · '+r.reason;
+      }else if(id==='bridge-reference'){
+        if(bridge.result){
+          bridge.setUndeformedView(!bridge.undeformedView);
+          this.selected=bridge.undeformedView?'Geometría sin deformar':
+            'Deformada calculada';
+        }
       }else if(id==='bridge-sample')bridge.sample();
       else if(id==='bridge-clear')bridge.reset();
     }
