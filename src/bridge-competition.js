@@ -3,7 +3,7 @@ import {planeFromDetection} from './ar-placement.mjs';
 import {forceSignColour,resultColourHex} from './visual-palettes.mjs';
 import {makeAxialLabel} from './teaching-axial-label.js';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
-  stepBridgeLooseFragment} from './bridge-collapse-dynamics.mjs';
+  stepBridgeLooseFragment,bridgeFragmentScatter} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge,bridgeStageResult,bridgeLoadHistory} from './bridge-competition-solver.mjs';
 
@@ -185,6 +185,7 @@ export class BridgeCompetitionExperience {
         failureTimes[member.id]=1.50+index*1.05;
     this.breakAnimation=['collapse','failure'].includes(this.result.status)?
       {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[],
+        scatterSeed:Math.floor(Math.random()*0xffffffff),
         failureStages,failureTimes,stageDisplayed:0,
         stageResult:bridgeStageResult(this.result,this.result.stages?.[0])}:null;
     this.draw();
@@ -413,7 +414,15 @@ export class BridgeCompetitionExperience {
         let fragments=null;
         if(index>=0){
           // Two separate half-bars replace the intact member at fracture.
-          const mid=a.clone().add(b).multiplyScalar(.5);
+          // Vary split point slightly to avoid two identical pieces
+          // visually reconstructing the original bar when they land.
+          const leftScatter=bridgeFragmentScatter(
+            this.breakAnimation.scatterSeed,m.id,0);
+          const rightScatter=bridgeFragmentScatter(
+            this.breakAnimation.scatterSeed,m.id,1);
+          const split=clamp(.5+(leftScatter.depth-rightScatter.depth)*1.2,
+            .44,.56);
+          const mid=a.clone().lerp(b,split);
           fragments=[
             lineBetween(a,mid,width,FAILED_COLOUR),
             lineBetween(mid,b,width,FAILED_COLOUR)
@@ -423,7 +432,8 @@ export class BridgeCompetitionExperience {
             return {object:piece,origin:piece.position.clone(),
               baseRotation:piece.quaternion.clone(),
               length:piece.geometry.parameters.height,radius:width,
-              index,fragment:k};
+              index,fragment:k,split,
+              scatter:k===0?leftScatter:rightScatter};
           });
         }
         this.breakAnimation.dropped.push({
@@ -639,7 +649,8 @@ export class BridgeCompetitionExperience {
           if(part.fragments&&a&&b){
             const start=new THREE.Vector3(a.x,0,a.z);
             const end=new THREE.Vector3(b.x,0,b.z);
-            const midpoint=start.clone().add(end).multiplyScalar(.5);
+            const midpoint=start.clone().lerp(end,
+              part.fragments[0]?.split??.5);
             const pairs=[[start,midpoint],[midpoint,end]];
             part.fragments.forEach((fragment,k)=>{
               const [p,q]=pairs[k];
@@ -823,15 +834,21 @@ export class BridgeCompetitionExperience {
         for(const segment of part.object.userData.curvedPieces??[])
           segment.visible=t<=0;
         if(part.fragments)for(const fragment of part.fragments){
-          fragment.object.visible=t>0;
-          if(t<=0)continue;
+          // A short independent release delay and the different kicks
+          // are visual only; both halves cease to carry force at the
+          // same structural failure event.
+          const released=t>(fragment.scatter?.delay??0);
+          fragment.object.visible=released;
+          if(!released)continue;
           if(!fragment.motion){
             const axis=new THREE.Vector3(0,1,0)
               .applyQuaternion(fragment.baseRotation);
             fragment.motion={
               x:fragment.origin.x,z:fragment.origin.z,
-              vx:fragment.fragment?-.09:.09,vz:0,
-              angle:0,omega:fragment.fragment?.9:-.9,
+              vx:fragment.scatter?.vx??(fragment.fragment?.09:-.09),
+              vz:fragment.scatter?.vz??0,
+              angle:0,omega:fragment.scatter?.omega??
+                (fragment.fragment?.9:-.9),
               axisX:axis.x,axisZ:axis.z,
               length:fragment.length,radius:fragment.radius
             };
@@ -852,7 +869,8 @@ export class BridgeCompetitionExperience {
           fragment.object.quaternion.premultiply(
             new THREE.Quaternion().setFromAxisAngle(
               new THREE.Vector3(0,1,0),fragment.motion.angle));
-          fragment.object.position.set(fragment.motion.x,fragment.origin.y,
+          fragment.object.position.set(fragment.motion.x,
+            fragment.origin.y+(fragment.scatter?.depth??0),
             fragment.motion.z);
         }
         continue;
