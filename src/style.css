@@ -152,41 +152,26 @@
 #mobile-ar-bridge-legend:not([hidden]){display:block;padding:5px 7px;border-radius:6px;background:rgba(10,31,44,.9);font-size:11px;line-height:1.4}
 #mobile-ar-bridge-scan[hidden],#mobile-ar-bridge-legend[hidden]{display:none!important}
 
-/* Educational results use the Analysis tab instead of duplicating tables in Resources. */
-body.teaching-results-active #panel-analysis > :not(.panel-heading):not(#teaching-analysis-results){display:none!important}
-#teaching-analysis-results[hidden]{display:none!important}
-.teaching-analysis-results{display:flex;flex-direction:column;gap:10px}
-.teaching-analysis-results>label{font-size:12px;color:#b4d5de}
-.teaching-analysis-results>select{width:100%;padding:10px;border-radius:8px;background:#14323e;color:#e8f5f8;border:1px solid #4b7b86}
-.teaching-analysis-results .truss-table-scroll{overflow-x:auto}
-.teaching-analysis-results .truss-table-scroll h3{font-size:12px;margin:15px 0 5px}
+/* Teaching results use the existing Analysis controls; tables stay in Resources. */
+body.teaching-results-active #panel-analysis > :not(.panel-heading):not(.teaching-shared-control){display:none!important}
+body.teaching-results-active #panel-analysis > .teaching-shared-control{display:block}
+body.teaching-results-active #panel-analysis > .teaching-shared-control[hidden]{display:none!important}
 body.teaching-results-active #truss-summary,
 body.teaching-results-active #truss-reactions,
 body.teaching-results-active #truss-bars-table,
 body.teaching-results-active #truss-nodes-table,
 body.teaching-results-active #bridge-result,
-body.teaching-results-active #bridge-detail,
-body.teaching-results-active #bridge-legend,
-body.teaching-results-active #truss-controls .truss-subheading,
-body.teaching-results-active #bridge-controls .truss-subheading{display:none!important}
-
+body.teaching-results-active #bridge-detail{display:block}
+body.teaching-results-active #bridge-result[hidden]{display:none}
 .truss-ifc-import{display:flex;flex-direction:column;gap:9px;margin:12px 0;padding:12px;border:1px solid #476975;border-radius:10px;background:#102935}
 .truss-ifc-import>label{color:#d3e9ef;font-size:12px;font-weight:600}
 .truss-ifc-import input[type=file]{width:100%;font-size:12px;color:#c1d9e1}
 .truss-ifc-import .truss-load-grid select{width:100%;min-width:0}
-body.teaching-results-active #truss-display,
-body.teaching-results-active label[for="truss-display"],
-body.teaching-results-active #truss-controls .truss-colour-guide{display:none!important}
-
 body.teaching-results-active #legend{display:block!important}
 
 /* Teaching modes reuse the main on-stage result legend and its palette menu. */
-.teaching-colour-ramp{height:13px;border:1px solid #63828f;border-radius:3px;margin:9px 0 4px}
-.teaching-colour-limits{display:flex;justify-content:space-between;font-size:11px;font-variant-numeric:tabular-nums;color:#dbeef1}
 .truss-member-editor{display:grid;gap:7px;margin:12px 0;padding:12px;background:#12303e;border:1px solid #4b7787;border-radius:10px}
 .truss-member-editor strong{font-size:12px;color:#e4f5f8}
 .truss-member-editor p{margin:0;font-size:12px;color:#b3d3dc}
 .truss-member-editor label{font-size:12px;color:#c3dce3}
 .truss-member-editor input{width:100%;min-width:0;padding:9px;color:#e8f6f9;background:#0c2532;border:1px solid #527681;border-radius:6px}
-#teaching-analysis-results .range-control{margin:8px 0}
-#teaching-analysis-results .checkrow{margin:0}
