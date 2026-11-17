@@ -1,3 +1,41 @@
+## Actualización: leyendas, amplificación, secciones y colapso docente
+
+En **Recursos Docentes → Celosías** y **Concurso**, la pestaña **Análisis**
+permite seleccionar esfuerzo axial, tensión y desplazamientos; la celosía
+ofrece además deformación unitaria y el concurso aprovechamiento.
+La **leyenda flotante original** del visor presenta la escala cromática
+de la magnitud actual y sus **valores mínimo y máximo con unidades**.
+Su selector de paleta también actúa en las experiencias docentes.
+
+El control **Amplificación visual de la deformada (×0 a ×10)**
+modifica solo la representación de la geometría; el solucionador,
+las tablas y los resultados físicos permanecen inalterados. La
+casilla **Mostrar valores axiles** coloca etiquetas en kN sobre las
+barras. En Quest, el menú de celosías tiene controles de amplificación,
+axiles y sección. Las barras del concurso conservan el carácter de
+tirantes exclusivamente traccionados cuando corresponda.
+
+En **Celosías**, selecciona una barra con el ratón o apuntando con
+el mando. El campo **Área A (mm²)** de Recursos Docentes permite
+asignarle un área individual: se vuelve a ensamblar y resolver la
+matriz de rigidez, modificando también su representación visual.
+En Quest, utiliza **− ÁREA / + ÁREA** (250 mm² por pulsación)
+sobre la barra seleccionada. La asignación es individual y las
+áreas editadas se conservan al cambiar los apoyos.
+
+El colapso del concurso utiliza ahora una animación de **partículas
+nodales con restricciones geométricas** para las barras supervivientes:
+el primer elemento crítico se fragmenta y deja de imponer su
+restricción, los demás fallos se liberan secuencialmente, los apoyos
+mantienen sus restricciones y los nodos móviles pueden entrar en
+contacto con el suelo. Se utiliza la cota detectada por WebXR
+cuando está disponible y una cota ilustrativa en caso contrario.
+**Se trata de una visualización cualitativa**, no de una simulación
+validada de comportamiento dinámico, contacto entre sólidos,
+plastificación o propagación de fracturas.
+
+---
+
 ## Actualización de Recursos Docentes: análisis único, concurso e IFC
 
 Las experiencias **Celosías articuladas** y **Concurso de pasarelas**
