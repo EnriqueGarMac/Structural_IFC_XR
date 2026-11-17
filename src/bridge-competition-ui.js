@@ -103,6 +103,19 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         rows.push(['Elementos que fallan',result.broken.map(f=>
           f.id+' ('+(failureNames[f.mode]??'resistencia')+
           ', '+fmt(f.utilization*100,1)+' %)').join(', ')]);
+      if(result.stages?.length>1)
+        rows.push(['Redistribución tras cada fallo',result.stages.map(stage=>{
+          if(stage.status==='mechanism')
+            return 'Tras perder '+stage.removed.join(', ')+
+              ': se forma un mecanismo, sin nuevos esfuerzos calculables';
+          if(stage.nextFailure)
+            return 'Estado '+(stage.step+1)+': '+
+              (stage.removed.length?'sin '+stage.removed.join(', '):'estructura inicial')+
+              ' → falla '+stage.nextFailure.id+' ('+
+              fmt(stage.nextFailure.utilization*100,1)+' %)';
+          return 'Estado '+(stage.step+1)+
+            ': las barras restantes recuperan el equilibrio';
+        }).join(' · ')]);
       if(result.pending?.length)
         rows.push(['Barras pendientes',result.pending.length+
           ' · se cuentan en el peso, pero no en la rigidez mientras no estén conectadas']);
@@ -153,6 +166,17 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     app.xrControls.dirty=true;
   }
   challenge.onChange=update;
+  challenge.onFailureProgress=stage=>{
+    // Do not redraw the model here: that would reset the physics animation.
+    const label=stage.status==='mechanism'?
+      'Mecanismo tras perder '+stage.removed.join(', '):
+      stage.nextFailure?
+        'Nuevo equilibrio → falla '+stage.nextFailure.id+
+        ' (uso '+fmt(stage.nextFailure.utilization*100,1)+' %)':
+        'Los elementos restantes recuperan el equilibrio';
+    $('bridge-stage-detail').textContent='ROTURA PROGRESIVA · '+label;
+    $('bridge-feedback').textContent=label;
+  };
   const run=()=>{
     if(challenge.active)return;
     clearPrevious?.();
