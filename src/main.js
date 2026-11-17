@@ -3,6 +3,7 @@ import './studio-theme.css';
 import {setupWorkspaceTabs} from './workspace-tabs.js';
 import {setupTrussLesson} from './truss-lesson-ui.js';
 import {setupBridgeCompetition} from './bridge-competition-ui.js';
+import {setupMobileBridgeEditor} from './mobile-bridge-editor.js';
 import {setupTeachingAnalysis} from './teaching-analysis-ui.js';
 import { StructuralScene } from './scene.js';
 import { readIFC } from './ifc-loader.js';
@@ -692,6 +693,7 @@ $('btn-mobile-ar').addEventListener('click',async()=>{
     $('mobile-ar-sap-only').textContent='Solo estructura: '+(app.showSAPOnly?'SÍ':'NO');
     if(app.xrSession)await app.xrSession.end();
     await app.enterXR({mobile:true});
+    mobileBridgeEditor?.refresh();
     $('btn-mobile-ar').textContent='Salir de AR';
   }catch(e){info('AR móvil: '+e.message,true);}
 });
@@ -710,6 +712,7 @@ setupTrussLesson(app,{
   modelLabel:setModelLabel,status
 });
 
+let mobileBridgeEditor=null;
 setupBridgeCompetition(app,{
   selectWorkspace:name=>workspace.selectTab(name),
   clearPrevious:()=>{
@@ -723,6 +726,7 @@ setupBridgeCompetition(app,{
   },
   modelLabel:setModelLabel,status
 });
+mobileBridgeEditor=setupMobileBridgeEditor(app);
 
 // Clicking either card selects one teaching experience; switching deactivates
 // the other via its existing clearPrevious callback.
