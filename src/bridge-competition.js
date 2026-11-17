@@ -342,7 +342,7 @@ export class BridgeCompetitionExperience {
       // span. The displayed diameter scales with the physical span, while
       // a modest upper clamp avoids visually massive teaching rods.
       const width=clamp(Math.sqrt(section.A_m2/Math.PI)*BASE/span,
-        section.kind==='tie'?.002:.003,.015);
+        section.kind==='tie'?.0009:.0012,.015);
       const beam=lineBetween(a,b,width,colour);
       beam.userData.bridgeMember=m.id;
       this.root.add(beam);
@@ -435,8 +435,8 @@ export class BridgeCompetitionExperience {
     if(this.addMode&&this.startNode){
       this.previewMesh=new THREE.Mesh(
         new THREE.CylinderGeometry(clamp(Math.sqrt(BRIDGE_SECTIONS[this.sectionId].A_m2/Math.PI)*BASE/span,
-          .002,.015),clamp(Math.sqrt(BRIDGE_SECTIONS[this.sectionId].A_m2/Math.PI)*BASE/span,
-          .002,.015),1,8),
+          .0012,.015),clamp(Math.sqrt(BRIDGE_SECTIONS[this.sectionId].A_m2/Math.PI)*BASE/span,
+          .0012,.015),1,8),
         new THREE.MeshBasicMaterial({color:0xf4db90,transparent:true,opacity:.7,
           depthTest:false,depthWrite:false}));
       this.previewMesh.renderOrder=12000;
@@ -463,7 +463,7 @@ export class BridgeCompetitionExperience {
           const section=BRIDGE_SECTIONS[m.sectionId];
           return {...m,tie:section.kind==='tie',
             radius:clamp(Math.sqrt(section.A_m2/Math.PI)*BASE/span,
-              section.kind==='tie'?.002:.003,.015)};
+              section.kind==='tie'?.0009:.0012,.015)};
         }),[],floorZ
       );
       // Show where impact is actually calculated. Without a visual contact
