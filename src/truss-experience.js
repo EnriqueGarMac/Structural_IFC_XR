@@ -225,7 +225,7 @@ export class TrussExperience {
       this.root.add(mesh);this.pickBars.push(mesh);
       // The common force-diagram engine owns characteristic labels when
       // this exercise is attached to the main Analysis tab.
-      if(this.showAxialLabels&&!this.app.teachingAnalysis?.active){
+      if(this.showAxialLabels&&!this.app.teachingAnalysis){
         const mid=mesh.position.clone().add(new THREE.Vector3(0,-.08,.12));
         const sprite=makeAxialLabel(bar.axial_kN,mid,{scale:Math.max(.14,Math.min(.3,
           this.model.bars.length>40?.14:.23))});
@@ -275,7 +275,7 @@ export class TrussExperience {
     // Do not duplicate the main application's reaction arrows. Its
     // ReactionVisuals component now draws them in Analysis → Reactions.
     const maxR=Math.max(1,...result.reactions.flatMap(r=>[Math.abs(r.rx_kN),Math.abs(r.rz_kN)]));
-    for(const r of this.app.teachingAnalysis?.active?[]:result.reactions){
+    for(const r of this.app.teachingAnalysis?[]:result.reactions){
       const n=moved(this.nodeMap.get(r.nodeId));
       if(Math.abs(r.rx_kN)>1e-8)arrow(this.root,
         new THREE.Vector3(n.x,0,n.z-.20),{x:r.rx_kN,z:0},COLORS.reaction,maxR);
