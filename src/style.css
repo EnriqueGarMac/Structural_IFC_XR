@@ -169,3 +169,11 @@ body.teaching-results-active #bridge-detail,
 body.teaching-results-active #bridge-legend,
 body.teaching-results-active #truss-controls .truss-subheading,
 body.teaching-results-active #bridge-controls .truss-subheading{display:none!important}
+
+.truss-ifc-import{display:flex;flex-direction:column;gap:9px;margin:12px 0;padding:12px;border:1px solid #476975;border-radius:10px;background:#102935}
+.truss-ifc-import>label{color:#d3e9ef;font-size:12px;font-weight:600}
+.truss-ifc-import input[type=file]{width:100%;font-size:12px;color:#c1d9e1}
+.truss-ifc-import .truss-load-grid select{width:100%;min-width:0}
+body.teaching-results-active #truss-display,
+body.teaching-results-active label[for="truss-display"],
+body.teaching-results-active #truss-controls .truss-colour-guide{display:none!important}
