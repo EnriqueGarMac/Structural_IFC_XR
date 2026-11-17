@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {BRIDGE_DEFAULTS,BRIDGE_SECTIONS,bridgeGrid,bridgeSampleMembers,
-  addBridgeMember,calculateBridge,bridgeStageResult} from '../src/bridge-competition-solver.mjs';
+  addBridgeMember,calculateBridge,bridgeStageResult,bridgeLoadHistory} from '../src/bridge-competition-solver.mjs';
 import {bridgeGapBetween,detectBridgeTableGap,applyBridgeGapPlacement}
   from '../src/bridge-table-detection.mjs';
 const near=(a,b,tol=.000001)=>assert.ok(Math.abs(a-b)<=tol,a+' != '+b);
@@ -55,6 +55,25 @@ test('two straight collinear same-section segments merge into one member',()=>{
   assert.equal(connected.length,3);
   assert.ok(connected.some(m=>m.i==='B0'||m.j==='B0'));
   assert.ok(connected.some(m=>m.i==='B2'||m.j==='B2'));
+});
+test('quasi-static bridge load history solves increments and brackets first yield',()=>{
+  const members=bridgeSampleMembers();
+  const loading=bridgeLoadHistory({members,load_kN:35,steps:12});
+  assert.equal(loading.snapshots.length,13);
+  assert.equal(loading.snapshots[0].load_kN,0);
+  assert.ok(loading.criticalLoad_kN>0&&loading.criticalLoad_kN<35);
+  assert.ok(loading.snapshots.every((p,i)=>p.valid&&
+    (i===0||p.load_kN>loading.snapshots[i-1].load_kN)));
+  assert.ok(loading.snapshots.at(-1).load_kN<loading.criticalLoad_kN);
+  assert.equal(calculateBridge({members,load_kN:loading.rampLoad_kN,
+    progressive:false}).broken.length,0);
+  assert.ok(calculateBridge({members,
+    load_kN:loading.criticalLoad_kN+.01,
+    progressive:false}).broken.length>0);
+  const safe=bridgeLoadHistory({members,load_kN:3,steps:8});
+  assert.equal(safe.rampLoad_kN,3);
+  assert.equal(safe.snapshots.length,9);
+  assert.ok(safe.snapshots.every(s=>s.valid));
 });
 test('reference pedestrian truss resists its central teaching load with equilibrium',()=>{
   const r=calculateBridge({members:bridgeSampleMembers()});
