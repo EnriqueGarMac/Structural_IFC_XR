@@ -118,6 +118,12 @@ test('resetting to undeformed bridge shape retains numerical results and stops c
   assert.equal(exercise.result,result);
   assert.equal(exercise.undeformedView,true);
   assert.equal(exercise.breakAnimation,null);
+  exercise.setAmplification(2);
+  assert.equal(exercise.undeformedView,false,
+    'Changing the shared amplification slider reactivates the deformed view');
+  assert.equal(exercise.ampFactor,2);
+  assert.equal(exercise.result,result);
+  exercise.setUndeformedView(true);
   exercise.setUndeformedView(false);
   assert.equal(exercise.result,result);
   assert.equal(exercise.undeformedView,false);
