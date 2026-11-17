@@ -64,6 +64,8 @@ export class TrussExperience {
     this.selectedNode='G';
     this.selectedBarId=null;
     this.mode='axial';
+    this.ampFactor=1;
+    this.palette='classic';
     this.result=solveTruss2D(this.model,this.loads);
     this.pickNodes=[];
     this.pickBars=[];
@@ -135,6 +137,29 @@ export class TrussExperience {
     this.selectedBarId=id;
     this.draw();return true;
   }
+  setMemberArea(id,area_mm2){
+    const A_m2=Number(area_mm2)/1e6;
+    if(!Number.isFinite(A_m2)||A_m2<1e-6||A_m2>0.1)
+      throw Error('Área de la barra entre 1 y 100 000 mm².');
+    if(!this.model.bars.some(b=>b.id===id))throw Error('Selecciona una barra válida.');
+    const model={...this.model,bars:this.model.bars.map(b=>
+      b.id===id?{...b,A_m2}:b)};
+    const result=solveTruss2D(model,this.loads);
+    this.model=model;this.result=result;this.selectedBarId=id;
+    this.draw();
+  }
+  adjustMemberArea(id,delta_mm2){
+    const bar=this.model.bars.find(b=>b.id===id);
+    if(!bar)throw Error('Selecciona una barra.');
+    const current=bar.A_m2??this.model.A_m2;
+    this.setMemberArea(id,Math.max(1,Math.round(current*1e6+delta_mm2)));
+  }
+  setAmplification(factor){
+    const n=Number(factor);
+    if(!Number.isFinite(n)||n<0||n>10)throw Error('Amplificación de 0 a 10.');
+    this.ampFactor=n;this.draw();
+  }
+  setPalette(palette){this.palette=palette;this.draw();}
   getSelectedBar(){
     return this.result.bars.find(b=>b.id===this.selectedBarId)??null;
   }
@@ -162,7 +187,7 @@ export class TrussExperience {
     const result=this.result,disp=new Map(result.displacements.map(d=>[d.nodeId,d]));
     const maxU=result.maxDisplacement_m;
     // Visual deformation only. Physical displacements remain unscaled.
-    const amp=maxU>1e-12?Math.min(1200,.23/maxU):1;
+    const amp=(maxU>1e-12?Math.min(1200,.23/maxU):1)*this.ampFactor;
     this.deformationAmplification=amp;
     const moved=node=>{
       const d=disp.get(node.id);
@@ -178,13 +203,16 @@ export class TrussExperience {
         bar.axial_kN< -1e-6?COLORS.compression:COLORS.neutral;
       if(this.mode==='displacement'){
         const t=(da.magnitude_m+db.magnitude_m)/(2*maxNode);
-        color=resultColourHex(t,'classic');
+        color=resultColourHex(t,this.palette);
       }else if(this.mode==='stress'||this.mode==='strain'){
         // Signed sign remains unambiguous. Magnitude adjusts saturation.
         const t=Math.abs(this.mode==='stress'?bar.stress_MPa:bar.strain)/maxBar;
         color=new THREE.Color(color).lerp(new THREE.Color(0xa8b6ba),.45*(1-t)).getHex();
       }
-      const mesh=cylinderBetween(moved(na),moved(nb),bar.id===this.selectedBarId?.095:.067,
+      const section=this.model.bars.find(b=>b.id===bar.id);
+      const area=section?.A_m2??this.model.A_m2??.006;
+      const radius=Math.min(.18,Math.max(.025,Math.sqrt(area/Math.PI)*.9));
+      const mesh=cylinderBetween(moved(na),moved(nb),bar.id===this.selectedBarId?radius*1.32:radius,
         bar.id===this.selectedBarId?COLORS.selected:color);
       mesh.userData={trussBarId:bar.id};
       this.root.add(mesh);this.pickBars.push(mesh);
