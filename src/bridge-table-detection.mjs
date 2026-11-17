@@ -44,6 +44,31 @@ export function bridgeGapBetween(a,b,{minGap=.20,maxGap=3,heightTolerance=.10}={
     direction:best.end.clone().sub(best.start).normalize(),
     source:'WebXR plane-detection'};
 }
+// Fallback for browsers without plane polygons (commonly Android WebXR).
+// The student aims the hit-test reticle at each INNER tabletop edge and
+// explicitly records the two points. We measure the horizontal distance
+// between those points; these are not automatically discovered plane edges.
+export function bridgeGapFromHitPoints(first,second,{
+  minGap=.3,maxGap=3,heightTolerance=.12
+}={}){
+  if(!first||!second||![first.x,first.y,first.z,
+    second.x,second.y,second.z].every(Number.isFinite))
+    throw Error('Se necesitan dos puntos de superficie detectados.');
+  if(Math.abs(first.y-second.y)>heightTolerance)
+    throw Error('Los bordes de ambas mesas deben estar a una altura similar.');
+  const dx=second.x-first.x,dz=second.z-first.z;
+  const span=Math.hypot(dx,dz);
+  if(span<minGap||span>maxGap)
+    throw Error('El vano medido debe estar entre '+
+      minGap.toFixed(2).replace('.',',')+' y '+
+      maxGap.toFixed(2).replace('.',',')+' m.');
+  const height=(first.y+second.y)/2;
+  const start=new THREE.Vector3(first.x,height,first.z);
+  const end=new THREE.Vector3(second.x,height,second.z);
+  return {span_m:span,start,end,
+    direction:end.clone().sub(start).normalize(),
+    source:'Dos bordes señalados con hit-test (sin detección de contornos)'};
+}
 export function detectBridgeTableGap(frame,referenceSpace){
   if(!frame?.detectedPlanes||!referenceSpace)return null;
   const surfaces=[];
@@ -56,7 +81,9 @@ export function detectBridgeTableGap(frame,referenceSpace){
       if(label&&label!=='table'&&label!=='desk'&&label!=='unknown')continue;
       if(item.width<.4||item.depth<.35||item.width>2.8||item.depth>2.8)continue;
       if(item.area<.2||item.area>7.5)continue;
-      if(item.top<.35||item.top>1.75)continue;
+      // XR local coordinates are relative to the session origin, NOT the
+      // floor. On phones, tabletop tops can have negative Y; absolute
+      // [0.35,1.75] would silently reject every detected plane.
       surfaces.push(item);
     }catch{/* Ignore individual unsupported planes. */}
   }
