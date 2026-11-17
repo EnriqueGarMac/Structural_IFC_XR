@@ -4,9 +4,13 @@ import {solveTruss2D} from './truss-solver.mjs';
 // Units kN / m / MPa. Values are illustrative design parameters, not code
 // verification nor an engineering certification of real bridge safety.
 export const BRIDGE_SECTIONS={
-  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.00030,I_m4:1.2e-8,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
-  bar_l:{label:'Barra · reforzada',kind:'bar',A_m2:.0018,I_m4:3.9e-7,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
-  tie_m:{label:'Tirante · solo tracción',kind:'tie',A_m2:.00022,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
+  // Reduced educational sizes: 120 / 550 / 80 mm². Moderate strengths
+  // permit both valid lightweight designs and visible tensile yielding.
+  // I represents representative tube/section stiffness, independent of
+  // the area-equivalent rendering diameter.
+  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.00012,I_m4:6e-9,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
+  bar_l:{label:'Barra · reforzada',kind:'bar',A_m2:.00055,I_m4:1.5e-7,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
+  tie_m:{label:'Tirante · solo tracción',kind:'tie',A_m2:.00008,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
 };
 export const BRIDGE_DEFAULTS={span_m:1.2,centralLoad_kN:3,
   deflectionLimit:250,maxIterations:16};
@@ -16,7 +20,10 @@ export function bridgeGrid(span=BRIDGE_DEFAULTS.span_m){
   // then add a fine 9 x 5 lattice for more elaborate bridge geometries.
   const xs=[0,.25,.5,.75,1].map(f=>f*span);
   const canonical=[
-    ...xs.map((x,i)=>({id:'B'+i,x,z:0,fixX:i===0,fixZ:i===0||i===4})),
+    ...xs.map((x,i)=>({id:'B'+i,x,z:0,
+      // Two fixed-position pin joints (UX=UZ=0). The ideal truss does not
+      // transmit rotational moments, so these are not beam encastrements.
+      fixX:i===0||i===4,fixZ:i===0||i===4})),
     ...xs.slice(1,-1).map((x,i)=>({id:'T'+(i+1),x,z:span*.28}))
   ];
   const fine=[];
