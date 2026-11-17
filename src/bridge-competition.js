@@ -101,7 +101,9 @@ export class BridgeCompetitionExperience {
   setAmplification(factor){
     const n=Number(factor);
     if(!Number.isFinite(n)||n<0||n>10)throw Error('Amplificación de 0 a 10.');
-    this.ampFactor=n;this.draw();
+    this.ampFactor=n;
+    if(this.undeformedView)this.undeformedView=false;
+    this.draw();
   }
   setAxialLabels(enabled){this.showAxialLabels=Boolean(enabled);this.draw();}
   setUndeformedView(enabled){
