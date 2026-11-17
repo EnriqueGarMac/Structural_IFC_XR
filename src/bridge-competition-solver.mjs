@@ -220,6 +220,31 @@ function membersWithCapacities(all,raw,active,nodes){
       pending:activeState&&!b};
   });
 }
+// A documented, immutable result snapshot for the selected surviving
+// equilibrium after a member-loss event. The mechanism state has no
+// calculable static displacements/stresses and is represented by null.
+export function bridgeStageResult(result,stage){
+  if(!result||!stage||stage.status==='mechanism')return null;
+  const current=new Map(stage.members.map(m=>[m.id,m]));
+  const members=result.members.map(member=>{
+    const update=current.get(member.id);
+    if(!update||!update.active||update.pending||update.slack)return {
+      ...member,axial_kN:0,stress_MPa:0,strain:0,utilization:0,
+      pending:true,active:false
+    };
+    return {...member,...update,pending:false};
+  });
+  const displacements=stage.displacements.map(d=>({
+    ...d,magnitude_m:Math.hypot(d.ux_m??0,d.uz_m??0)
+  }));
+  return {...result,members,displacements,
+    reactions:stage.reactions.map(r=>({...r})),
+    maxUtilization:stage.maxUtilization,
+    maxDeflection_mm:Math.max(0,...displacements.map(d=>
+      Math.abs(d.uz_m??0)*1000)),
+    bending:stage.step===0?result.bending:null,
+    stageIndex:stage.step,stageStatus:stage.status};
+}
 export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=true}={}){
   if(!Number.isFinite(load_kN)||load_kN<0||load_kN>50)
     throw Error('Carga central fuera de rango (0 a 50 kN).');
@@ -302,8 +327,10 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     stages.push({step:stages.length,removed:failures.map(f=>f.id),
       status:critical?'overloaded':'equilibrium',
       members:current.map(m=>({id:m.id,axial_kN:m.axial_kN,
-        utilization:m.utilization,active:active.has(m.id),
-        pending:m.pending,slack:m.slack})),
+        stress_MPa:m.stress_MPa,strain:m.strain,
+        extension_mm:m.extension_mm,utilization:m.utilization,
+        bendingUtilization:m.bendingUtilization??null,
+        active:active.has(m.id),pending:m.pending,slack:m.slack})),
       reactions:raw.reactions.map(r=>({...r})),
       displacements:raw.displacements.map(d=>({...d})),
       maxUtilization:Math.max(0,...current.map(m=>m.utilization)),
