@@ -85,6 +85,30 @@ test('bridge visual tube diameter scales with physical section and span',()=>{
     'Same steel area shown across twice the span must appear half as thick');
   exercise.deactivate();
 });
+test('three-member triangle visualizes mid-chord bending, without moving unused grid nodes',()=>{
+  const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
+  exercise.activate();
+  exercise.members=[
+    {id:'M1',i:'B0',j:'T2',sectionId:'bar_m'},
+    {id:'M2',i:'T2',j:'B4',sectionId:'bar_m'},
+    {id:'M3',i:'B0',j:'B4',sectionId:'bar_l'}
+  ];
+  const result=exercise.evaluate();
+  assert.equal(result.status,'stable');
+  assert.equal(result.bending?.memberId,'M3');
+  const chord=exercise.root.children.find(x=>
+    x.userData.bridgeMember==='M3'&&
+    Array.isArray(x.userData.curvedPieces));
+  assert.ok(chord);
+  assert.equal(chord.visible,false);
+  assert.equal(chord.userData.curvedPieces.length,14);
+  const centre=exercise.root.children.find(x=>
+    x.geometry?.type==='SphereGeometry'&&
+    Math.abs(x.position.x-.6)<1e-8&&
+    Math.abs(x.position.z)<1e-8);
+  assert.ok(centre,'Unused B2 grid marker must stay in its design position');
+  exercise.deactivate();
+});
 test('bridge renderer allows a lightweight design, editing and animated failure',()=>{
   const app=makeApp();
   assert.equal(bridgeReferenceGeometry().length,2);
