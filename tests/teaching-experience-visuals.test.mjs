@@ -205,6 +205,31 @@ test('progressive failure animation follows the actual recalculated sequence',()
   assert.equal(bridge.breakAnimation.physics.broken.has('M14'),true);
   bridge.deactivate();
 });
+test('falling rods are visually horizontal in 3D, not only in the contact solver',()=>{
+  const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
+  bridge.activate();bridge.sample();bridge.setLoad(35);
+  const result=bridge.evaluate();
+  assert.ok(result.broken.length>0);
+  for(let t=0;t<=7000;t+=16)bridge.animate(100+t);
+  const floor=bridge.breakAnimation.physics.floorZ;
+  let grounded=0;
+  for(const member of bridge.breakAnimation.dropped){
+    for(const frag of member.fragments??[]){
+      if(!frag.motion?.settled)continue;
+      grounded++;
+      const displayedAxis=new THREE.Vector3(0,1,0)
+        .applyQuaternion(frag.object.quaternion);
+      assert.ok(Math.abs(displayedAxis.z)<1e-6,
+        'The actual THREE cylinder must be horizontal, not merely the 2D physical state');
+      const bottom=frag.object.position.z-frag.radius-
+        Math.abs(displayedAxis.z)*frag.length*.5;
+      assert.ok(Math.abs(bottom-floor)<1e-6,
+        'Cylinder must actually rest on the surface at its full thickness');
+    }
+  }
+  assert.ok(grounded>=2,'At least both halves of a broken bar should settle');
+  bridge.deactivate();
+});
 test('visible collision plane and fractured cylinders share the same ground height',()=>{
   const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
   exercise.activate();exercise.sample();exercise.setSpan(2.9);exercise.setLoad(50);
