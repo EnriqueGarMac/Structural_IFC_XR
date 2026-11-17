@@ -109,6 +109,27 @@ test('three-member triangle visualizes mid-chord bending, without moving unused 
   assert.ok(centre,'Unused B2 grid marker must stay in its design position');
   exercise.deactivate();
 });
+test('resetting to undeformed bridge shape retains numerical results and stops collapse',()=>{
+  const app=makeApp(),exercise=new BridgeCompetitionExperience(app);
+  exercise.activate();exercise.sample();
+  const result=exercise.evaluate();
+  assert.equal(result.status,'stable');
+  exercise.setUndeformedView(true);
+  assert.equal(exercise.result,result);
+  assert.equal(exercise.undeformedView,true);
+  assert.equal(exercise.breakAnimation,null);
+  exercise.setUndeformedView(false);
+  assert.equal(exercise.result,result);
+  assert.equal(exercise.undeformedView,false);
+  exercise.setSpan(2.9);exercise.setLoad(50);
+  const failure=exercise.evaluate();
+  assert.equal(failure.status,'collapse');
+  assert.ok(exercise.breakAnimation);
+  exercise.setUndeformedView(true);
+  assert.equal(exercise.result,failure);
+  assert.equal(exercise.breakAnimation,null);
+  exercise.deactivate();
+});
 test('bridge renderer allows a lightweight design, editing and animated failure',()=>{
   const app=makeApp();
   assert.equal(bridgeReferenceGeometry().length,2);
