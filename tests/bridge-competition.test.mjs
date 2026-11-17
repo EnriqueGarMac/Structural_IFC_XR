@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {BRIDGE_DEFAULTS,BRIDGE_SECTIONS,bridgeGrid,bridgeSampleMembers,
-  addBridgeMember,calculateBridge} from '../src/bridge-competition-solver.mjs';
+  addBridgeMember,calculateBridge,bridgeStageResult} from '../src/bridge-competition-solver.mjs';
 import {bridgeGapBetween,detectBridgeTableGap,applyBridgeGapPlacement}
   from '../src/bridge-table-detection.mjs';
 const near=(a,b,tol=.000001)=>assert.ok(Math.abs(a-b)<=tol,a+' != '+b);
@@ -156,6 +156,34 @@ test('symmetric equally critical bars fail simultaneously, without arbitrary ID 
     stage.nextFailures[1].utilization)<1e-10);
   assert.deepEqual(r.stages[1].removed,['M3','M4']);
   assert.equal(r.stages[1].status,'mechanism');
+});
+test('surviving bars receive new stresses and displacements after each loss',()=>{
+  const members=bridgeSampleMembers().map(m=>({
+    ...m,sectionId:['M3','M4','M7','M9','M13'].includes(m.id)?
+      'bar_l':'bar_m'
+  }));
+  members.push(
+    {id:'M14',i:'T1',j:'B3',sectionId:'bar_m'},
+    {id:'M15',i:'B2',j:'B4',sectionId:'bar_m'},
+    {id:'M16',i:'B0',j:'B2',sectionId:'bar_l'}
+  );
+  const r=calculateBridge({members,load_kN:35});
+  assert.deepEqual(r.broken.map(m=>m.id),['M6','M14']);
+  const initial=bridgeStageResult(r,r.stages[0]);
+  const afterFirst=bridgeStageResult(r,r.stages[1]);
+  assert.ok(initial&&afterFirst);
+  const m14a=initial.members.find(m=>m.id==='M14');
+  const m14b=afterFirst.members.find(m=>m.id==='M14');
+  assert.ok(Math.abs(m14b.axial_kN)>Math.abs(m14a.axial_kN)*5,
+    'Axial forces must reflect the updated equilibrium after M6 fails');
+  assert.ok(Math.abs(m14b.stress_MPa)>Math.abs(m14a.stress_MPa)*5,
+    'The displayed stress must follow the new force, not the initial force');
+  assert.ok(Number.isFinite(m14b.strain)&&Math.abs(m14b.strain)>0);
+  assert.equal(afterFirst.members.find(m=>m.id==='M6').pending,true);
+  assert.ok(afterFirst.displacements.every(d=>Number.isFinite(d.magnitude_m)));
+  assert.ok(afterFirst.reactions.length>0);
+  assert.equal(bridgeStageResult(r,r.stages[2]),null,
+    'A mechanism must not expose fabricated post-collapse static results');
 });
 test('progressive bridge failure recalculates member forces after each removal',()=>{
   const members=bridgeSampleMembers().map(m=>({
