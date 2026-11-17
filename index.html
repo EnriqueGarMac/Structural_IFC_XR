@@ -155,6 +155,24 @@
           <div id="truss-controls" class="truss-controls" hidden>
             <div class="teaching-active-head"><strong>Cálculo de celosías</strong><span>Experimenta con cargas nodales y esfuerzos</span></div>
             <div class="truss-method-note">Celosía plana 2D · Barras biarticuladas · Cargas nodales · Unidades: kN, m, MPa</div>
+            <div class="truss-ifc-import">
+              <label for="truss-ifc-input">Importar una celosía plana IFC</label>
+              <input id="truss-ifc-input" type="file" accept=".ifc" />
+              <div class="truss-load-grid">
+                <label for="truss-ifc-area">Área de barras (mm²)
+                  <input id="truss-ifc-area" type="number" min="1" step="100" value="6000"></label>
+                <label for="truss-ifc-e">Módulo E (GPa)
+                  <input id="truss-ifc-e" type="number" min="1" step="1" value="210"></label>
+              </div>
+              <p id="truss-ifc-status" class="field-help" role="status">Admite elementos prismáticos IFC rectos en un mismo plano XZ. Se reconstruye la conectividad por proximidad y deben comprobarse los apoyos.</p>
+              <div class="truss-load-grid">
+                <label for="truss-fixed-support">Apoyo articulado
+                  <select id="truss-fixed-support"></select></label>
+                <label for="truss-roller-support">Apoyo móvil
+                  <select id="truss-roller-support"></select></label>
+              </div>
+              <button type="button" id="truss-apply-supports" class="secondary-btn">Confirmar apoyos y recalcular</button>
+            </div>
             <label class="truss-label" for="truss-node-select">Nodo de aplicación</label>
             <select id="truss-node-select" aria-label="Seleccionar nodo de la celosía"></select>
             <div class="truss-load-grid">
