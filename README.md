@@ -112,17 +112,23 @@ una barra concreta y exportar resultados en CSV. Las deformadas están
 amplificadas exclusivamente a efectos de visualización, sin modificar
 los valores físicos.
 
-**Concurso → Pasarela entre mesas** presenta una retícula de 8 nodos
-para crear elementos entre nodos desde formularios web/móvil o con el
-gatillo de Quest. Las dos barras de acero pueden trabajar a tracción y
-compresión; el tirante de acero, de menor sección, **solo trabaja a
-tracción**. Se ofrecen dos áreas de barra y una de tirante. Un apoyo está articulado y el otro es móvil.
+**Concurso → Pasarela entre mesas** dispone de una retícula de 45
+puntos (9 columnas × 5 alturas), sobre la que se dibujan elementos
+seleccionando dos nudos con el ratón o los mandos de Quest. Las barras
+resisten tracción y compresión. Los tirantes trabajan **solo a tracción**.
+Los elementos tienen áreas de **120 mm²** (barra ligera), **550 mm²**
+(barra reforzada) y **80 mm²** (tirante). Los dos apoyos extremos tienen
+impedidos los desplazamientos horizontal y vertical, manteniendo uniones
+articuladas (sin momento de empotramiento).
 El alumno define el vano (0,30–3,00 m) y la carga central (0–50 kN).
 
-La comprobación docente incorpora peso propio distribuido a los nodos,
+La comprobación docente incorpora peso propio repartido entre nudos,
 cálculo matricial de desplazamientos, reacciones y esfuerzos axiles,
-aprovechamiento axial, resistencia a compresión por pandeo de Euler
-con extremos articulados y límite simplificado de flecha **L/250**.
+**límite elástico axial tanto en tracción como en compresión**, flexión
+simplificada cuando la carga se aplica en el interior de una barra,
+y límite de flecha **L/250**. **El pandeo no se comprueba en este concurso**,
+por corresponder a contenido que el alumnado aún no ha estudiado.
+La aplicación no debe interpretarse como verificación de seguridad real.
 La experiencia distingue tres estados:
 
 - **Apta:** cumple comprobaciones resistentes y de flecha.
