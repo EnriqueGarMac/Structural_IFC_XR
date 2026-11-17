@@ -602,8 +602,14 @@ export class BridgeCompetitionExperience {
           const substeps=Math.max(1,Math.ceil(dt/.016));
           for(let k=0;k<substeps;k++)
             stepBridgeLooseFragment(fragment.motion,dt/substeps,physics.floorZ);
+          // Rotation happens in WORLD/MODEL coordinates around the Y axis.
+          // The cylinder's initial quaternion already maps its local Y
+          // axis onto the bar direction. Multiplying on the right rotates
+          // about its local Y axis (the cylinder's own longitudinal axis),
+          // leaving the bar visibly tilted despite the physics being flat.
+          // Pre-multiply so the VISUAL direction matches the contact solver.
           fragment.object.quaternion.copy(fragment.baseRotation);
-          fragment.object.quaternion.multiply(
+          fragment.object.quaternion.premultiply(
             new THREE.Quaternion().setFromAxisAngle(
               new THREE.Vector3(0,1,0),fragment.motion.angle));
           fragment.object.position.set(fragment.motion.x,fragment.origin.y,
