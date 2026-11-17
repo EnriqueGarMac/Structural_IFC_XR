@@ -348,6 +348,8 @@ paletteToggle.addEventListener('click',()=>{
 });
 $('result-palette').addEventListener('change',e=>{
   app.sapVisuals.setPalette(e.target.value);
+  if(app.trussExperience?.active)app.trussExperience.setPalette(e.target.value);
+  if(app.bridgeCompetition?.active)app.bridgeCompetition.setPalette(e.target.value);
   closePalettePicker();
 });
 document.addEventListener('pointerdown',e=>{
@@ -503,6 +505,24 @@ app.renderer.domElement.addEventListener('pointerup',event=>{
   app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
     -(event.clientY-rect.top)/rect.height*2+1);
   app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+  if(app.trussExperience?.active){
+    const hit=app.trussExperience.pick(app.pickRaycaster);
+    if(hit){
+      if(hit.kind==='bar')app.trussExperience.selectBar(hit.id);
+      else app.trussExperience.selectNode(hit.id);
+    }
+    return;
+  }
+  if(app.bridgeCompetition?.active){
+    const hit=app.bridgeCompetition.pick(app.pickRaycaster);
+    if(hit){
+      try{
+        if(hit.kind==='node')app.bridgeCompetition.chooseNode(hit.id);
+        else app.bridgeCompetition.chooseMember(hit.id);
+      }catch(error){info(error.message,true);}
+    }
+    return;
+  }
   if(app.sapVisuals.view==='forces'){
     const section=app.sapVisuals.pickForce(app.pickRaycaster);
     if(section)app.sapVisuals.pinSection(section);
