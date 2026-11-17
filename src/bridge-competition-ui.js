@@ -133,6 +133,7 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     $('num-frames').textContent=String(challenge.members.length);
     $('max-u').textContent=result?.maxDeflection_mm!==null&&result?
       fmt(result.maxDeflection_mm,3)+' mm':'—';
+    app.updateTeachingAnalysis?.('bridge',result,challenge);
     app.xrControls.dirty=true;
   }
   challenge.onChange=update;
