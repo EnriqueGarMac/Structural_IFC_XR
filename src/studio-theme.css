@@ -524,3 +524,19 @@ select:focus-visible,.offset-inputs input:focus-visible{border-color:#267a86}
   .workspace-tab{font-size:9px;letter-spacing:-.03em;padding:8px 1px}
   .bridge-stage-status{top:10px;left:11px;padding:7px 9px;max-width:calc(100% - 30px)}
 }
+
+/* All teaching activities live under one Recursos docentes tab. */
+.workspace-tabs{grid-template-columns:repeat(5,minmax(0,1fr));padding:0 6px}
+.workspace-tab{font-size:10.5px;letter-spacing:0;overflow-wrap:normal}
+.workspace-tab-resource{font-weight:680}
+.teaching-picker{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:15px}
+.teaching-picker .teaching-choice{margin:0;transition:border-color .15s,box-shadow .15s}
+.teaching-choice.is-selected{border-color:#267a86;background:#f2f9f8;box-shadow:inset 3px 0 #267a86}
+.teaching-choice .teaching-primary{margin:9px 0 0}
+.teaching-choice.is-selected .teaching-primary{background:#edf4f3!important;color:#216974!important}
+.teaching-choice.is-selected .teaching-primary::after{content:" · Seleccionada";font-size:10px}
+.teaching-active-head{display:flex;flex-direction:column;gap:5px;padding:13px 2px 12px;
+ border-bottom:1px solid #dce4e5;margin:6px 0 15px}
+.teaching-active-head strong{color:#29444c;font-size:14px;font-weight:730}
+.teaching-active-head span{color:#75828a;font-size:10.5px}
+@media(max-width:700px){.workspace-tab{font-size:10px;padding:10px 2px}}
