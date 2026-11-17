@@ -429,9 +429,11 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
       -(event.clientY-rect.top)/rect.height*2+1);
     app.pickRaycaster.setFromCamera(app.mouse,app.camera);
     app.bridgeCompetition.updatePreviewRay(app.pickRaycaster);
-    const hit=app.bridgeCompetition.pick(app.pickRaycaster);
-    if(!hit){forceReadout.hidden=true;return;}
     const bridge=app.bridgeCompetition;
+    const hit=bridge.addMode?
+      bridge.pickDesignNode(app.pickRaycaster):
+      bridge.pick(app.pickRaycaster);
+    if(!hit){forceReadout.hidden=true;return;}
     const result=bridge.result;
     const data=result?.members?.find(m=>m.id===hit.id);
     forceReadout.textContent=hit.kind==='node'?
@@ -527,11 +529,16 @@ app.renderer.domElement.addEventListener('pointerup',event=>{
     return;
   }
   if(app.bridgeCompetition?.active){
-    const hit=app.bridgeCompetition.pick(app.pickRaycaster);
+    const bridge=app.bridgeCompetition;
+    // In bar-placement mode, only endpoints on the design grid count.
+    // In inspection mode keep the old selectable rods and node probes.
+    const hit=bridge.addMode?
+      bridge.pickDesignNode(app.pickRaycaster):
+      bridge.pick(app.pickRaycaster);
     if(hit){
       try{
-        if(hit.kind==='node')app.bridgeCompetition.chooseNode(hit.id);
-        else app.bridgeCompetition.chooseMember(hit.id);
+        if(hit.kind==='node')bridge.chooseNode(hit.id);
+        else bridge.chooseMember(hit.id);
       }catch(error){info(error.message,true);}
     }
     return;
