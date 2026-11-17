@@ -108,8 +108,11 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
   let axisZ=body.axisZ*Math.cos(body.angle)-
     body.axisX*Math.sin(body.angle);
   let contact=resolveBridgeCylinderFloor(body.z,axisZ,length,radius,floorZ);
-  if(contact.contact){
-    body.z=contact.centerZ;
+  if(contact.contact||body.touchingFloor){
+    // Once the first endpoint touches ground, maintain the contact while
+    // the rod rolls: do not let a transient centre-height change make it
+    // fly again and delay the final horizontal pose.
+    body.z=floorZ+Math.abs(axisZ)*length*.5+radius;
     body.vz=0;
     // The only angular degree of freedom is within the vertical bridge
     // plane. Choose the nearest horizontal orientation (either polarity).
@@ -125,7 +128,7 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
     axisZ=body.axisZ*Math.cos(body.angle)-
       body.axisX*Math.sin(body.angle);
     contact=resolveBridgeCylinderFloor(body.z,axisZ,length,radius,floorZ);
-    body.z=contact.centerZ;
+    body.z=floorZ+Math.abs(axisZ)*length*.5+radius;
     body.touchingFloor=true;
     // The educational animation has a defined final rest configuration.
     // Complete the last fraction of a degree instead of leaving a
