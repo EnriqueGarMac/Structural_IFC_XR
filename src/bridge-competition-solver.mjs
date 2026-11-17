@@ -12,11 +12,20 @@ export const BRIDGE_DEFAULTS={span_m:1.2,centralLoad_kN:3,
   deflectionLimit:250,maxIterations:16};
 export function bridgeGrid(span=BRIDGE_DEFAULTS.span_m){
   if(!Number.isFinite(span)||span<.3||span>3)throw Error('Vano fuera de rango (0,30 a 3,00 m).');
-  const xs=[0,.25,.5,.75,1].map(x=>x*span);
-  return [
+  // Keep the existing B/T identifiers for old exercises and saved designs,
+  // then add a fine 9 x 5 lattice for more elaborate bridge geometries.
+  const xs=[0,.25,.5,.75,1].map(f=>f*span);
+  const canonical=[
     ...xs.map((x,i)=>({id:'B'+i,x,z:0,fixX:i===0,fixZ:i===0||i===4})),
     ...xs.slice(1,-1).map((x,i)=>({id:'T'+(i+1),x,z:span*.28}))
   ];
+  const fine=[];
+  for(let row=0;row<=4;row++)for(let col=0;col<=8;col++){
+    const x=span*col/8,z=span*.28*row/4;
+    if(canonical.some(n=>Math.abs(n.x-x)<1e-9&&Math.abs(n.z-z)<1e-9))continue;
+    fine.push({id:'G'+row+'_'+col,x,z,fixX:false,fixZ:false});
+  }
+  return [...canonical,...fine];
 }
 export function bridgeMemberKey(i,j){
   if(i===j)throw Error('Una barra necesita dos nodos distintos.');
@@ -64,21 +73,40 @@ function analysis(nodes,members,load_kN,active){
     nodal.get(m.i).fz_kN-=dead/2;
     nodal.get(m.j).fz_kN-=dead/2;
   }
-  // Remove disconnected, unloaded free nodes from the stiffness system.
-  // They otherwise create artificial zero rows when cables go slack, even
-  // though they have no mechanical influence on the remaining structure.
-  const connected=new Set(all.filter(m=>active.has(m.id)).flatMap(m=>[m.i,m.j]));
-  const keptNodes=nodes.filter(n=>connected.has(n.id));
-  if(nodes.some(n=>!connected.has(n.id)&&
-    (Math.abs(nodal.get(n.id).fx_kN)+Math.abs(nodal.get(n.id).fz_kN)>1e-9)))
-    throw Error('Carga aplicada a un nodo desconectado.');
-  if(!keptNodes.some(n=>n.fixX||n.fixZ))
-    throw Error('No hay camino hasta los apoyos.');
-  const model={nodes:keptNodes,bars:all.filter(m=>active.has(m.id)).map(m=>({
-    id:m.id,i:m.i,j:m.j,E_kN_m2:m.E_kN_m2,A_m2:m.A_m2
-  }))};
+  // Only member-connected components that carry load or touch a support
+  // enter the stiffness matrix. Decorative or unfinished isolated branches
+  // must not produce zero-energy DOFs or false collapses.
+  const edges=all.filter(m=>active.has(m.id));
+  const adjacency=new Map(nodes.map(n=>[n.id,[]]));
+  for(const m of edges){
+    adjacency.get(m.i).push(m.j);adjacency.get(m.j).push(m.i);
+  }
+  const required=new Set(nodes.filter(n=>n.fixX||n.fixZ||
+    Math.abs(nodal.get(n.id).fx_kN)+Math.abs(nodal.get(n.id).fz_kN)>1e-9)
+    .map(n=>n.id));
+  const retained=new Set();
+  const inspected=new Set();
+  for(const node of nodes){
+    if(inspected.has(node.id)||!adjacency.get(node.id).length)continue;
+    const group=[],queue=[node.id];inspected.add(node.id);
+    for(const current of queue){
+      group.push(current);
+      for(const next of adjacency.get(current))if(!inspected.has(next)){
+        inspected.add(next);queue.push(next);
+      }
+    }
+    if(group.some(id=>required.has(id)))group.forEach(id=>retained.add(id));
+  }
+  if([...required].some(id=>!retained.has(id)&&
+      Math.abs(nodal.get(id).fx_kN)+Math.abs(nodal.get(id).fz_kN)>1e-9))
+    throw Error('El nodo cargado no está conectado a ninguna barra.');
+  const model={
+    nodes:nodes.filter(n=>retained.has(n.id)),
+    bars:edges.filter(m=>retained.has(m.i)&&retained.has(m.j))
+      .map(m=>({id:m.id,i:m.i,j:m.j,E_kN_m2:m.E_kN_m2,A_m2:m.A_m2}))
+  };
   if(!model.bars.length)throw Error('Sin barras que transmitan cargas a los apoyos.');
-  return solveTruss2D(model,[...nodal.values()].filter(n=>connected.has(n.nodeId)));
+  return solveTruss2D(model,[...nodal.values()].filter(n=>retained.has(n.nodeId)));
 }
 function extension(nodes,displacements,m){
   const byNode=new Map(nodes.map(n=>[n.id,n]));
