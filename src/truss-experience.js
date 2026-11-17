@@ -3,7 +3,7 @@ import {TRUSS_LESSON,defaultTrussLoads,normaliseTrussLoads,solveTruss2D} from '.
 import {resultColourHex} from './visual-palettes.mjs';
 
 const V=(n)=>new THREE.Vector3(n.x,0,n.z);
-const byId=new Map(TRUSS_LESSON.nodes.map(n=>[n.id,n]));
+
 const COLORS={tension:0xd89b56,compression:0x5eabc1,neutral:0x90a1a8,
   selected:0xf2d28b,base:0x75838a,load:0xef8659,reaction:0x7dc2a5};
 function cylinderBetween(a,b,radius,color){
@@ -23,10 +23,11 @@ function shapeMember(a,b,radius=.065){
   m.material.dispose();
   return geometry;
 }
-export function trussGeometry(){
-  return TRUSS_LESSON.bars.map(bar=>({
+export function trussGeometry(model=TRUSS_LESSON){
+  const byId=new Map(model.nodes.map(n=>[n.id,n]));
+  return model.bars.map(bar=>({
     name:'Celosía · barra '+bar.id,ifcType:'IfcMember',
-    geometry:shapeMember(byId.get(bar.i),byId.get(bar.j),.045),
+    geometry:shapeMember(this.nodeMap.get(bar.i),this.nodeMap.get(bar.j),.045),
     color:COLORS.base,structural:true,analysisIncluded:false,
     preserveStructuralOrigin:true
   }));
@@ -57,11 +58,13 @@ export class TrussExperience {
     this.app.contentRoot.add(this.root);
     this.root.visible=false;
     this.active=false;
+    this.model=TRUSS_LESSON;
+    this.nodeMap=new Map(this.model.nodes.map(n=>[n.id,n]));
     this.loads=defaultTrussLoads();
     this.selectedNode='G';
     this.selectedBarId=null;
     this.mode='axial';
-    this.result=solveTruss2D(TRUSS_LESSON,this.loads);
+    this.result=solveTruss2D(this.model,this.loads);
     this.pickNodes=[];
     this.pickBars=[];
     this.onChange=null;
@@ -76,26 +79,47 @@ export class TrussExperience {
     clearGroup(this.root);this.pickNodes=[];this.pickBars=[];
     this.selectedBarId=null;
   }
+  setModel(model,{loads=[]}={}){
+    const result=solveTruss2D(model,loads);
+    this.model=model;
+    this.nodeMap=new Map(model.nodes.map(n=>[n.id,n]));
+    this.loads=normaliseTrussLoads(model,loads);
+    this.result=result;
+    this.selectedNode=model.nodes[0].id;
+    this.selectedBarId=null;
+    this.draw();
+  }
+  assignSupports(fixedNode,rollerNode){
+    if(fixedNode===rollerNode)throw Error('Los apoyos deben estar en nodos diferentes.');
+    if(!this.nodeMap.has(fixedNode)||!this.nodeMap.has(rollerNode))
+      throw Error('Selecciona dos nodos existentes.');
+    const model={...this.model,nodes:this.model.nodes.map(n=>({
+      ...n,fixX:n.id===fixedNode,fixZ:n.id===fixedNode||n.id===rollerNode
+    }))};
+    const result=solveTruss2D(model,this.loads);
+    this.model=model;this.nodeMap=new Map(model.nodes.map(n=>[n.id,n]));
+    this.result=result;this.draw();
+  }
   getLoad(nodeId=this.selectedNode){
     return this.loads.find(l=>l.nodeId===nodeId)??{nodeId,fx_kN:0,fz_kN:0};
   }
   setLoad(nodeId,fx_kN,fz_kN){
-    if(!byId.has(nodeId))throw Error('Nodo desconocido '+nodeId);
+    if(!this.nodeMap.has(nodeId))throw Error('Nodo desconocido '+nodeId);
     if(!Number.isFinite(fx_kN)||!Number.isFinite(fz_kN))
       throw Error('Las cargas deben ser números finitos.');
     const remaining=this.loads.filter(l=>l.nodeId!==nodeId);
-    this.loads=normaliseTrussLoads(TRUSS_LESSON,
+    this.loads=normaliseTrussLoads(this.model,
       [...remaining,{nodeId,fx_kN,fz_kN}]);
     this.selectedNode=nodeId;
     this.calculate();
   }
   changeNode(step){
-    const nodes=TRUSS_LESSON.nodes;
+    const nodes=this.model.nodes;
     const i=nodes.findIndex(n=>n.id===this.selectedNode);
     this.selectNode(nodes[(i+step+nodes.length)%nodes.length].id);
   }
   selectNode(nodeId){
-    if(!byId.has(nodeId))return false;
+    if(!this.nodeMap.has(nodeId))return false;
     this.selectedNode=nodeId;
     this.selectedBarId=null;
     this.draw();
@@ -114,7 +138,9 @@ export class TrussExperience {
     this.setLoad(this.selectedNode,old.fx_kN+(component==='x'?delta:0),
       old.fz_kN+(component==='z'?delta:0));
   }
-  reset(){this.loads=defaultTrussLoads();this.selectedNode='G';this.selectedBarId=null;this.calculate();}
+  reset(){this.loads=this.model===TRUSS_LESSON?defaultTrussLoads():[];
+    this.selectedNode=this.model===TRUSS_LESSON?'G':this.model.nodes[0].id;
+    this.selectedBarId=null;this.calculate();}
   clearLoads(){this.loads=[];this.calculate();}
   setMode(mode){
     if(!['axial','stress','strain','displacement'].includes(mode))return;
@@ -122,7 +148,7 @@ export class TrussExperience {
   }
   calculate(){
     // Solve first, so an invalid load cannot leave half-updated graphics.
-    this.result=solveTruss2D(TRUSS_LESSON,this.loads);
+    this.result=solveTruss2D(this.model,this.loads);
     this.draw();
   }
   draw(){
@@ -141,7 +167,7 @@ export class TrussExperience {
       this.mode==='stress'?b.stress_MPa:this.mode==='strain'?b.strain:b.axial_kN)));
     const maxNode=Math.max(maxU,1e-12);
     for(const bar of result.bars){
-      const na=byId.get(bar.i),nb=byId.get(bar.j);
+      const na=this.nodeMap.get(bar.i),nb=this.nodeMap.get(bar.j);
       const da=disp.get(bar.i),db=disp.get(bar.j);
       let color=bar.axial_kN>1e-6?COLORS.tension:
         bar.axial_kN< -1e-6?COLORS.compression:COLORS.neutral;
@@ -158,7 +184,7 @@ export class TrussExperience {
       mesh.userData={trussBarId:bar.id};
       this.root.add(mesh);this.pickBars.push(mesh);
     }
-    for(const node of TRUSS_LESSON.nodes){
+    for(const node of this.model.nodes){
       const p=moved(node);
       const isSelected=node.id===this.selectedNode;
       const marker=new THREE.Mesh(
@@ -192,7 +218,7 @@ export class TrussExperience {
     }
     const maxLoad=Math.max(1,...this.loads.flatMap(l=>[Math.abs(l.fx_kN),Math.abs(l.fz_kN)]));
     for(const l of this.loads){
-      const n=moved(byId.get(l.nodeId));
+      const n=moved(this.nodeMap.get(l.nodeId));
       if(Math.abs(l.fx_kN)>1e-9)arrow(this.root,
         new THREE.Vector3(n.x,0,n.z+.23),{x:l.fx_kN,z:0},COLORS.load,maxLoad);
       if(Math.abs(l.fz_kN)>1e-9)arrow(this.root,
@@ -200,7 +226,7 @@ export class TrussExperience {
     }
     const maxR=Math.max(1,...result.reactions.flatMap(r=>[Math.abs(r.rx_kN),Math.abs(r.rz_kN)]));
     for(const r of result.reactions){
-      const n=moved(byId.get(r.nodeId));
+      const n=moved(this.nodeMap.get(r.nodeId));
       if(Math.abs(r.rx_kN)>1e-8)arrow(this.root,
         new THREE.Vector3(n.x,0,n.z-.20),{x:r.rx_kN,z:0},COLORS.reaction,maxR);
       if(Math.abs(r.rz_kN)>1e-8)arrow(this.root,
