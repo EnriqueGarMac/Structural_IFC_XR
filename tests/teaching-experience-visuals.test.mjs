@@ -254,6 +254,19 @@ test('visible collision plane and fractured cylinders share the same ground heig
   }
   exercise.deactivate();
 });
+test('bridge editor merges two aligned segments and selects the resulting bar',()=>{
+  const app=makeApp(),bridge=new BridgeCompetitionExperience(app);
+  bridge.activate();
+  bridge.addMember('B0','B1','bar_m');
+  bridge.addMember('B1','B2','bar_m');
+  assert.equal(bridge.members.length,1);
+  assert.equal(bridge.selectedMemberId,bridge.members[0].id);
+  assert.equal(bridge.members[0].i,'B0');
+  assert.equal(bridge.members[0].j,'B2');
+  bridge.addMember('B1','T1','bar_m');
+  assert.equal(bridge.members.filter(m=>m.i==='B1'||m.j==='B1').length,3);
+  bridge.deactivate();
+});
 test('bridge renderer allows a lightweight design, editing and animated failure',()=>{
   const app=makeApp();
   assert.equal(bridgeReferenceGeometry().length,2);
@@ -281,6 +294,8 @@ test('bridge renderer allows a lightweight design, editing and animated failure'
   assert.equal(exercise.members.length,13);
   const analysis=exercise.evaluate();
   assert.equal(analysis.status,'stable',analysis.reason);
+  assert.equal(exercise.mode,'displacement',
+    'Applying the load must switch to the deformed displacement view');
   assert.ok(exercise.bestEligibleMass_kg>0);
   assert.ok(updates>3);
   const firstBest=exercise.bestEligibleMass_kg;
