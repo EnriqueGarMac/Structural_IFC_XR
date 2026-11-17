@@ -50,16 +50,6 @@
         </section>
         <section id="panel-analysis" class="workspace-panel" role="tabpanel" aria-labelledby="tab-analysis" hidden>
           <div class="panel-heading"><span class="panel-eyebrow">Resultados</span><h2>Análisis estructural</h2><p>Explora las acciones y la respuesta de la estructura.</p></div>
-        <div id="teaching-analysis-results" class="teaching-analysis-results" hidden>
-          <p id="teaching-analysis-context" class="field-help">Resultados de la experiencia docente activa.</p>
-          <label for="teaching-analysis-mode">Magnitud representada</label>
-          <select id="teaching-analysis-mode"></select>
-          <div class="range-control"><div class="range-head"><label for="teaching-amp">Amplificación visual de la deformada</label><output id="teaching-amp-value">×1,0</output></div><input type="range" id="teaching-amp" min="0" max="10" step=".1" value="1"></div>
-          <label class="checkrow"><input type="checkbox" id="teaching-axial-labels"><span>Mostrar valores axiles sobre las barras (kN)</span></label>
-          <div id="teaching-analysis-legend" class="bridge-results-legend"></div>
-          <div id="teaching-analysis-summary" class="truss-summary"></div>
-          <div id="teaching-analysis-tables" class="truss-table-scroll"></div>
-        </div>
         <div class="control"><label for="analysis-view">Vista de resultados</label>
           <select id="analysis-view">
             <option value="deformation">Desplazamientos</option>
@@ -187,14 +177,6 @@
               <button type="button" id="truss-clear" class="secondary-btn">Quitar cargas</button>
             </div>
             <p id="truss-feedback" class="field-help" role="status" aria-live="polite">Selecciona un nodo en el visor o en el menú.</p>
-            <label class="truss-label" for="truss-display">Representar</label>
-            <select id="truss-display">
-              <option value="axial">Esfuerzo axial N (kN)</option>
-              <option value="stress">Tensión normal σ (MPa)</option>
-              <option value="strain">Deformación unitaria ε (adimensional)</option>
-              <option value="displacement">Desplazamientos de nodos |u| (mm)</option>
-            </select>
-            <div class="truss-colour-guide"><span><i class="truss-colour-tension"></i> Tracción (+)</span><span><i class="truss-colour-compression"></i> Compresión (−)</span></div>
             <div class="truss-member-editor"><strong>Sección de la barra seleccionada</strong><p id="truss-selected-member">Señala una barra con el ratón o el mando.</p><label for="truss-member-area">Área A (mm²)</label><input type="number" id="truss-member-area" min="1" max="100000" step="100" value="6000"><button type="button" id="truss-member-apply" class="secondary-btn">Aplicar área a esta barra</button></div>
             <div id="truss-summary" class="truss-summary" aria-live="polite"></div>
             <div class="truss-subheading">Reacciones en apoyos</div>
@@ -204,7 +186,7 @@
             <div class="truss-subheading">Desplazamientos nodales</div>
             <div id="truss-nodes-table" class="truss-table-scroll"></div>
             <p class="truss-method-note">Las barras solo soportan esfuerzos axiales. Se supone comportamiento elástico lineal, pequeñas deformaciones y uniones articuladas. Los desplazamientos se amplifican exclusivamente para visualizar la deformada.</p>
-            <button type="button" id="truss-open-analysis" class="secondary-btn teaching-primary">Ver resultados en Análisis</button>
+            <button type="button" id="truss-open-analysis" class="secondary-btn teaching-primary">Abrir controles de Análisis</button>
             <button type="button" id="truss-export" class="secondary-btn">Exportar resultados (CSV)</button>
           </div>
           <div id="bridge-controls" class="bridge-controls" hidden>
@@ -234,7 +216,6 @@
             <button type="button" id="bridge-evaluate" class="secondary-btn teaching-primary">Aplicar carga y comprobar resistencia</button>
             <p id="bridge-feedback" class="field-help" role="status" aria-live="polite">Construye una pasarela sobre la retícula.</p>
             <div id="bridge-result" class="truss-summary" hidden aria-live="polite"></div>
-            <div id="bridge-legend" class="bridge-results-legend" aria-live="polite"></div>
             <div class="truss-subheading">Elementos del diseño</div>
             <div id="bridge-members" class="truss-table-scroll"></div>
             <div class="truss-subheading">Resultados y reacciones</div>
