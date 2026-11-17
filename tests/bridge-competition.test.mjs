@@ -52,6 +52,13 @@ test('tension-only ties cannot act as compressed top-chord members',()=>{
   assert.ok(r.slack.includes('M5')&&r.slack.includes('M6'));
   assert.ok(r.totalMass_kg>0);
 });
+test('critical lightweight member fails first under demanding loading',()=>{
+  const r=calculateBridge({members:bridgeSampleMembers(),load_kN:50,span_m:2.9});
+  assert.equal(r.status,'collapse');
+  assert.equal(r.broken[0]?.id,'M7');
+  assert.ok(r.broken[0].utilization>1);
+  assert.match(r.reason,/Tras la rotura/);
+});
 test('table-plane finder works only with two level facing surfaces of measured extents',()=>{
   const a={bounds:new THREE.Box3(new THREE.Vector3(0,.75,0),
       new THREE.Vector3(1,.78,.9)),top:.78,width:1,depth:.9,area:.9,label:'table'};
