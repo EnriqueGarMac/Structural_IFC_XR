@@ -94,6 +94,13 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
   if(!step)return body;
   const radius=Math.max(0,body.radius??0);
   const length=Math.max(0,body.length??0);
+  if(body.settled){
+    // After falling and rolling the bar is at rest. Track a movable floor
+    // surface (Quest plane detection) without allowing re-penetration.
+    body.z=floorZ+radius;
+    body.vx=0;body.vz=0;body.omega=0;
+    return body;
+  }
   body.vz-=3.5*step;
   body.x+=body.vx*step;
   body.z+=body.vz*step;
@@ -109,14 +116,28 @@ export function stepBridgeLooseFragment(body,dt,floorZ){
     const horizontal=Math.atan2(body.axisZ,body.axisX);
     let delta=horizontal-body.angle;
     delta=((delta+Math.PI/2)%Math.PI+Math.PI)%Math.PI-Math.PI/2;
-    body.omega=body.omega*.20+delta*step*5;
-    body.angle+=delta*Math.min(.22,4*step);
-    body.vx*=Math.exp(-6*step);
+    body.groundedFor=(body.groundedFor??0)+step;
+    body.omega=body.omega*.12+delta*step*4;
+    body.angle+=delta*Math.min(.32,8*step);
+    body.vx*=Math.exp(-9*step);
     axisZ=body.axisZ*Math.cos(body.angle)-
       body.axisX*Math.sin(body.angle);
     contact=resolveBridgeCylinderFloor(body.z,axisZ,length,radius,floorZ);
     body.z=contact.centerZ;
     body.touchingFloor=true;
+    // The educational animation has a defined final rest configuration.
+    // Complete the last fraction of a degree instead of leaving a
+    // nearly-horizontal rod visually intersecting or hovering above ground.
+    if((body.groundedFor>.4&&Math.abs(axisZ)<.015&&
+        Math.abs(body.vx)<.02)||body.groundedFor>1.6){
+      body.angle+=Math.atan2(axisZ,Math.abs(body.axisX*Math.cos(body.angle)+
+        body.axisZ*Math.sin(body.angle)))*(
+        (body.axisX*Math.cos(body.angle)+
+         body.axisZ*Math.sin(body.angle))>=0?1:-1);
+      body.z=floorZ+radius;
+      body.vx=0;body.vz=0;body.omega=0;
+      body.settled=true;
+    }
   }
   return body;
 }
