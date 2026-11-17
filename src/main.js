@@ -309,7 +309,10 @@ $('analysis-view').addEventListener('change',e=>{
   app.nodeProbe?.hideXRHover();
   app.sapVisuals?.hideXRHover();
 });
-$('force-component').addEventListener('change',e=>app.sapVisuals.setComponent(e.target.value));
+$('force-component').addEventListener('change',e=>{
+  if(app.teachingAnalysis?.active){app.teachingAnalysis.selectComponent(e.target.value);return;}
+  app.sapVisuals.setComponent(e.target.value);
+});
 $('toggle-force-values').addEventListener('click',()=>{
   if(app.teachingAnalysis?.active){
     app.teachingAnalysis.toggleAxialValues();
@@ -322,6 +325,7 @@ $('toggle-force-values').addEventListener('click',()=>{
     'Ocultar valores característicos':'Mostrar valores característicos';
 });
 $('toggle-reaction-values').addEventListener('click',()=>{
+  if(app.teachingAnalysis?.active){app.teachingAnalysis.toggleReactionValues();return;}
   const enabled=!app.reactionVisuals.showValues;
   app.reactionVisuals.setValues(enabled);
   $('toggle-reaction-values').setAttribute('aria-pressed',String(enabled));
@@ -421,6 +425,34 @@ $('apply-offset').addEventListener('click',()=>{
 
 const forceReadout=$('force-readout');
 app.renderer.domElement.addEventListener('pointermove',event=>{
+  if(!app.isXR&&app.teachingAnalysis?.active&&
+      ['forces','reactions'].includes($('analysis-view').value)){
+    const rect=app.renderer.domElement.getBoundingClientRect();
+    if(rect.width>0&&rect.height>0){
+      app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
+        -(event.clientY-rect.top)/rect.height*2+1);
+      app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+      const section=app.teachingAnalysis.pickForce(app.pickRaycaster);
+      const reaction=app.teachingAnalysis.pickReaction(app.pickRaycaster);
+      if(section||reaction){
+        forceReadout.textContent=section?
+          'Barra '+section.frameId+' · '+section.component+
+            '\nN '+section.value.toFixed(3)+' '+section.unit:
+          'Nudo '+reaction.node+' · '+reaction.caseName+
+            '\n'+reactionText(reaction.reaction);
+        const stage=$('stage').getBoundingClientRect();
+        forceReadout.style.left=Math.max(8,Math.min(stage.width-275,
+          event.clientX-stage.left+14))+'px';
+        forceReadout.style.top=Math.max(8,Math.min(stage.height-95,
+          event.clientY-stage.top+16))+'px';
+        forceReadout.hidden=false;
+        return;
+      }
+      if($('analysis-view').value==='reactions'){
+        forceReadout.hidden=true;return;
+      }
+    }
+  }
   if(app.bridgeCompetition?.active){
     if(app.isXR){forceReadout.hidden=true;return;}
     const rect=app.renderer.domElement.getBoundingClientRect();
@@ -520,6 +552,10 @@ app.renderer.domElement.addEventListener('pointerup',event=>{
   app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
     -(event.clientY-rect.top)/rect.height*2+1);
   app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+  if(app.teachingAnalysis?.active&&$('analysis-view').value==='forces'){
+    const section=app.teachingAnalysis.pickForce(app.pickRaycaster);
+    if(section){app.teachingAnalysis.pinForce(section);return;}
+  }
   if(app.trussExperience?.active){
     const hit=app.trussExperience.pick(app.pickRaycaster);
     if(hit){
