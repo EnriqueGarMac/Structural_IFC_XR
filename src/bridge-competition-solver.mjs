@@ -282,8 +282,21 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
     }
     memberResults=current;
     if(!original)original={...raw,members:current};
-    const critical=current.filter(m=>active.has(m.id)&&m.utilization>1+1e-7)
-      .sort((a,b)=>b.utilization-a.utilization)[0];
+    const overloaded=current.filter(m=>active.has(m.id)&&m.utilization>1+1e-7)
+      .sort((a,b)=>b.utilization-a.utilization);
+    const critical=overloaded[0];
+    // Exact structural symmetries produce equal utilization within solver
+    // round-off. Remove all *equally critical* elements in one physical
+    // event, instead of arbitrarily privileging whichever ID sorts first.
+    // Do not force mirrored failures when geometries, sections or stresses
+    // are genuinely different. The load redistribution happens afterwards.
+    const simultaneous=critical?overloaded.filter(m=>
+      Math.abs(m.utilization-critical.utilization)<=
+        1e-6*Math.max(1,critical.utilization)) : [];
+    const nextFailures=simultaneous.map(m=>({
+      id:m.id,utilization:m.utilization,
+      mode:m.bendingUtilization>1?'bending':'yield'
+    }));
     // Each stable equilibrium state is a distinct recalculation following
     // member loss. The next fracture is selected from the UPDATED forces.
     stages.push({step:stages.length,removed:failures.map(f=>f.id),
@@ -294,8 +307,7 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
       reactions:raw.reactions.map(r=>({...r})),
       displacements:raw.displacements.map(d=>({...d})),
       maxUtilization:Math.max(0,...current.map(m=>m.utilization)),
-      nextFailure:critical?{id:critical.id,utilization:critical.utilization,
-        mode:critical.bendingUtilization>1?'bending':'yield'}:null});
+      nextFailure:nextFailures[0]??null,nextFailures});
     if(critical){
       status='failure';
       reason=critical.bendingUtilization>1?
@@ -303,11 +315,13 @@ export function calculateBridge({span_m=1.2,load_kN=3,members=[],progressive=tru
         ': la barra supera su resistencia a flexión. Refuerza la sección o triangula el punto cargado.':
         'La barra '+critical.id+' alcanza su límite elástico axial '+
           (critical.axial_kN<0?'en compresión.':'en tracción.');
-      const mode=critical.bendingUtilization>1?'bending':'yield';
-      failures.push({id:critical.id,utilization:critical.utilization,
-        kind:critical.kind,mode});
+      for(const member of simultaneous){
+        const mode=member.bendingUtilization>1?'bending':'yield';
+        failures.push({id:member.id,utilization:member.utilization,
+          kind:member.kind,mode});
+      }
       if(!progressive)break;
-      active.delete(critical.id);
+      simultaneous.forEach(member=>active.delete(member.id));
       continue;
     }
     if(failures.length){
