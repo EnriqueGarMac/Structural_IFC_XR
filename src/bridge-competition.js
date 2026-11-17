@@ -55,6 +55,7 @@ export class BridgeCompetitionExperience {
     this.onChange=null;
     this.breakAnimation=null;
     this.detectedGap=null;
+    this.bestEligibleMass_kg=null;
     this.defaultWorldQuaternion=new THREE.Quaternion().setFromEuler(
       new THREE.Euler(-Math.PI/2,0,0));
   }
@@ -72,7 +73,7 @@ export class BridgeCompetitionExperience {
   setSpan(value){
     const span=Number(value);
     if(!Number.isFinite(span)||span<.3||span>3)throw Error('Vano entre 0,30 y 3,00 m.');
-    this.span_m=span;this.result=null;this.breakAnimation=null;
+    this.span_m=span;this.bestEligibleMass_kg=null;this.result=null;this.breakAnimation=null;
     if(this.app?.maxSize){
       this.app.targetMeters=span;this.app.updateScale();
     }
@@ -81,6 +82,7 @@ export class BridgeCompetitionExperience {
   setLoad(value){
     if(!Number.isFinite(value)||value<0||value>50)throw Error('Carga de 0 a 50 kN.');
     this.load_kN=value;
+    this.bestEligibleMass_kg=null;
     this.result=null;this.breakAnimation=null;this.draw();
   }
   setSection(id){
@@ -112,6 +114,9 @@ export class BridgeCompetitionExperience {
   evaluate(){
     this.result=calculateBridge({span_m:this.span_m,
       load_kN:this.load_kN,members:this.members});
+    if(this.result.status==='stable')
+      this.bestEligibleMass_kg=this.bestEligibleMass_kg===null?
+        this.result.totalMass_kg:Math.min(this.bestEligibleMass_kg,this.result.totalMass_kg);
     this.breakAnimation=this.result.status==='collapse'||this.result.status==='failure'?
       {startedAt:null,partIds:new Set(this.result.broken.map(m=>m.id)),
         dropped:[]}:null;
@@ -242,15 +247,16 @@ export class BridgeCompetitionExperience {
     const state=this.breakAnimation;
     if(state.startedAt===null)state.startedAt=timeMs;
     const t=clamp((timeMs-state.startedAt)/2000,0,1);
-    for(const {object,origin,broken} of state.dropped){
+    for(const {object,origin,baseRotation,broken} of state.dropped){
       const delay=broken?0:.25;
       const u=clamp((t-delay)/(1-delay),0,1);
       object.position.copy(origin);
       object.position.z-=BASE*.65*u*u;
+      object.rotation.copy(baseRotation);
       object.rotation.y+=(broken?1:.35)*u;
       if(broken)object.material.color.setHex(FAILED_COLOUR);
       object.material.opacity=1-.5*u;
-      object.material.transparent=true;
+      if(!object.material.transparent){object.material.transparent=true;object.material.needsUpdate=true;}
     }
   }
 }
