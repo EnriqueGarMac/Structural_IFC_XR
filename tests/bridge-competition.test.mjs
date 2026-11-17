@@ -13,6 +13,12 @@ test('bridge contest grid, materials and member edit validation',()=>{
   assert.ok(nodes.some(n=>n.id==='G2_5'));
   assert.equal(nodes[0].fixX,true);
   assert.equal(nodes.find(n=>n.id==='B4').fixZ,true);
+  assert.equal(nodes.find(n=>n.id==='B4').fixX,true);
+  assert.equal(nodes.find(n=>n.id==='B0').fixX,true);
+  assert.equal(nodes.find(n=>n.id==='B0').fixZ,true);
+  assert.equal(BRIDGE_SECTIONS.bar_m.A_m2*1e6,120);
+  assert.equal(BRIDGE_SECTIONS.bar_l.A_m2*1e6,550);
+  assert.equal(BRIDGE_SECTIONS.tie_m.A_m2*1e6,80);
   assert.ok(BRIDGE_SECTIONS.bar_m.A_m2>BRIDGE_SECTIONS.tie_m.A_m2);
   const start=addBridgeMember([],nodes,'B0','T1','bar_m');
   assert.equal(start.length,1);
@@ -82,7 +88,7 @@ test('three-member triangle carries a point load placed on the interior of its b
   assert.equal(reinforced.status,'stable',reinforced.reason);
   assert.ok(reinforced.bending.stress_MPa<235);
   assert.ok(reinforced.maxDeflection_mm<reinforced.serviceLimit_mm);
-  near(reinforced.bending.localDeflection_mm,1.3186813186813182,1e-6);
+  near(reinforced.bending.localDeflection_mm,3.428571428571428,1e-6);
 });
 test('empty or mechanically unstable design is rejected, not assigned fictitious forces',()=>{
   const r=calculateBridge({members:[],load_kN:3});
@@ -100,23 +106,26 @@ test('tension-only ties cannot act as compressed top-chord members',()=>{
   assert.ok(r.slack.includes('M5')&&r.slack.includes('M6'));
   assert.ok(r.totalMass_kg>0);
 });
-test('member limit-state cause distinguishes yielding from Euler buckling',()=>{
-  const shallow=[
-    ['B0','B2','bar_l'],['B2','B4','bar_l'],
-    ['B0','G1_4','bar_m'],['G1_4','B4','bar_m'],
-    ['B2','G1_4','bar_m']
-  ].map(([i,j,sectionId],k)=>({id:'M'+(k+1),i,j,sectionId}));
-  const yieldResult=calculateBridge({members:shallow,span_m:.6,load_kN:50});
-  assert.equal(yieldResult.broken[0]?.mode,'yield');
-  assert.match(yieldResult.reason,/límite elástico/);
-  const buckleResult=calculateBridge({members:shallow,span_m:1.2,load_kN:50});
-  assert.equal(buckleResult.broken[0]?.mode,'buckling');
-  assert.match(buckleResult.reason,/pandeo/);
+test('compression and tension are limited by yielding, not buckling',()=>{
+  const sample=bridgeSampleMembers();
+  const r=calculateBridge({members:sample,load_kN:35});
+  assert.equal(r.status,'collapse');
+  assert.equal(r.broken[0]?.id,'M6');
+  assert.equal(r.broken[0]?.mode,'yield');
+  assert.match(r.reason,/límite elástico/);
+  const failed=r.members.find(m=>m.id==='M6');
+  assert.ok(failed.axial_kN<0,'M6 is in compression');
+  assert.equal(failed.compressionCapacity_kN,failed.tensionCapacity_kN);
+  assert.ok(r.members.every(m=>m.kind==='tie'||
+    m.compressionCapacity_kN===m.tensionCapacity_kN));
+  assert.ok(!r.broken.some(f=>f.mode==='buckling'),
+    'Buckling has not been studied and must not be checked in this exercise');
 });
 test('critical lightweight member fails first under demanding loading',()=>{
   const r=calculateBridge({members:bridgeSampleMembers(),load_kN:50,span_m:2.9});
   assert.equal(r.status,'collapse');
-  assert.equal(r.broken[0]?.id,'M7');
+  assert.equal(r.broken[0]?.id,'M6');
+  assert.equal(r.broken[0]?.mode,'yield');
   assert.ok(r.broken[0].utilization>1);
   assert.match(r.reason,/Tras el fallo/);
 });
