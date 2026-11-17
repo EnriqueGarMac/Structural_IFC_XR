@@ -111,7 +111,12 @@ export function setupTeachingAnalysis(app,{selectWorkspace}={}){
     const title=$('legend-title'),lo=$('legend-min'),hi=$('legend-max');
     const stageBar=legend.querySelector('.legend-bar');
     proxy.results=teachingResultsToViewer(kind,result,experience);
-    proxy.maxSize=kind==='bridge'?1.2:Math.max(1,...experience.model.nodes.map(n=>Math.abs(n.x)));
+    if(kind==='bridge')proxy.maxSize=1.2;
+    else{
+      const xs=experience.model.nodes.map(n=>n.x),zs=experience.model.nodes.map(n=>n.z);
+      proxy.maxSize=Math.max(1,Math.max(...xs)-Math.min(...xs),
+        Math.max(...zs)-Math.min(...zs));
+    }
     forceRenderer.palette=experience.palette??'classic';
     forceRenderer.showCharacteristics=Boolean(experience.showAxialLabels);
     const diagrams=current.view==='forces';
