@@ -88,6 +88,24 @@ test('tilted fracture fragments are resolved using their full cylinder extent',(
   }
 });
 
+test('a fractured rod finishes rolling within a short time after first ground contact',()=>{
+  for(const [axisX,axisZ] of [[.65,.76],[-.65,.76],[0,1],[1,0]]){
+    const member={x:0,z:.2,vx:.09,vz:0,angle:0,omega:.8,
+      axisX,axisZ,length:.6,radius:.01};
+    let firstContact=null,lastRoll=null;
+    for(let k=0;k<180;k++){
+      const t=k/60;
+      stepBridgeLooseFragment(member,1/60,-.75);
+      if(member.touchingFloor&&firstContact===null)firstContact=t;
+      if(member.settled){lastRoll=t;break;}
+    }
+    assert.ok(firstContact!==null&&lastRoll!==null);
+    assert.ok(lastRoll-firstContact<.3,
+      'Once the rod touches the ground it should rotate rapidly into a horizontal pose');
+    const up=axisZ*Math.cos(member.angle)-axisX*Math.sin(member.angle);
+    assert.ok(Math.abs(up)<1e-6);
+  }
+});
 test('fractured members fall, roll, and settle horizontally without ground penetration',()=>{
   const floor=-.75;
   for(const [axisX,axisZ] of [[.65,.76],[-.65,.76],[0,1],[1,0]]){
