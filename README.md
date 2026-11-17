@@ -1,3 +1,38 @@
+## Actualización de Recursos Docentes: análisis único, concurso e IFC
+
+Las experiencias **Celosías articuladas** y **Concurso de pasarelas**
+presentan ahora sus resultados en la pestaña general **Análisis**.
+Desde Recursos Docentes, pulsa **Ver resultados en Análisis**. El
+selector de magnitud, tablas de barras, reacciones y desplazamientos
+es compartido. Los controles para modificar cargas, elementos y apoyos
+se conservan en la experiencia correspondiente.
+
+En el concurso hay **tres elementos**: barra ligera, barra reforzada
+y tirante (que solamente resiste tracción). El cálculo elimina los
+nodos desconectados y descargados de la matriz de rigidez para evitar
+singularidades artificiales. Un diseño inestable sigue pudiendo
+colapsar, mientras que una flecha excesiva sin agotamiento resistente
+solo recibe la calificación de incumplimiento de servicio.
+
+La rotura ilustrativa fragmenta primero el elemento crítico y después
+desplaza escalonadamente el resto. Las barras entran en contacto con
+un plano de suelo: se usa la cota detectada si WebXR proporciona un
+plano compatible por debajo de las mesas y, en otro caso, una cota
+ilustrativa de 0,75 m bajo el tablero. **No es un análisis dinámico
+de fractura, impacto o redistribución temporal de esfuerzos.**
+
+En **Celosías articuladas**, el usuario puede cargar un IFC con barras
+prismáticas rectas aproximadamente contenidas en un mismo plano XZ.
+Se reconstruyen sus ejes y la conectividad por proximidad. El usuario
+debe verificar la geometría, el módulo E, el área A y los apoyos, y
+puede recalcular y aplicar cargas nodales. Se rechazan los archivos
+que no permitan reconstruir una celosía estable con el esquema asumido.
+La aplicación **no convierte automáticamente cualquier IFC arquitectónico
+en un modelo analítico válido**: para vigas a flexión, pórticos rígidos,
+placas y estructuras tridimensionales se necesita otro modelo FEM.
+
+---
+
 ## Recursos docentes: celosías y concurso de pasarelas
 
 **Recursos docentes → Celosías articuladas** abre un ejemplo independiente
@@ -20,10 +55,9 @@ los valores físicos.
 
 **Concurso → Pasarela entre mesas** presenta una retícula de 8 nodos
 para crear elementos entre nodos desde formularios web/móvil o con el
-gatillo de Quest. Las barras de acero pueden trabajar a tracción y
-compresión; los tirantes de acero, de sección menor y por tanto más
-ligeros, **solo trabajan a tracción**. Se ofrecen varias áreas y
-rigideces de sección. Un apoyo está articulado y el otro es móvil.
+gatillo de Quest. Las dos barras de acero pueden trabajar a tracción y
+compresión; el tirante de acero, de menor sección, **solo trabaja a
+tracción**. Se ofrecen dos áreas de barra y una de tirante. Un apoyo está articulado y el otro es móvil.
 El alumno define el vano (0,30–3,00 m) y la carga central (0–50 kN).
 
 La comprobación docente incorpora peso propio distribuido a los nodos,
