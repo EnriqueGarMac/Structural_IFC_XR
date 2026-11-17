@@ -20,6 +20,7 @@
           <button type="button" class="workspace-tab" role="tab" id="tab-analysis" data-tab="analysis" aria-controls="panel-analysis" aria-selected="false" tabindex="-1">Análisis</button>
           <button type="button" class="workspace-tab" role="tab" id="tab-view" data-tab="view" aria-controls="panel-view" aria-selected="false" tabindex="-1">Visualizar</button>
           <button type="button" class="workspace-tab" role="tab" id="tab-advanced" data-tab="advanced" aria-controls="panel-advanced" aria-selected="false" tabindex="-1">Ajustes</button>
+          <button type="button" class="workspace-tab workspace-tab-resource" role="tab" id="tab-teaching" data-tab="teaching" aria-controls="panel-teaching" aria-selected="false" tabindex="-1">Recursos docentes</button>
         </nav>
       <div class="panel-content">
         <section id="panel-model" class="workspace-panel is-current" role="tabpanel" aria-labelledby="tab-model">
@@ -123,6 +124,51 @@
         <label class="checkrow compact"><input id="hide-ground" type="checkbox" checked><span>Ocultar terreno y cimentación (mantener forjados)</span></label>
         <div class="notice-box"><strong>Nota de modelo</strong> Los ejemplos utilizan pórticos planos simplificados. Los elementos arquitectónicos no participan en ese cálculo. Al importar archivos propios, comprueba unidades y coordenadas.</div>
         </section>
+        <section id="panel-teaching" class="workspace-panel" role="tabpanel" aria-labelledby="tab-teaching" hidden>
+          <div class="panel-heading">
+            <span class="panel-eyebrow">Laboratorio docente</span>
+            <h2>Recursos docentes</h2>
+            <p>Experiencias para explorar y comprobar el comportamiento de las estructuras.</p>
+          </div>
+          <article class="teaching-resource">
+            <span class="teaching-resource-index">EXPERIENCIA 01 · CÁLCULO ESTRUCTURAL</span>
+            <h3>Celosías articuladas</h3>
+            <p>Introduce cargas en los nodos de una celosía Warren y calcula su respuesta mediante el método matricial de rigidez.</p>
+            <button type="button" id="truss-start" class="secondary-btn teaching-primary">Abrir experiencia de celosías</button>
+          </article>
+          <div id="truss-controls" class="truss-controls" hidden>
+            <div class="truss-method-note">Celosía plana 2D · Barras biarticuladas · Cargas nodales · Unidades: kN, m, MPa</div>
+            <label class="truss-label" for="truss-node-select">Nodo de aplicación</label>
+            <select id="truss-node-select" aria-label="Seleccionar nodo de la celosía"></select>
+            <div class="truss-load-grid">
+              <label for="truss-fx">F<sub>x</sub> (kN)<input id="truss-fx" type="number" step="5" value="0" inputmode="decimal" /></label>
+              <label for="truss-fz">F<sub>z</sub> (kN) <small>Positivo hacia arriba</small><input id="truss-fz" type="number" step="5" value="-20" inputmode="decimal" /></label>
+            </div>
+            <button type="button" id="truss-apply" class="secondary-btn teaching-primary">Aplicar cargas y calcular</button>
+            <div class="truss-actions">
+              <button type="button" id="truss-reset" class="secondary-btn">Restaurar ejemplo</button>
+              <button type="button" id="truss-clear" class="secondary-btn">Quitar cargas</button>
+            </div>
+            <p id="truss-feedback" class="field-help" role="status" aria-live="polite">Selecciona un nodo en el visor o en el menú.</p>
+            <label class="truss-label" for="truss-display">Representar</label>
+            <select id="truss-display">
+              <option value="axial">Esfuerzo axial N (kN)</option>
+              <option value="stress">Tensión normal σ (MPa)</option>
+              <option value="strain">Deformación unitaria ε (adimensional)</option>
+              <option value="displacement">Desplazamientos de nodos |u| (mm)</option>
+            </select>
+            <div class="truss-colour-guide"><span><i class="truss-colour-tension"></i> Tracción (+)</span><span><i class="truss-colour-compression"></i> Compresión (−)</span></div>
+            <div id="truss-summary" class="truss-summary" aria-live="polite"></div>
+            <div class="truss-subheading">Reacciones en apoyos</div>
+            <div id="truss-reactions" class="truss-data"></div>
+            <div class="truss-subheading">Resultados por barra</div>
+            <div id="truss-bars-table" class="truss-table-scroll"></div>
+            <div class="truss-subheading">Desplazamientos nodales</div>
+            <div id="truss-nodes-table" class="truss-table-scroll"></div>
+            <p class="truss-method-note">Las barras solo soportan esfuerzos axiales. Se supone comportamiento elástico lineal, pequeñas deformaciones y uniones articuladas. Los desplazamientos se amplifican exclusivamente para visualizar la deformada.</p>
+            <button type="button" id="truss-export" class="secondary-btn">Exportar resultados (CSV)</button>
+          </div>
+        </section>
       </div>
       <div class="panel-footer"><span class="connection-dot" aria-hidden="true"></span><span>IMIS-Lab · Universidad de Granada</span></div>
     </aside>
@@ -152,6 +198,10 @@
           </div>
         </div>
         <div class="force-readout" id="force-readout" hidden></div>
+        <div class="truss-stage-status" id="truss-stage-status" hidden>
+          <strong>Celosía Warren · práctica interactiva</strong>
+          <span id="truss-stage-detail">Selecciona un nodo para aplicar cargas</span>
+        </div>
         <div class="viewer-controls-row">
           <div class="mode-tabs"><button type="button" class="tab active" id="btn-3d">Vista 3D</button><button type="button" class="tab" id="btn-cam">Cámara</button><button type="button" class="tab accent" id="btn-xr" title="Realidad mixta: ver el modelo sobre tu entorno real">Quest RM</button><button type="button" class="tab accent" id="btn-vr" title="Realidad virtual: entrar en un estudio 3D inmersivo sin passthrough">Quest VR</button><button type="button" class="tab accent" id="btn-mobile-ar">AR móvil</button></div>
           <div class="help-text" id="help-text">Arrastrar: orbitar · Rueda: zoom · Botón derecho: desplazar</div>
