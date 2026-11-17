@@ -89,13 +89,18 @@ export class TrussExperience {
     this.selectedBarId=null;
     this.draw();
   }
-  assignSupports(fixedNode,rollerNode){
+  assignSupports(fixedNode,rollerNode,{E_kN_m2=this.model.E_kN_m2,A_m2=this.model.A_m2}={}){
     if(fixedNode===rollerNode)throw Error('Los apoyos deben estar en nodos diferentes.');
     if(!this.nodeMap.has(fixedNode)||!this.nodeMap.has(rollerNode))
       throw Error('Selecciona dos nodos existentes.');
-    const model={...this.model,nodes:this.model.nodes.map(n=>({
-      ...n,fixX:n.id===fixedNode,fixZ:n.id===fixedNode||n.id===rollerNode
-    }))};
+    if(!Number.isFinite(E_kN_m2)||E_kN_m2<=0||
+       !Number.isFinite(A_m2)||A_m2<=0)
+      throw Error('El módulo E y el área A deben ser positivos.');
+    const model={...this.model,E_kN_m2,A_m2,
+      bars:this.model.bars.map(b=>({...b,E_kN_m2,A_m2})),
+      nodes:this.model.nodes.map(n=>({
+        ...n,fixX:n.id===fixedNode,fixZ:n.id===fixedNode||n.id===rollerNode
+      }))};
     const result=solveTruss2D(model,this.loads);
     this.model=model;this.nodeMap=new Map(model.nodes.map(n=>[n.id,n]));
     this.result=result;this.draw();
