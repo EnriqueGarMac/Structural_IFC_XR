@@ -279,6 +279,7 @@ export class BridgeCompetitionExperience {
   draw(){
     if(!this.active)return;
     clear(this.root);this.pickers=[];this.rampBars=[];this.rampMarkers=[];
+    if(!this.result)this.loadRamp=null;
     if(this.breakAnimation){this.breakAnimation.dropped=[];this.breakAnimation.nodeMarkers=[];
       this.breakAnimation.physics=null;this.breakAnimation.startedAt=null;this.breakAnimation.lastStep=null;}
     const nodes=bridgeGrid(this.span_m),span=this.span_m;
@@ -628,10 +629,41 @@ export class BridgeCompetitionExperience {
           if(!beam)continue;
           part.origin.copy(beam.object.position);
           part.baseRotation.copy(beam.object.quaternion);
-          part.length=beam.originalLength*beam.object.scale.y;
+          const a=current.get(part.i),b=current.get(part.j);
+          if(part.fragments&&a&&b){
+            const start=new THREE.Vector3(a.x,0,a.z);
+            const end=new THREE.Vector3(b.x,0,b.z);
+            const midpoint=start.clone().add(end).multiplyScalar(.5);
+            const pairs=[[start,midpoint],[midpoint,end]];
+            part.fragments.forEach((fragment,k)=>{
+              const [p,q]=pairs[k];
+              const direction=q.clone().sub(p);
+              const length=direction.length();
+              if(length<1e-8)return;
+              fragment.object.position.copy(p).add(q).multiplyScalar(.5);
+              fragment.object.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0,1,0),direction.normalize());
+              fragment.object.scale.y=length/
+                fragment.object.geometry.parameters.height;
+              fragment.origin.copy(fragment.object.position);
+              fragment.baseRotation.copy(fragment.object.quaternion);
+              fragment.length=length;
+            });
+          }
         }
       }
-      if(progress>=1)ramp.complete=true;
+      this.onLoadProgress?.(
+        left.load_kN*(1-alpha)+right.load_kN*alpha,
+        ramp.targetLoad_kN,progress);
+      if(progress>=1){
+        ramp.complete=true;
+        if(this.breakAnimation){
+          // Keep one continuous simulation clock: fracture follows
+          // the end of loading rather than starting a second timer.
+          this.breakAnimation.startedAt=ramp.startedAt;
+          this.breakAnimation.lastStep=timeMs;
+        }
+      }
       return;
     }
     if(!this.breakAnimation)return;
