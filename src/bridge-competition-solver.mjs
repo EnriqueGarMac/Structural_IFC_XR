@@ -68,11 +68,6 @@ function analysis(nodes,members,load_kN,active){
   const nodal=new Map(nodes.map(n=>[n.id,{nodeId:n.id,fx_kN:0,fz_kN:0}]));
   const centre=nodal.get('B2');
   centre.fz_kN-=load_kN;
-  for(const m of all){
-    const dead=m.mass_kg*9.81/1000;
-    nodal.get(m.i).fz_kN-=dead/2;
-    nodal.get(m.j).fz_kN-=dead/2;
-  }
   // Only member-connected components that carry load or touch a support
   // enter the stiffness matrix. Decorative or unfinished isolated branches
   // must not produce zero-energy DOFs or false collapses.
@@ -81,7 +76,8 @@ function analysis(nodes,members,load_kN,active){
   for(const m of edges){
     adjacency.get(m.i).push(m.j);adjacency.get(m.j).push(m.i);
   }
-  const required=new Set(nodes.filter(n=>n.fixX||n.fixZ||
+  const supportIds=new Set(nodes.filter(n=>n.fixX||n.fixZ).map(n=>n.id));
+  const loadIds=new Set(nodes.filter(n=>
     Math.abs(nodal.get(n.id).fx_kN)+Math.abs(nodal.get(n.id).fz_kN)>1e-9)
     .map(n=>n.id));
   const retained=new Set();
@@ -95,11 +91,19 @@ function analysis(nodes,members,load_kN,active){
         inspected.add(next);queue.push(next);
       }
     }
-    if(group.some(id=>required.has(id)))group.forEach(id=>retained.add(id));
+    // Unsupported components in an unfinished design are not yet part of
+    // the load-bearing structure; do not let their dead load create a
+    // spurious mechanism before the student connects them to the supports.
+    if(group.some(id=>supportIds.has(id)))group.forEach(id=>retained.add(id));
   }
-  if([...required].some(id=>!retained.has(id)&&
-      Math.abs(nodal.get(id).fx_kN)+Math.abs(nodal.get(id).fz_kN)>1e-9))
-    throw Error('El nodo cargado no está conectado a ninguna barra.');
+  if([...loadIds].some(id=>!retained.has(id)))
+    throw Error('La carga central no dispone de camino hasta los apoyos.');
+  for(const m of all){
+    if(!retained.has(m.i)||!retained.has(m.j))continue;
+    const dead=m.mass_kg*9.81/1000;
+    nodal.get(m.i).fz_kN-=dead/2;
+    nodal.get(m.j).fz_kN-=dead/2;
+  }
   const model={
     nodes:nodes.filter(n=>retained.has(n.id)),
     bars:edges.filter(m=>retained.has(m.i)&&retained.has(m.j))
