@@ -13,7 +13,8 @@ import {visibleModelBounds,fitPerspectiveToBounds} from './camera-framing.mjs';
 import {resultColourHex,cssResultGradient} from './visual-palettes.mjs';
 import {WebSun} from './web-sun.js';
 import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
-import {detectBridgeTableGap,applyBridgeGapPlacement} from './bridge-table-detection.mjs';
+import {detectBridgeTableGap,applyBridgeGapPlacement,
+  bridgeGapFromHitPoints} from './bridge-table-detection.mjs';
 const vector=(n)=>new THREE.Vector3(n.x,n.y,n.z);
 const lerp=(a,b,t)=>a.clone().lerp(b,t);
 const colorMap=(t,palette)=>new THREE.Color(resultColourHex(t,palette));
@@ -510,7 +511,11 @@ export class StructuralScene {
     this.mobileShadowPlane.visible=true;
   }
   async startMobileAR(session){
-    const st={session,source:null,preview:null,previewPlane:null,lastCandidate:null,stableFrames:0,scanning:true,placeRequested:false,placed:false,bridgeScan:false,bridgeStable:0,bridgeLast:null};
+    const st={session,source:null,preview:null,previewPlane:null,
+      lastCandidate:null,stableFrames:0,scanning:true,placeRequested:false,
+      placed:false,bridgeScan:false,bridgeScanFrames:0,bridgeStable:0,
+      bridgeLast:null,bridgeGuide:null,hitTestError:null,
+      planeDetection:Boolean(session.enabledFeatures?.includes('plane-detection'))};
     this.mobileARState=st;
     this.xrControls.reticle.visible=false;
     this.xrControls.contact.visible=false;
@@ -529,7 +534,9 @@ export class StructuralScene {
     const capability=typeof session.requestHitTestSource==='function'&&
       (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
     if(!capability){
-      if(status)status.textContent='AR iniciado sin detección de superficies. El modelo aparece delante.';
+      st.hitTestError='El navegador no permite hit-test en esta sesión.';
+      if(status)status.textContent=st.hitTestError+
+        ' Para el concurso, introduce manualmente el vano fuera de AR.';
       return;
     }
     try{
@@ -538,22 +545,89 @@ export class StructuralScene {
       if(this.mobileARState!==st){source.cancel();return;}
       st.source=source;
     }catch(e){
-      if(status)status.textContent='No se pudo detectar el suelo: '+e.message;
+      st.hitTestError='No se pudo iniciar hit-test: '+e.message;
+      if(status)status.textContent=st.hitTestError+
+        '. Comprueba los permisos de AR o introduce el vano manualmente.';
     }
   }
-  startMobileBridgeScan(){
+  setMobileBridgeStatus(message){
+    for(const id of ['mobile-ar-status','bridge-detection-status']){
+      const el=$(id);if(el)el.textContent=message;
+    }
+  }
+  mobileBridgeButton(){
+    const button=$('mobile-ar-bridge-scan');
+    if(!button)return;
+    const st=this.mobileARState;
+    button.hidden=!this.bridgeCompetition?.active;
+    if(st?.bridgeGuide){
+      button.textContent=st.bridgeGuide.points.length?
+        'Marcar borde de mesa B':'Marcar borde de mesa A';
+    }else button.textContent=st?.bridgeScan?
+      'Medir señalando los bordes':'Detectar hueco entre mesas';
+  }
+  startMobileBridgeScan({guided=false}={}){
     const st=this.mobileARState;
     if(!st||!this.mobileAR||!this.bridgeCompetition?.active)return false;
-    st.bridgeScan=true;st.bridgeStable=0;st.bridgeLast=null;
-    const status=$('mobile-ar-status');
-    if(status)status.textContent='Buscando contornos de dos mesas. Mueve el móvil para observar ambas superficies…';
+    st.scanning=true;st.placeRequested=false;
+    st.bridgeStable=0;st.bridgeLast=null;st.bridgeScanFrames=0;
+    const canUsePlanes=st.planeDetection&&!guided;
+    st.bridgeScan=canUsePlanes;
+    st.bridgeGuide=canUsePlanes?null:{points:[]};
+    this.mobileBridgeButton();
+    if(!st.source){
+      this.setMobileBridgeStatus(st.hitTestError||
+        'La detección por cámara aún no está disponible. '+
+        'Prueba a mover el móvil lentamente o introduce el vano manualmente.');
+      return false;
+    }
+    this.setMobileBridgeStatus(canUsePlanes?
+      'Buscando dos contornos de mesas… También puedes medir '+
+      'señalando sus bordes con el botón.':
+      'Medición guiada: apunta al borde interior de la primera mesa '+
+      'hasta que aparezca el marcador y pulsa «Marcar borde de mesa A».');
     return true;
+  }
+  captureMobileBridgePoint(){
+    const st=this.mobileARState;
+    if(!st?.bridgeGuide||!this.mobileAR||!this.bridgeCompetition?.active)
+      return false;
+    if(!st.preview){
+      this.setMobileBridgeStatus('Todavía no se detecta una superficie. '+
+        'Apunta al borde de la mesa, mueve el móvil lentamente y espera '+
+        'a que aparezca el marcador.');
+      return false;
+    }
+    const candidate=st.preview.clone();
+    if(st.bridgeGuide.points.length===0){
+      st.bridgeGuide.points.push(candidate);
+      this.mobileBridgeButton();
+      this.setMobileBridgeStatus('Mesa A marcada. Apunta al borde interior '+
+        'de la segunda mesa y pulsa «Marcar borde de mesa B».');
+      return true;
+    }
+    try{
+      const gap=bridgeGapFromHitPoints(st.bridgeGuide.points[0],candidate);
+      const span=applyBridgeGapPlacement(this,gap,this.bridgeCompetition);
+      st.bridgeGuide=null;st.bridgeScan=false;st.scanning=false;st.placed=true;
+      this.xrControls.reticle.visible=false;
+      const input=$('bridge-span');if(input)input.value=String(Number(span.toFixed(3)));
+      this.mobileBridgeButton();
+      this.setMobileBridgeStatus('Vano medido entre dos bordes señalados: '+
+        span.toFixed(2)+' m. No se han detectado los contornos completos de las mesas.');
+      return true;
+    }catch(e){
+      this.setMobileBridgeStatus(e.message+
+        ' Ajusta el segundo punto o vuelve a iniciar la medición.');
+      return false;
+    }
   }
   updateMobileAR(frame){
     const st=this.mobileARState;
     if(!frame||!st||!this.xrSession)return;
     const ref=this.renderer.xr.getReferenceSpace();
     if(st.bridgeScan&&ref&&this.bridgeCompetition?.active){
+      st.bridgeScanFrames++;
       const gap=detectBridgeTableGap(frame,ref);
       const previous=st.bridgeLast;
       const consistent=gap&&previous&&Math.abs(previous.span_m-gap.span_m)<.035&&
@@ -562,17 +636,27 @@ export class StructuralScene {
       st.bridgeLast=gap;
       if(st.bridgeStable>=7){
         const span=applyBridgeGapPlacement(this,gap,this.bridgeCompetition);
-        st.bridgeScan=false;st.scanning=false;st.placed=true;
+        st.bridgeScan=false;st.bridgeGuide=null;
+        st.scanning=false;st.placed=true;
+        this.mobileBridgeButton();
         this.xrControls.reticle.visible=false;
         const input=$('bridge-span');if(input)input.value=String(Number(span.toFixed(3)));
         const message='Dos mesas detectadas: hueco '+span.toFixed(2)+' m. Pasarela anclada entre los bordes.';
         const status=$('mobile-ar-status');if(status)status.textContent=message;
         const feedback=$('bridge-detection-status');if(feedback)feedback.textContent=message;
+      }else if(st.bridgeScanFrames>150&&!gap){
+        // Plane-detection was requested but returned no suitable polygon
+        // pair. Android often supports hit-tests without polygonal planes.
+        // Continue with a guided two-point measurement, not a false claim
+        // of automatic tabletop edge detection.
+        this.startMobileBridgeScan({guided:true});
       }else{
-        const status=$('mobile-ar-status');
-        if(status)status.textContent=gap?
-          'Dos mesas visibles. Estabilizando medición ('+st.bridgeStable+'/7)…':
-          'No hay dos mesas identificadas. Recorre sus bordes o ajusta el vano manualmente.';
+        this.setMobileBridgeStatus(gap?
+          'Dos mesas identificadas. Estabilizando medición ('+
+            st.bridgeStable+'/7)…':
+          'Buscando contornos de dos mesas ('+
+            Math.min(100,Math.round(st.bridgeScanFrames/150*100))+
+            '%). Si no aparecen, se ofrecerá medición guiada.');
       }
     }
     if(st.scanning&&st.source&&ref){
@@ -601,12 +685,12 @@ export class StructuralScene {
       const field=document.getElementById('mobile-ar-status');
       const message=st.previewPlane?'Mesa detectada. Se ajustará el tamaño automáticamente.':
         st.preview?'Superficie detectada. Pulsa «Colocar aquí».':'Apunta a una mesa o al suelo.';
-      if(field&&!st.bridgeScan&&field.textContent!==message)field.textContent=message;
+      if(field&&!st.bridgeScan&&!st.bridgeGuide&&field.textContent!==message)
+        field.textContent=message;
     }
-    const scan=$('mobile-ar-bridge-scan');
-    if(scan)scan.hidden=!this.bridgeCompetition?.active;
+    this.mobileBridgeButton();
     const place=document.getElementById('mobile-ar-place');
-    if(place)place.disabled=!st.preview;
+    if(place)place.disabled=!st.preview||Boolean(st.bridgeGuide||st.bridgeScan);
     if(st.placeRequested){
       st.placeRequested=false;
       if(st.preview){
@@ -633,7 +717,12 @@ export class StructuralScene {
   }
   resetMobilePlacement(){
     const st=this.mobileARState;
-    if(st){st.scanning=true;st.placed=false;st.preview=null;st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;}
+    if(st){
+      st.scanning=true;st.placed=false;st.preview=null;
+      st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;
+      st.bridgeScan=false;st.bridgeGuide=null;st.bridgeScanFrames=0;
+      this.mobileBridgeButton();
+    }
     this.arAnchorPoint=null;
     this.xrControls.contact.visible=false;
     this.mobileShadowPlane.visible=false;
