@@ -3,7 +3,7 @@ import {planeFromDetection} from './ar-placement.mjs';
 import {forceSignColour,resultColourHex} from './visual-palettes.mjs';
 import {makeAxialLabel} from './teaching-axial-label.js';
 import {createBridgeCollapseDynamics,stepBridgeCollapseDynamics,
-  resolveBridgeCylinderFloor} from './bridge-collapse-dynamics.mjs';
+  stepBridgeLooseFragment} from './bridge-collapse-dynamics.mjs';
 import {BRIDGE_SECTIONS,BRIDGE_DEFAULTS,bridgeGrid,bridgeSampleMembers,
   addBridgeMember,calculateBridge} from './bridge-competition-solver.mjs';
 
@@ -158,7 +158,8 @@ export class BridgeCompetitionExperience {
     // Serviceability alone never triggers a collapse animation.
     // Follow the ordered failure sequence reported by the member-removal solver.
     this.breakAnimation=['collapse','failure'].includes(this.result.status)?
-      {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[]}:null;
+      {startedAt:null,sequence:this.result.broken.map(m=>m.id),dropped:[],
+        stageDisplayed:0}:null;
     this.draw();
     return this.result;
   }
@@ -517,6 +518,7 @@ export class BridgeCompetitionExperience {
     const elapsed=(timeMs-state.startedAt)/1000;
     const physics=state.physics;
     if(!physics)return;
+    const FRACTURE_START=.48,FRACTURE_INTERVAL=1.05;
     const dt=Math.max(0,Math.min(.06,(timeMs-state.lastStep)/1000));
     state.lastStep=timeMs;
     physics.floorZ=this.collisionFloorZ??(-.75*BASE/this.span_m);
@@ -527,9 +529,26 @@ export class BridgeCompetitionExperience {
       // Remove failed members exactly when their fracture becomes visible.
       // The remaining constraints then redistribute motion between nodes.
       state.sequence.forEach((id,i)=>{
-        if(elapsed<.38+i*.22||physics.broken.has(id))return;
+        if(elapsed<FRACTURE_START+i*FRACTURE_INTERVAL||
+            physics.broken.has(id))return;
         physics.broken.add(id);
         physics.edges=physics.edges.filter(edge=>edge.id!==id);
+        // Every removal corresponds to an already solved redistribution
+        // state. In that state the next critical member can be overloaded.
+        const stage=this.result?.stages?.[i+1];
+        if(stage&&state.stageDisplayed!==i+1){
+          state.stageDisplayed=i+1;
+          const byId=new Map((stage.members??[]).map(m=>[m.id,m]));
+          for(const part of state.dropped){
+            if(physics.broken.has(part.id))continue;
+            const member=byId.get(part.id);
+            if(!member)continue;
+            const isNext=stage.nextFailure?.id===part.id;
+            part.object.material.color.setHex(isNext?0xf2b24c:
+              forceSignColour(member.axial_kN,this.palette));
+          }
+          this.onFailureProgress?.(stage);
+        }
       });
       for(let i=0;i<Math.max(1,Math.ceil(dt/.016));i++)
         stepBridgeCollapseDynamics(physics,dt/Math.max(1,Math.ceil(dt/.016)));
@@ -541,7 +560,7 @@ export class BridgeCompetitionExperience {
     for(const part of state.dropped){
       const first=state.sequence.indexOf(part.id);
       if(first>=0){
-        const start=.38+first*.22;
+        const start=FRACTURE_START+first*FRACTURE_INTERVAL;
         const t=Math.max(0,elapsed-start);
         // Material yielding receives an amber warning before schematic
         // fracture. This exercise does not model buckling or claim that
@@ -558,17 +577,29 @@ export class BridgeCompetitionExperience {
         if(part.fragments)for(const fragment of part.fragments){
           fragment.object.visible=t>0;
           if(t<=0)continue;
-          const q=fragment.object.quaternion;
-          q.copy(fragment.baseRotation);
-          q.multiply(new THREE.Quaternion().setFromAxisAngle(
-            new THREE.Vector3(0,1,0),Math.min(1.6,t)*(fragment.fragment?-.7:.7)));
-          fragment.object.position.copy(fragment.origin);
-          fragment.object.position.x+=(fragment.fragment?1:-1)*Math.min(t*.07,.14);
-          fragment.object.position.z-=1.75*t*t;
-          const axis=new THREE.Vector3(0,1,0).applyQuaternion(q);
-          const contact=resolveBridgeCylinderFloor(fragment.object.position.z,
-            axis.z,fragment.length,fragment.radius,physics.floorZ);
-          fragment.object.position.z=contact.centerZ;
+          if(!fragment.motion){
+            const axis=new THREE.Vector3(0,1,0)
+              .applyQuaternion(fragment.baseRotation);
+            fragment.motion={
+              x:fragment.origin.x,z:fragment.origin.z,
+              vx:fragment.fragment?-.09:.09,vz:0,
+              angle:0,omega:fragment.fragment?.9:-.9,
+              axisX:axis.x,axisZ:axis.z,
+              length:fragment.length,radius:fragment.radius
+            };
+          }
+          // Unlike the previous analytical trajectory, the fragments retain
+          // their velocity and angle between frames. After contact they roll
+          // and settle while their complete volumes stay above the floor.
+          const substeps=Math.max(1,Math.ceil(dt/.016));
+          for(let k=0;k<substeps;k++)
+            stepBridgeLooseFragment(fragment.motion,dt/substeps,physics.floorZ);
+          fragment.object.quaternion.copy(fragment.baseRotation);
+          fragment.object.quaternion.multiply(
+            new THREE.Quaternion().setFromAxisAngle(
+              new THREE.Vector3(0,1,0),fragment.motion.angle));
+          fragment.object.position.set(fragment.motion.x,fragment.origin.y,
+            fragment.motion.z);
         }
         continue;
       }
