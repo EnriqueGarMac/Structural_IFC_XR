@@ -4,7 +4,7 @@ import {solveTruss2D} from './truss-solver.mjs';
 // Units kN / m / MPa. Values are illustrative design parameters, not code
 // verification nor an engineering certification of real bridge safety.
 export const BRIDGE_SECTIONS={
-  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.00080,I_m4:8.2e-8,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
+  bar_m:{label:'Barra · ligera',kind:'bar',A_m2:.00030,I_m4:1.2e-8,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
   bar_l:{label:'Barra · reforzada',kind:'bar',A_m2:.0018,I_m4:3.9e-7,fy_MPa:235,E_kN_m2:210e6,density_kg_m3:7850},
   tie_m:{label:'Tirante · solo tracción',kind:'tie',A_m2:.00022,I_m4:0,fy_MPa:500,E_kN_m2:190e6,density_kg_m3:7850}
 };
