@@ -25,7 +25,7 @@ test('bridge with no design members is a mechanism, not a fabricated stress resu
   assert.equal(result.maxDeflection_mm,null);
 });
 
-test('disconnected unloaded node should not make a stable truss singular',()=>{
+test('an independently triangulated planar truss solves without singularities',()=>{
   const nodes=[
     {id:'A',x:0,z:0,fixX:true,fixZ:true},
     {id:'B',x:.5,z:0},
