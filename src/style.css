@@ -189,3 +189,29 @@ body.teaching-results-active #legend{display:block!important}
 #bridge-undeformed[aria-pressed="true"]{border-color:#238c91}
 
 body.teaching-results-active #bridge-result.bridge-report{display:grid}
+
+
+/* Touch-first structural design inside Android WebXR DOM Overlay. The
+   transparent layer receives scene taps, while the toolbar remains above it.
+   Only enabled after AR placement, so normal surface hit-testing is untouched. */
+.mobile-ar-bridge-touch[hidden],.mobile-ar-bridge-editor[hidden]{display:none!important}
+.mobile-ar-bridge-touch{position:absolute;inset:0;z-index:1;pointer-events:auto;touch-action:manipulation}
+.mobile-ar-crosshair{z-index:2;pointer-events:none}
+.mobile-ar-toolbar{z-index:3;max-height:min(64dvh,590px);overflow-y:auto;overscroll-behavior:contain}
+.mobile-ar-bridge-editor{display:grid;gap:7px;border:1px solid #447e89;background:rgba(7,29,42,.96);border-radius:12px;padding:10px;text-align:left}
+.mobile-ar-bridge-header{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.mobile-ar-bridge-header strong{font-size:13px;color:#a9f4e9}
+.mobile-ar-bridge-header span{font-size:11px;color:#bad8df;text-align:right}
+.mobile-ar-bridge-config{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:9px;align-items:end}
+.mobile-ar-bridge-config label{font-size:11px;color:#d7e9e9;display:grid;gap:4px}
+.mobile-ar-bridge-config select{background:#153f4e;border:1px solid #4a939b;color:white;font-size:12px;border-radius:8px;padding:9px;width:100%;min-width:0}
+.mobile-ar-bridge-load{display:grid;gap:5px}
+.mobile-ar-bridge-load span{font-size:11px;color:#d2e5eb}
+.mobile-ar-bridge-load>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.mobile-ar-bridge-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.mobile-ar-bridge-editor button{border:1px solid #518b9a;border-radius:8px;background:#1e5664;color:#f0fbff;padding:8px 5px;font-size:11px;font-weight:650;min-height:36px}
+.mobile-ar-bridge-editor button[aria-pressed=true]{background:#d4a465;color:#173441;border-color:#f7c78a}
+.mobile-ar-bridge-editor button:disabled{opacity:.44}
+#mobile-ar-bridge-calc{background:#167f81;border-color:#4de0c6;font-weight:800}
+#mobile-ar-bridge-feedback{font-size:11px;line-height:1.4;color:#d2ebee;min-height:15px}
+@media(max-width:380px){.mobile-ar-bridge-buttons button{font-size:10px;padding:7px 3px}.mobile-ar-bridge-config{grid-template-columns:1fr 1fr}}
