@@ -180,7 +180,7 @@
           <div id="bridge-controls" class="bridge-controls" hidden>
             <div class="teaching-active-head"><strong>Concurso de pasarelas</strong><span>Diseña, calcula y optimiza por peso</span></div>
             <div class="truss-method-note">Modelo docente 2D de celosía articulada. Barras: tracción o compresión. Tirantes: solo tracción. Peso propio incluido.</div>
-            <button id="bridge-detect" type="button" class="secondary-btn">Detectar dos mesas (Quest RM)</button>
+            <button id="bridge-detect" type="button" class="secondary-btn">Detectar dos mesas (Quest RM / Android AR)</button>
             <p id="bridge-detection-status" class="field-help" role="status">Si el dispositivo no proporciona dos planos detectados, introduce el vano manualmente.</p>
             <div class="truss-load-grid">
               <label for="bridge-span">Vano entre mesas (m)<input id="bridge-span" type="number" min=".3" max="3" step=".05" value="1.2" inputmode="decimal"></label>
@@ -203,6 +203,7 @@
             <button type="button" id="bridge-evaluate" class="secondary-btn teaching-primary">Aplicar carga y comprobar resistencia</button>
             <p id="bridge-feedback" class="field-help" role="status" aria-live="polite">Construye una pasarela sobre la retícula.</p>
             <div id="bridge-result" class="truss-summary" hidden aria-live="polite"></div>
+            <div id="bridge-legend" class="bridge-results-legend" aria-live="polite"></div>
             <div class="truss-subheading">Elementos del diseño</div>
             <div id="bridge-members" class="truss-table-scroll"></div>
             <div class="truss-subheading">Resultados y reacciones</div>
@@ -264,9 +265,11 @@
     <div class="mobile-ar-toolbar">
       <strong>IMIS Structural XR · AR móvil</strong>
       <span id="mobile-ar-status" aria-live="polite">Busca una mesa o el suelo con la cámara.</span>
+      <span id="mobile-ar-bridge-legend" hidden></span>
       <div class="mobile-ar-actions">
         <button type="button" id="mobile-ar-place">Colocar aquí</button>
         <button type="button" id="mobile-ar-redetect">Buscar plano</button>
+        <button type="button" id="mobile-ar-bridge-scan" hidden>Detectar hueco entre mesas</button>
         <button type="button" id="mobile-ar-smaller">− Tamaño</button>
         <button type="button" id="mobile-ar-larger">+ Tamaño</button>
         <label class="mobile-ar-range">Deformada: <output id="mobile-ar-amp-value">×25</output>
