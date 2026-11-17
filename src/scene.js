@@ -613,6 +613,7 @@ export class StructuralScene {
       this.xrControls.reticle.visible=false;
       const input=$('bridge-span');if(input)input.value=String(Number(span.toFixed(3)));
       this.mobileBridgeButton();
+      this.onMobileARPlacementChange?.();
       this.setMobileBridgeStatus('Vano medido entre dos bordes señalados: '+
         span.toFixed(2)+' m. No se han detectado los contornos completos de las mesas.');
       return true;
@@ -639,6 +640,7 @@ export class StructuralScene {
         st.bridgeScan=false;st.bridgeGuide=null;
         st.scanning=false;st.placed=true;
         this.mobileBridgeButton();
+        this.onMobileARPlacementChange?.();
         this.xrControls.reticle.visible=false;
         const input=$('bridge-span');if(input)input.value=String(Number(span.toFixed(3)));
         const message='Dos mesas detectadas: hueco '+span.toFixed(2)+' m. Pasarela anclada entre los bordes.';
@@ -690,7 +692,8 @@ export class StructuralScene {
     }
     this.mobileBridgeButton();
     const place=document.getElementById('mobile-ar-place');
-    if(place)place.disabled=!st.preview||Boolean(st.bridgeGuide||st.bridgeScan);
+    if(place)place.disabled=st.placed||!st.preview||
+      Boolean(st.bridgeGuide||st.bridgeScan);
     if(st.placeRequested){
       st.placeRequested=false;
       if(st.preview){
@@ -710,6 +713,7 @@ export class StructuralScene {
         this.xrControls.reticle.visible=false;
         this.xrControls.contact.visible=false;
         st.scanning=false;st.placed=true;
+        this.onMobileARPlacementChange?.();
         const field=document.getElementById('mobile-ar-status');
         if(field)field.textContent=st.previewPlane?'Modelo apoyado y ajustado a la mesa.':'Modelo apoyado. Puedes modificar el tamaño.';
       }
@@ -722,6 +726,7 @@ export class StructuralScene {
       st.previewPlane=null;st.stableFrames=0;st.lastCandidate=null;
       st.bridgeScan=false;st.bridgeGuide=null;st.bridgeScanFrames=0;
       this.mobileBridgeButton();
+      this.onMobileARPlacementChange?.();
     }
     this.arAnchorPoint=null;
     this.xrControls.contact.visible=false;
@@ -730,6 +735,7 @@ export class StructuralScene {
   stopMobileAR(){
     this.mobileARState?.source?.cancel();
     this.mobileARState=null;this.mobileAR=false;
+    this.onMobileARPlacementChange?.();
     const mobileScan=$('mobile-ar-bridge-scan');if(mobileScan)mobileScan.hidden=true;
     const mobileLegend=$('mobile-ar-bridge-legend');if(mobileLegend)mobileLegend.hidden=true;
     this.mobileShadowPlane.visible=false;
