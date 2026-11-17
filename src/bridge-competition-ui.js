@@ -166,10 +166,12 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
     app.xrControls.dirty=true;
   }
   challenge.onChange=update;
-  challenge.onFailureProgress=stage=>{
-    // Do not redraw the model here: that would reset the physics animation.
+  challenge.onFailureProgress=(stage,stageResult)=>{
+    // Use the actual, newly solved stage. Never redraw the 3D experience
+    // here, because that would restart the progressive collapse.
     const label=stage.status==='mechanism'?
-      'Mecanismo tras perder '+stage.removed.join(', '):
+      'Mecanismo tras perder '+stage.removed.join(', ')+
+        ' · no existe equilibrio estático posterior':
       stage.nextFailures?.length?
         'Nuevo equilibrio → '+stage.nextFailures.length+
         ' barra(s) críticas: '+stage.nextFailures.map(f=>
@@ -177,6 +179,32 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         'Los elementos restantes recuperan el equilibrio';
     $('bridge-stage-detail').textContent='ROTURA PROGRESIVA · '+label;
     $('bridge-feedback').textContent=label;
+    if(stageResult){
+      const entries=stageResult.members.map(m=>[
+        m.id,
+        m.pending?'—':fmt(m.axial_kN,2),
+        m.pending?'—':fmt(m.stress_MPa,2),
+        m.pending?'—':fmt(m.utilization*100,1)+' %',
+        stage.removed.includes(m.id)?'Rota':
+          m.pending?'Sin resistencia':m.kind==='tie'?'Tirante':'Barra'
+      ]);
+      const reactions=stageResult.reactions.map(r=>[
+        'Apoyo '+r.nodeId,'Rx '+fmt(r.rx_kN,2)+' kN',
+        'Rz '+fmt(r.rz_kN,2)+' kN','—','Reacción'
+      ]);
+      $('bridge-detail').innerHTML=textTable(
+        ['Elemento','N (kN) / Rx','σ (MPa) / Rz','Uso','Estado'],
+        [...entries,...reactions]);
+      $('max-u').textContent=fmt(stageResult.maxDeflection_mm,3)+' mm';
+    }else{
+      $('bridge-detail').textContent=
+        'Mecanismo inestable: no existen esfuerzos, tensiones ni deformaciones estáticas calculables después de esta etapa.';
+      $('max-u').textContent='—';
+    }
+    // Reuses the same force-diagram, reaction and legend renderers as the
+    // rest of Analysis, without recreating the fracture scene.
+    app.updateTeachingAnalysis?.('bridge',stageResult,challenge);
+    app.xrControls.dirty=true;
   };
   const run=()=>{
     if(challenge.active)return;
