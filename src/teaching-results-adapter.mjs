@@ -28,14 +28,14 @@ export function teachingResultsToViewer(kind,result,experience){
       // axial diagrams in the structural plane (not edge-on in 3D).
       return {id:String(b.id),i:String(b.i),j:String(b.j),length_m:len,
         section:b.sectionId??'steel',
-        local_axes:{basis_global:[[dx/len,0,dz/len],
-          [-dz/len,0,dx/len],[0,-1,0]]}};
+        local_axes:{basis_global:[[dx*scale/len,0,dz*scale/len],
+          [-dz*scale/len,0,dx*scale/len],[0,-1,0]]}};
     });
   const analysisById=new Map(analysisBars.map(b=>[String(b.id),b]));
   const forces={};
   for(const frame of frames){
     const b=analysisById.get(frame.id);
-    if(!b||b.pending)continue;
+    if(!b||b.pending||!(result.reactions?.length))continue;
     const axial=valid(b.axial_kN)?Number(b.axial_kN):0;
     const row=(station,P_kN,V2_kN=0,M3_kNm=0)=>({
       station_m:station,P_kN,V2_kN,V3_kN:0,T_kNm:0,M2_kNm:0,M3_kNm
