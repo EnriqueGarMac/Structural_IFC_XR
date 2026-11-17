@@ -102,14 +102,17 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
       if(result.broken?.length)
         rows.push(['Elementos que fallan',result.broken.map(f=>
           f.id+' ('+(failureNames[f.mode]??'resistencia')+
-          ', '+fmt(f.utilization*100,1)+' %)').join(', ')]);
+          ', '+fmt(f.utilization*100,1)+' % a '+
+          fmt(f.load_kN??result.load_kN,2)+' kN)').join(', ')]);
       if(result.stages?.length>1)
         rows.push(['Redistribución tras cada fallo',result.stages.map(stage=>{
           if(stage.status==='mechanism')
-            return 'Tras perder '+stage.removed.join(', ')+
+            return 'A '+fmt(stage.load_kN??result.load_kN,2)+
+              ' kN, tras perder '+stage.removed.join(', ')+
               ': se forma un mecanismo, sin nuevos esfuerzos calculables';
           if(stage.nextFailures?.length)
-            return 'Estado '+(stage.step+1)+': '+
+            return 'Estado '+(stage.step+1)+' ('+
+              fmt(stage.load_kN??result.load_kN,2)+' kN): '+
               (stage.removed.length?'sin '+stage.removed.join(', '):'estructura inicial')+
               ' → fallan '+stage.nextFailures.map(f=>
                 f.id+' ('+fmt(f.utilization*100,1)+' %)').join(', ');
@@ -185,7 +188,8 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         ' barra(s) críticas: '+stage.nextFailures.map(f=>
           f.id+' ('+fmt(f.utilization*100,1)+' %)').join(', '):
         'Los elementos restantes recuperan el equilibrio';
-    $('bridge-stage-detail').textContent='ROTURA PROGRESIVA · '+label;
+    $('bridge-stage-detail').textContent='ROTURA PROGRESIVA · '+
+      fmt(stage.load_kN??challenge.load_kN,2)+' kN · '+label;
     $('bridge-feedback').textContent=label;
     if(stageResult){
       const entries=stageResult.members.map(m=>[
