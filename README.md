@@ -1,3 +1,28 @@
+## Diseño interactivo de pasarelas: retícula densa y barras provisionales
+
+El **Concurso de pasarelas** dispone ahora de una retícula de **45 nodos**
+(9 columnas × 5 alturas). Se conservan los identificadores B0–B4 y
+T1–T3 de los diseños anteriores; los nodos nuevos usan identificadores
+Gfila_columna.
+
+El botón **Añadir elemento a la retícula** inicia un proceso de dos
+selecciones en el visor: escoger primer nodo, desplazar el ratón o el
+rayo del mando Quest para ver la barra provisional y pulsar sobre el
+segundo nodo para colocarla. Al completarse se termina ese proceso,
+de modo que el siguiente elemento requiere pulsar de nuevo **Añadir
+elemento**. **Esc** cancela el trazado desde teclado.
+
+El cálculo incluye únicamente componentes conectadas a los apoyos
+con barras efectivas y elimina las ramas libres sin arriostramiento
+como elementos **pendientes de conectar**. Estos elementos siguen
+dibujándose y suman al peso del diseño, pero no contribuyen a la
+rigidez ni a las cargas del modelo resistente mientras están
+incompletos. La carga central B2 sigue exigiendo conexión estructural
+a los apoyos: no se declara resistente una pasarela con una carga
+sin camino portante, ni se suprimen mecanismos auténticos.
+
+---
+
 ## Actualización: leyendas, amplificación, secciones y colapso docente
 
 En **Recursos Docentes → Celosías** y **Concurso**, la pestaña **Análisis**
