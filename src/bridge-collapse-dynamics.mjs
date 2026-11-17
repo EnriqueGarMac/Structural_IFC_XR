@@ -4,7 +4,11 @@
 // detached nodes are accelerated by gravity and collide with the floor.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function createBridgeCollapseDynamics(nodes,members,brokenIds=[],floorZ=-.75){
-  const positions=new Map(nodes.map(n=>[n.id,{
+  // Grid points without members are design guides, not structural particles.
+  // Keep both ends of every originally assigned member even if it is broken,
+  // so genuine detached fragments can fall after a failure.
+  const assigned=new Set(members.flatMap(m=>[m.i,m.j]));
+  const positions=new Map(nodes.filter(n=>assigned.has(n.id)).map(n=>[n.id,{
     x:n.x,z:n.z,oldX:n.x,oldZ:n.z,
     fixX:Boolean(n.fixX),fixZ:Boolean(n.fixZ)
   }]));
