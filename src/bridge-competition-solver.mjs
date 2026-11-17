@@ -38,15 +38,83 @@ export function bridgeMemberKey(i,j){
   if(i===j)throw Error('Una barra necesita dos nodos distintos.');
   return [i,j].sort().join('|');
 }
+// A node with just two straight, same-section members does not need to
+// introduce a spurious pin-joint mechanism. Collapse that construction
+// point into a continuous member; protect the loaded point and supports.
+export function mergeCollinearBridgeMembers(members,nodes){
+  const points=new Map(nodes.map(n=>[n.id,n]));
+  const result=members.map(m=>({...m}));
+  for(let pass=0;pass<=members.length;pass++){
+    const touching=new Map(nodes.map(n=>[n.id,[]]));
+    for(const m of result){
+      touching.get(m.i)?.push(m);
+      touching.get(m.j)?.push(m);
+    }
+    let changed=false;
+    for(const n of nodes){
+      if(n.fixX||n.fixZ||n.id==='B2')continue;
+      const bars=touching.get(n.id);
+      if(bars?.length!==2)continue;
+      const [first,second]=bars;
+      if(first.sectionId!==second.sectionId)continue;
+      const a=points.get(first.i===n.id?first.j:first.i);
+      const b=points.get(second.i===n.id?second.j:second.i);
+      if(!a||!b||a.id===b.id)continue;
+      const ux=a.x-n.x,uz=a.z-n.z,vx=b.x-n.x,vz=b.z-n.z;
+      const L1=Math.hypot(ux,uz),L2=Math.hypot(vx,vz);
+      if(L1<1e-8||L2<1e-8)continue;
+      // Straight, opposite directions. Two different sections, a load
+      // or a third connected member must remain separate.
+      if(Math.abs(ux*vz-uz*vx)>1e-7*L1*L2||
+         ux*vx+uz*vz>=0)continue;
+      const firstAt=result.indexOf(first),secondAt=result.indexOf(second);
+      result[firstAt]={...first,i:a.id,j:b.id};
+      result.splice(secondAt,1);
+      changed=true;
+      break;
+    }
+    if(!changed)break;
+  }
+  return result;
+}
+function pointInsideBridgeMember(node,member,byId){
+  if(node.id===member.i||node.id===member.j)return false;
+  const a=byId.get(member.i),b=byId.get(member.j);
+  const dx=b.x-a.x,dz=b.z-a.z,L2=dx*dx+dz*dz;
+  if(L2<=1e-15)return false;
+  const t=((node.x-a.x)*dx+(node.z-a.z)*dz)/L2;
+  return t>1e-7&&t<1-1e-7&&
+    Math.abs((node.x-a.x)*dz-(node.z-a.z)*dx)<=1e-7*L2;
+}
 export function addBridgeMember(members,nodes,i,j,sectionId){
-  const ids=new Set(nodes.map(n=>n.id)),section=BRIDGE_SECTIONS[sectionId];
-  if(!ids.has(i)||!ids.has(j)||!section)throw Error('Nodos o sección no válidos.');
+  const byId=new Map(nodes.map(n=>[n.id,n]));
+  const section=BRIDGE_SECTIONS[sectionId];
+  if(!byId.has(i)||!byId.has(j)||!section)
+    throw Error('Nodos o sección no válidos.');
   const key=bridgeMemberKey(i,j);
   if(members.some(m=>bridgeMemberKey(m.i,m.j)===key))
     throw Error('Ya existe un elemento entre esos nodos.');
-  if(members.length>=60)throw Error('Límite docente de 60 elementos.');
-  let number=1;while(members.some(m=>m.id==='M'+number))number++;
-  return [...members,{id:'M'+number,i,j,sectionId}];
+  const expanded=members.map(m=>({...m}));
+  // If a student later adds a third branch to a previously simplified
+  // point, restore that joint by splitting the continuous bar there.
+  // This allows extending or triangulating an existing line of steel.
+  for(const id of [i,j]){
+    const n=byId.get(id);
+    for(let k=0;k<expanded.length;k++){
+      const m=expanded[k];
+      if(!pointInsideBridgeMember(n,m,byId))continue;
+      const used=new Set(expanded.map(x=>x.id));
+      let number=1;while(used.has('M'+number))number++;
+      expanded.splice(k,1,{...m,j:id},
+        {...m,id:'M'+number,i:id});
+      k++;
+    }
+  }
+  if(expanded.length>=60)throw Error('Límite docente de 60 elementos.');
+  let number=1;
+  while(expanded.some(m=>m.id==='M'+number))number++;
+  expanded.push({id:'M'+number,i,j,sectionId});
+  return mergeCollinearBridgeMembers(expanded,nodes);
 }
 export function bridgeSampleMembers(){
   const edges=[
