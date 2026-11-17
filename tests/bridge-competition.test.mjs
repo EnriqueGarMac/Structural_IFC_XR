@@ -105,7 +105,7 @@ test('critical lightweight member fails first under demanding loading',()=>{
   assert.equal(r.status,'collapse');
   assert.equal(r.broken[0]?.id,'M7');
   assert.ok(r.broken[0].utilization>1);
-  assert.match(r.reason,/Tras la rotura/);
+  assert.match(r.reason,/Tras el fallo/);
 });
 test('table-plane finder works only with two level facing surfaces of measured extents',()=>{
   const a={bounds:new THREE.Box3(new THREE.Vector3(0,.75,0),
