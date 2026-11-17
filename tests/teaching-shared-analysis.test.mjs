@@ -25,13 +25,19 @@ test('educational analysis reuses main selector and legend, without cloned resul
     setupTeachingAnalysis(app);
     const response={
       bars:[
-        {id:'B1',axial_kN:-5,stress_MPa:-1,strain:-.001},
-        {id:'B2',axial_kN:10,stress_MPa:2,strain:.002}
+        {id:'B1',i:'A',j:'B',axial_kN:-5,stress_MPa:-1,strain:-.001},
+        {id:'B2',i:'B',j:'C',axial_kN:10,stress_MPa:2,strain:.002}
       ],
-      reactions:[{rx_kN:0,rz_kN:5}],displacements:[{ux_m:0,uz_m:.001}],
+      reactions:[{nodeId:'A',rx_kN:0,rz_kN:5}],
+      displacements:[{nodeId:'A',ux_m:0,uz_m:0},
+        {nodeId:'B',ux_m:0,uz_m:.001},{nodeId:'C',ux_m:0,uz_m:0}],
       maxDisplacement_m:.001
     };
     const experience={
+      model:{nodes:[
+        {id:'A',x:0,z:0,fixX:true,fixZ:true},
+        {id:'B',x:1,z:0},{id:'C',x:2,z:0,fixZ:true}
+      ],bars:[{id:'B1',i:'A',j:'B'},{id:'B2',i:'B',j:'C'}]},
       mode:'axial',ampFactor:1,palette:'classic',showAxialLabels:false,
       setMode(value){this.mode=value;app.updateTeachingAnalysis('truss',response,this);},
       setAmplification(value){this.ampFactor=value;app.updateTeachingAnalysis('truss',response,this);},
