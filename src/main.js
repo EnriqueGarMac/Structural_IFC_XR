@@ -416,6 +416,7 @@ app.renderer.domElement.addEventListener('pointermove',event=>{
     app.mouse.set((event.clientX-rect.left)/rect.width*2-1,
       -(event.clientY-rect.top)/rect.height*2+1);
     app.pickRaycaster.setFromCamera(app.mouse,app.camera);
+    app.bridgeCompetition.updatePreviewRay(app.pickRaycaster);
     const hit=app.bridgeCompetition.pick(app.pickRaycaster);
     if(!hit){forceReadout.hidden=true;return;}
     const bridge=app.bridgeCompetition;
