@@ -625,8 +625,7 @@ export class StructuralXRControls {
       else if(id==='truss-mode'){
         const modes=['axial','stress','strain','displacement'];
         const next=modes[(modes.indexOf(lesson.mode)+1)%modes.length];
-        const select=document.getElementById('truss-display');
-        if(select){select.value=next;select.dispatchEvent(new Event('change'));}
+        lesson.setMode(next);
       }
     }
     else if(id==='demo-frame'||id==='demo-roof'){
