@@ -71,6 +71,8 @@ export function setupBridgeCompetition(app,{selectWorkspace,clearPrevious,modelL
         result.status==='service'?'No cumple flecha de servicio':
         'No resiste · colapso esquemático';
       report.innerHTML='<span><strong>'+statusLabel+'</strong></span>'+
+        (challenge.bestEligibleMass_kg===null?'':
+          '<span>Mejor propuesta válida: <strong>'+fmt(challenge.bestEligibleMass_kg,2)+' kg</strong></span>')+
         '<span>Razón: '+result.reason+'</span>'+
         '<span>Vano <strong>'+fmt(challenge.span_m,2)+' m</strong> · Carga '+fmt(challenge.load_kN,2)+' kN</span>'+
         '<span>Peso de acero: <strong>'+fmt(result.totalMass_kg,2)+' kg</strong></span>'+
