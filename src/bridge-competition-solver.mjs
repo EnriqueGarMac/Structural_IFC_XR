@@ -31,7 +31,8 @@ export function addBridgeMember(members,nodes,i,j,sectionId){
   if(members.some(m=>bridgeMemberKey(m.i,m.j)===key))
     throw Error('Ya existe un elemento entre esos nodos.');
   if(members.length>=60)throw Error('Límite docente de 60 elementos.');
-  return [...members,{id:'M'+String(Date.now()).slice(-8)+'_'+members.length,i,j,sectionId}];
+  let number=1;while(members.some(m=>m.id==='M'+number))number++;
+  return [...members,{id:'M'+number,i,j,sectionId}];
 }
 export function bridgeSampleMembers(){
   const edges=[
@@ -39,7 +40,7 @@ export function bridgeSampleMembers(){
     ['T1','T2','bar_s'],['T2','T3','bar_s'],
     ['B0','T1','bar_m'],['T1','B1','bar_s'],['B1','T2','bar_s'],
     ['T2','B2','bar_s'],['B2','T3','bar_s'],['T3','B3','bar_s'],
-    ['B3','T3','bar_m'],['T3','B4','bar_m']
+    ['T3','B4','bar_m']
   ];
   return edges.map(([i,j,sectionId],k)=>({id:'M'+(k+1),i,j,sectionId}));
 }
