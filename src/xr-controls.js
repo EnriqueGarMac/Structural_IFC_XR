@@ -1287,7 +1287,9 @@ export class StructuralXRControls {
             if(this.selected!==label){this.selected=label;this.dirty=true;}
           }
         }else if(this.app.sapVisuals?.view==='forces'){
-          if(pollForceHover){
+          // Only the right controller drives the force readout. The other
+          // controller must not clear the tooltip on a missed intersection.
+          if(pollForceHover&&controller.userData.xrInput?.handedness==='right'){
             const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
             if(selected)forceHovered=true;
           }
