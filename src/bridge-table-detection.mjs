@@ -182,6 +182,14 @@ export function applyBridgeGapPlacement(app,gap,experience){
   app.worldRoot.scale.setScalar(scale);
   app.worldRoot.position.copy(gap.start).sub(
     startLocal.multiplyScalar(scale).applyQuaternion(app.worldRoot.quaternion));
+  // Verify the transformed support coordinates, not merely the requested scale.
+  app.worldRoot.updateMatrixWorld(true);
+  const placedA=new THREE.Vector3(0,0,0);
+  const placedB=new THREE.Vector3(1.2,0,0);
+  experience.root.localToWorld(placedA);
+  experience.root.localToWorld(placedB);
+  const error=Math.max(placedA.distanceTo(gap.start),placedB.distanceTo(gap.end));
+  if(error>.025)throw Error('Desajuste en apoyos: '+(error*100).toFixed(1)+' cm');
   app.arAnchorPoint=null;
   experience.detectedGap=gap;
   return span;
