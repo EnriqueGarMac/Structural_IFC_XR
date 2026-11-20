@@ -182,7 +182,7 @@ export class SAPVisuals{
         const material=new THREE.MeshBasicMaterial({
           color:colour,transparent:false,opacity:1,side:THREE.DoubleSide,
           depthWrite:true,depthTest:true,
-          polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
+          polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4
         });
         const mesh=new THREE.Mesh(geometry,material);
         mesh.renderOrder=12;
@@ -312,7 +312,8 @@ export class SAPVisuals{
     const label=this.makeLabel('Esfuerzo','#e8fbff');
     // World-space billboard attached to the XR scene, not the transformed SAP root.
     label.scale.set(.55,.14,1);
-    label.material.depthTest=true;label.renderOrder=25000;
+    label.material.depthTest=false;label.material.depthWrite=false;
+    label.renderOrder=25000;
     label.visible=false;this.app.scene.add(label);
     this.xrTooltip=label;
   }
