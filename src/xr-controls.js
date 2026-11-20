@@ -127,6 +127,7 @@ export class StructuralXRControls {
     camera.getWorldPosition(pos);camera.getWorldQuaternion(q);
     this.panel.position.copy(pos).add(new THREE.Vector3(-.26,-.02,-1.27).applyQuaternion(q));
     this.panel.quaternion.copy(q);
+    this.facePanelToUser();
     this.initializedPose=true;
   }
   resetPanel(){
