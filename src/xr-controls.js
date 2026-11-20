@@ -46,7 +46,7 @@ export class StructuralXRControls {
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
-    this.scanOverlayTick=0;this.rawPlaneCount=0;this.planeApiAvailable=false;
+    this.scanOverlayTick=0;this.rawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
     this.raycaster=new THREE.Raycaster();
     this.raycaster.far=12;
     this.controllers=[];
@@ -589,12 +589,15 @@ export class StructuralXRControls {
       const scan=this.roomScan.status();
       txt('Planos WebXR recibidos: '+this.rawPlaneCount,38,389,23);
       txt('Superficies compatibles: '+scan.surfaces,38,429,21);
+      txt('Polígonos: '+this.planeDiagnostics.polygon+
+        ' · con posición: '+this.planeDiagnostics.pose+
+        ' · horizontales: '+this.planeDiagnostics.horizontal,38,468,18);
       txt(scan.candidate?'Dos mesas candidatas · comprobando vano':
-        'Mira lentamente las dos mesas y sus bordes.',38,493,20);
+        'Mira lentamente las dos mesas y sus bordes.',38,515,20);
       txt(!this.planeApiAvailable?
         'WebXR no expone detectedPlanes en esta sesión.':
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
-        'API activa: comprobando geometría y dimensiones.',38,555,19,'#ffce9d');
+        'API activa: comprobando geometría y dimensiones.',38,577,19,'#ffce9d');
       btn('bridge-scan','REINICIAR ESCANEO',38,640,692,90,true);
       btn('bridge-menu','VOLVER AL CONCURSO',38,755,692,82);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
@@ -905,14 +908,18 @@ export class StructuralXRControls {
     if(!this.bridgeScan||!frame?.detectedPlanes||!ref)return;
     if(++this.scanOverlayTick%12!==0)return;
     this.clearScanOverlay();
+    const diagnostics={polygon:0,pose:0,horizontal:0};
     for(const plane of frame.detectedPlanes){
       if(!plane.polygon||plane.polygon.length<3||!plane.planeSpace)continue;
+      diagnostics.polygon++;
       let pose;
       try{pose=frame.getPose(plane.planeSpace,ref);}catch{continue;}
       if(!pose?.transform?.matrix)continue;
+      diagnostics.pose++;
       const transform=new THREE.Matrix4().fromArray(pose.transform.matrix);
       const normal=new THREE.Vector3(0,1,0).transformDirection(transform);
       const horizontal=Math.abs(normal.y)>.88;
+      if(horizontal)diagnostics.horizontal++;
       const vertices=Array.from(plane.polygon,p=>new THREE.Vector3(p.x,p.y,p.z));
       const indices=[];
       for(let i=1;i<vertices.length-1;i++)indices.push(0,i,i+1);
@@ -931,6 +938,8 @@ export class StructuralXRControls {
       this.scanOverlay.add(mesh);
     }
     this.scanOverlay.visible=true;
+    this.planeDiagnostics=diagnostics;
+    this.dirty=true;
   }
   updateBridgeScan(frame){
     if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
