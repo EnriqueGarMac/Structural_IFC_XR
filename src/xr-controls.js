@@ -591,6 +591,7 @@ export class StructuralXRControls {
         ' / '+this.rawPlaneCount,38,389,23);
       txt('Superficies compatibles: '+scan.surfaces,38,429,21);
       txt('XR / escaneo: '+this.xrFrameCount+' / '+this.scanFrameCount,38,606,19);
+      if(this.scanError)txt(this.scanError,38,632,17,'#ffce9d');
       txt('Mallas acumuladas: '+this.planeDiagnostics.polygon+
         ' · con posición: '+this.planeDiagnostics.pose+
         ' · horizontales: '+this.planeDiagnostics.horizontal,38,468,18);
@@ -600,8 +601,9 @@ export class StructuralXRControls {
         'WebXR no expone detectedPlanes en esta sesión.':
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
         'API activa: comprobando geometría y dimensiones.',38,577,19,'#ffce9d');
-      btn('bridge-scan','REINICIAR ESCANEO',38,668,692,90,true);
-      btn('bridge-menu','VOLVER AL CONCURSO',38,783,692,82);
+      if(this.bridgeLastGap)btn('bridge-confirm','COLOCAR PASARELA ENTRE MESAS',38,668,692,82,true);
+      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?762:668,692,80,true);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?857:783,692,72);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
     }else if(this.page==='placement'){
@@ -642,7 +644,7 @@ export class StructuralXRControls {
       // In mixed reality, begin looking for two tabletops as soon as the
       // competition opens. The manual scan button remains available to retry.
       if(app.xrMode==='ar'){
-        this.roomScan.reset();this.clearScanOverlay();this.bridgeScan=true;
+        this.roomScan.reset();this.clearScanOverlay();this.scanError='';this.bridgeScan=true;
         this.bridgeScanStable=0;
         this.bridgeLastGap=null;
         this.notice='Buscando automáticamente dos mesas enfrentadas…';
@@ -666,6 +668,15 @@ export class StructuralXRControls {
         bridge.removeMode=!bridge.removeMode;
         if(bridge.removeMode)bridge.editMode=false;
         bridge.startNode=null;bridge.draw();
+      }else if(id==='bridge-confirm'){
+        if(this.bridgeLastGap){
+          try{
+            const measured=applyBridgeGapPlacement(app,this.bridgeLastGap,bridge);
+            this.bridgeScan=false;this.clearScanOverlay();
+            this.notice='Pasarela colocada · vano '+measured.toFixed(2)+' m';
+            this.page='bridge';
+          }catch(error){this.notice='No se pudo colocar: '+String(error?.message??error);}
+        }
       }else if(id==='bridge-scan'){
         if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
         else {
@@ -977,6 +988,12 @@ export class StructuralXRControls {
       this.dirty=true;
     }
     if(!scan.gap||!this.app.bridgeCompetition?.active)return;
+    // Never exit the scan screen automatically: keep detected geometry
+    // visible until the student confirms the measured gap.
+    this.bridgeLastGap=scan.gap;
+    this.notice='Vano candidato '+scan.gap.span_m.toFixed(2)+' m · confirma colocación';
+    this.dirty=true;
+    return;
     const gap=scan.gap;
     this.bridgeScan=false;
     this.clearScanOverlay();
@@ -997,7 +1014,13 @@ export class StructuralXRControls {
     if(this.xrFrameCount%10===0)this.dirty=true;
     this.locatePanel();
     this.updateHitTesting(frame);
-    this.updateBridgeScan(frame);
+    try{this.updateBridgeScan(frame);}
+    catch(error){
+      this.bridgeScan=false;
+      this.notice='Error de escaneo: '+String(error?.message??error).slice(0,110);
+      this.scanError=this.notice;
+      this.dirty=true;
+    }
     // Update the bridge's collision plane from actual detected floor
     // surfaces on every Quest AR frame, not only during initial table scan.
     if(this.app.xrMode==='ar'&&this.app.bridgeCompetition?.active&&frame){
