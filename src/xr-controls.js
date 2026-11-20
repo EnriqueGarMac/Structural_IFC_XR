@@ -350,7 +350,9 @@ export class StructuralXRControls {
       txt('Seleccionado: '+textFit(this.selected,34),38,193,20,'#b5d8df');
       btn('results','ANÁLISIS Y DEFORMADAS',38,245,692,91,true);
       btn('layers','CAPAS Y ELEMENTOS',38,357,692,91);
-      btn('placement',app.xrMode==='vr'?'MOVER MODELO EN VR':'COLOCACIÓN EN LA SALA',
+      btn('placement',app.bridgeCompetition?.active&&app.xrMode==='ar'?
+        'ESCANEO DE SALA · DOS MESAS':
+        app.xrMode==='vr'?'MOVER MODELO EN VR':'COLOCACIÓN EN LA SALA',
         38,469,692,91);
       txt('Tamaño del modelo en '+(app.xrMode==='vr'?'VR':'realidad mixta'),38,614,21);
       btn('size:-','−',38,645,144,78);
@@ -388,7 +390,9 @@ export class StructuralXRControls {
         btn('bridge-section:-','‹',38,307,138,68);
         txt((section.A_m2*1e6).toFixed(0)+' mm²',385,342,27,'#ecfdff','center');
         btn('bridge-section:+','›',592,307,138,68);
-        txt('GATILLO EN DOS NODOS PARA AÑADIR UNA BARRA',38,413,19);
+        txt(app.xrMode==='ar'&&this.bridgeScan?
+          'ESCANEANDO LA SALA · MIRA AMBAS MESAS':
+          'GATILLO EN DOS NODOS PARA AÑADIR UNA BARRA',38,413,19);
         btn('bridge-edit',bridge.addMode?
           (bridge.startNode?'ELIGE SEGUNDO NODO':'ELIGE PRIMER NODO'):'AÑADIR ELEMENTO',
           38,448,330,69,true);
@@ -397,7 +401,9 @@ export class StructuralXRControls {
         txt('CARGA CENTRAL: '+bridge.load_kN.toFixed(1)+' kN',38,570,22);
         btn('bridge-load:-','− 0,5 kN',38,598,185,75);
         btn('bridge-load:+','+ 0,5 kN',542,598,188,75);
-        txt('VANO: '+bridge.span_m.toFixed(2)+' m · '+bridge.members.length+' elementos',
+        txt(app.xrMode==='ar'&&this.bridgeScan?
+          'ESCANEO: '+this.roomScan.status().surfaces+' superficies detectadas':
+          'VANO: '+bridge.span_m.toFixed(2)+' m · '+bridge.members.length+' elementos',
           38,725,22,'#b1dfe0');
         btn('bridge-scan',this.bridgeScan?'REINICIAR ESCANEO DE LA SALA': 'ESCANEAR DOS MESAS',38,750,692,70,true,
           app.xrMode==='ar');
@@ -575,6 +581,23 @@ export class StructuralXRControls {
       btn('results','Consultar cargas, esfuerzos y modos',38,709,692,90);
       txt('Explora el modelo en una sala virtual inmersiva.',38,893,20);
       btn('exit','SALIR DE REALIDAD VIRTUAL',38,978,692,78);
+    }else if(this.page==='placement'&&app.bridgeCompetition?.active&&app.xrMode==='ar'){
+      btn('back','‹ Volver',38,117,230,66);
+      txt('CONCURSO · ESCANEO DE LA SALA',38,220,27,'#e4f8ff');
+      txt(this.bridgeScan?'ESCANEANDO LA SALA…':'ESCANEO EN ESPERA',38,310,27,
+        this.bridgeScan?'#86f7d9':'#ffce9d');
+      const scan=this.roomScan.status();
+      txt('Superficies detectadas: '+scan.surfaces,38,389,23);
+      txt(scan.candidate?'Dos mesas candidatas · comprobando vano':
+        'Mira lentamente las dos mesas y sus bordes.',38,459,20);
+      txt(!this.session?.enabledFeatures?.includes('plane-detection')?
+        'Detección de planos no confirmada por el navegador.':
+        'Las superficies detectadas se dibujan en la sala.',38,527,19,
+        '#ffce9d');
+      btn('bridge-scan','REINICIAR ESCANEO',38,640,692,90,true);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,755,692,82);
+      txt('La retícula se colocará entre las mesas al detectar el vano.',
+        38,895,19);
     }else if(this.page==='placement'){
       btn('back','‹ Volver',38,117,230,66);
       txt('COLOCACIÓN EN EL ENTORNO',38,220,28,'#e4f8ff');
@@ -604,10 +627,12 @@ export class StructuralXRControls {
     }
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='teaching-menu')this.page='teaching';
+    else if(id==='bridge-menu')this.page='bridge';
     else if(id==='exit'){this.session?.end();return;}
     else if(id==='bridge-open'){
       document.getElementById('bridge-start')?.click();
-      this.page='bridge';this.selected='Concurso de pasarelas';
+      this.page=app.xrMode==='ar'?'placement':'bridge';
+      this.selected='Concurso de pasarelas';
       // In mixed reality, begin looking for two tabletops as soon as the
       // competition opens. The manual scan button remains available to retry.
       if(app.xrMode==='ar'){
@@ -930,6 +955,7 @@ export class StructuralXRControls {
       ' m. La pasarela se ha colocado entre sus bordes.';
     this.selected='Vano detectado · '+measured.toFixed(2)+' m';
     this.notice='Escaneo completado. Vano '+measured.toFixed(2)+' m.';
+    this.page='bridge';
     this.dirty=true;
   }
   update(time,frame){
