@@ -1197,12 +1197,15 @@ export class StructuralXRControls {
           const relative=q.clone().multiply(d.startQ.clone().invert());
           d.object.quaternion.copy(relative.multiply(d.startObjectQ));
         } else {
-          d.object.position.copy(d.startObjectPos).add(p.sub(d.startPos).multiplyScalar(d.kind==='menu'?1.8:1));
+          const target=d.startObjectPos.clone().add(p.sub(d.startPos).multiplyScalar(d.kind==='menu'?1.5:1));
+          if(d.kind==='menu')d.object.position.lerp(target,.24);
+          else d.object.position.copy(target);
           if(d.kind==='move'&&this.app.bridgeCompetition?.active){
             const rotation=q.clone().multiply(d.startQ.clone().invert());
             d.object.quaternion.copy(rotation.multiply(d.startObjectQ));
           }
-          if(d.kind==='menu')this.facePanelToUser();
+          // Preserve the menu orientation while dragging. Following head yaw
+          // each frame made the panel wobble against the controller movement.
           if(d.kind==='move'&&this.contact.visible)this.contact.visible=false;
         }
       }
@@ -1344,8 +1347,9 @@ export class StructuralXRControls {
       const ctrl=this.controllers.find(x=>x.controller.userData.xrInput)?.controller;
       if(ctrl){
         const ray=this._ray(ctrl).ray;
-        this.panel.position.copy(ray.origin).addScaledVector(ray.direction,1.2);
-        const camera=this.app.renderer.xr.getCamera();camera.getWorldQuaternion(this.panel.quaternion);
+        const target=ray.origin.clone().addScaledVector(ray.direction,1.2);
+        this.panel.position.lerp(target,.22);
+        // Do not copy headset rotation: it introduces visible jitter.
       }
     }
     if(this.dirty)this.repaint();
