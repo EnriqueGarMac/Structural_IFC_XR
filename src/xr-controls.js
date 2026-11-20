@@ -125,7 +125,7 @@ export class StructuralXRControls {
     camera.updateMatrixWorld();
     const pos=new THREE.Vector3(),q=new THREE.Quaternion();
     camera.getWorldPosition(pos);camera.getWorldQuaternion(q);
-    this.panel.position.copy(pos).add(new THREE.Vector3(-.26,-.02,-1.27).applyQuaternion(q));
+    this.panel.position.copy(pos).add(new THREE.Vector3(-.36,-.04,-1.75).applyQuaternion(q));
     this.panel.quaternion.copy(q);
     this.facePanelToUser();
     this.initializedPose=true;
@@ -194,11 +194,17 @@ export class StructuralXRControls {
        controller.userData.xrInput?.handedness==='right'){
       const hits=this._ray(controller).intersectObjects(this.scanGapMarkers.children,false);
       if(hits.length){
-        this.bridgeOptionIndex=hits[0].object.userData.gapIndex;
-        this.bridgeLastGap=this.roomScan.status().options[this.bridgeOptionIndex];
-        this.paintGapMarkers(this.roomScan.status().options);
-        this.notice='Vano seleccionado '+this.bridgeLastGap.span_m.toFixed(2)+' m';
-        this.dirty=true;
+        const options=this.roomScan.status().options;
+        const gap=options[hits[0].object.userData.gapIndex];
+        if(gap){
+          try{
+            const measured=applyBridgeGapPlacement(this.app,gap,this.app.bridgeCompetition);
+            this.bridgeScan=false;this.clearScanOverlay();
+            this.bridgeLastGap=null;this.page='bridge';
+            this.notice='Pasarela aceptada · '+measured.toFixed(2)+' m';
+            this.dirty=true;
+          }catch(error){this.notice='No se pudo colocar: '+String(error?.message??error);}
+        }
         return;
       }
     }
@@ -626,13 +632,11 @@ export class StructuralXRControls {
         const n=this.roomScan.status().options?.length??1;
         txt('Opción '+(this.bridgeOptionIndex+1)+' de '+n+
           ' · vano '+this.bridgeLastGap.span_m.toFixed(2)+' m',38,638,21,'#86f7d9');
-        btn('bridge-prev','‹ ANTERIOR',38,665,328,62,false,n>1);
-        btn('bridge-next','SIGUIENTE ›',403,665,327,62,false,n>1);
-        btn('bridge-confirm','COLOCAR PASARELA ELEGIDA',38,739,692,65,true);
+        txt('Apunta al vano: verde = vista previa. Gatillo = aceptar.',38,705,19,'#86f7d9');
       }
-      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?820:668,692,75,true);
-      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?904:783,692,70);
-      txt('Apunta al vano sombreado y pulsa gatillo derecho.',38,978,19);
+      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?790:668,692,75,true);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?880:783,692,70);
+      txt('Apunta con el mando derecho a la pasarela sombreada.',38,978,19);
       txt('Gatillo izquierdo: mover menú · derecho: elegir.',38,1010,19);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
@@ -1123,6 +1127,21 @@ export class StructuralXRControls {
     this.lastFrameTime=time;
     let hovered=null;
     let forceHovered=false;
+    if(this.bridgeScan&&this.page==='placement'){
+      const right=this.controllers.find(c=>c.controller.userData.xrInput?.handedness==='right');
+      if(right){
+        const hits=this._ray(right.controller).intersectObjects(this.scanGapMarkers.children,false);
+        if(hits.length){
+          const index=hits[0].object.userData.gapIndex;
+          if(index!==this.bridgeOptionIndex){
+            this.bridgeOptionIndex=index;
+            this.bridgeLastGap=this.roomScan.status().options[index]??null;
+            this.paintGapMarkers(this.roomScan.status().options);
+            this.dirty=true;
+          }
+        }
+      }
+    }
     for(const {controller,rayLine} of this.controllers){
       if(!controller.userData.xrInput)continue;
       const hit=this._menuHit(controller);
