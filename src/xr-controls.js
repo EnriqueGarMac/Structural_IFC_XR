@@ -382,19 +382,21 @@ export class StructuralXRControls {
     if(this.page==='main'){
       txt(textFit($('model-state').textContent,56),38,148,20,'#e5f9fb');
       txt('Seleccionado: '+textFit(this.selected,34),38,193,20,'#b5d8df');
-      btn('results','ANÁLISIS Y DEFORMADAS',38,245,692,91,true);
-      btn('layers','CAPAS Y ELEMENTOS',38,357,692,91);
+      txt('EXPLORAR LA ESTRUCTURA',38,226,19,'#8ce9da');
+      btn('results','RESULTADOS · ESFUERZOS Y DEFORMADAS',38,257,692,84,true);
+      btn('layers','VISUALIZACIÓN · CAPAS Y ELEMENTOS',38,357,692,84);
       btn('placement',app.bridgeCompetition?.active&&app.xrMode==='ar'?
         'ESCANEO DE SALA · DOS MESAS':
         app.xrMode==='vr'?'MOVER MODELO EN VR':'COLOCACIÓN EN LA SALA',
         38,469,692,91);
-      txt('Tamaño del modelo en '+(app.xrMode==='vr'?'VR':'realidad mixta'),38,614,21);
-      btn('size:-','−',38,645,144,78);
-      txt(app.targetMeters.toFixed(1)+' m',385,684,29,'#f3ffff','center');
-      btn('size:+','+',586,645,144,78);
-      btn('reset-model','Recentrar estructura',38,769,335,76);
-      btn('menu-move',this.moveMenu?'Gatillo: fijar menú':'Mover menú',395,769,335,76,true);
-      txt('CAMBIAR MODELO',38,846,18,'#afcdd7');
+      txt('ESCALA Y POSICIÓN',38,610,19,'#8ce9da');
+      txt('Tamaño del modelo en '+(app.xrMode==='vr'?'VR':'realidad mixta'),38,638,19);
+      btn('size:-','−',38,671,144,64);
+      txt(app.targetMeters.toFixed(1)+' m',385,705,27,'#f3ffff','center');
+      btn('size:+','+',586,671,144,64);
+      btn('reset-model','RECENTRAR MODELO',38,769,335,70);
+      btn('menu-move',this.moveMenu?'GATILLO: FIJAR MENÚ':'REUBICAR MENÚ',395,769,335,70);
+      txt('ELEGIR MODELO',38,847,18,'#8ce9da');
       btn('demo-frame','EDIFICIO · 3 PLANTAS',38,867,335,60);
       btn('demo-roof','NAVE INDUSTRIAL',395,867,335,60);
       btn('teaching-menu','RECURSOS DOCENTES · ELEGIR EXPERIENCIA',38,941,692,61,true);
