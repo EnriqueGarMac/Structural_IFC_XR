@@ -181,7 +181,8 @@ export class SAPVisuals{
         const colour=forceSignColour(seg.sign,this.palette);
         const material=new THREE.MeshBasicMaterial({
           color:colour,transparent:true,opacity:.62,side:THREE.DoubleSide,
-          depthWrite:false,depthTest:true
+          depthWrite:false,depthTest:true,
+          polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
         });
         const mesh=new THREE.Mesh(geometry,material);
         mesh.renderOrder=12;
