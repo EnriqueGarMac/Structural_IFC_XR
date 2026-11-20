@@ -988,25 +988,29 @@ export class StructuralXRControls {
       this.dirty=true;
     }
     if(!scan.gap||!this.app.bridgeCompetition?.active)return;
-    // Never exit the scan screen automatically: keep detected geometry
-    // visible until the student confirms the measured gap.
+    // A stable pair of table surfaces is enough to position the bridge.
+    // Keep the manual confirmation path as a fallback if placement fails.
     this.bridgeLastGap=scan.gap;
-    this.notice='Vano candidato '+scan.gap.span_m.toFixed(2)+' m · confirma colocación';
-    this.dirty=true;
-    return;
-    const gap=scan.gap;
-    this.bridgeScan=false;
-    this.clearScanOverlay();
-    const measured=applyBridgeGapPlacement(this.app,gap,this.app.bridgeCompetition);
-    const input=document.getElementById('bridge-span');
-    if(input)input.value=String(Number(measured.toFixed(3)));
-    const feedback=document.getElementById('bridge-detection-status');
-    if(feedback)feedback.textContent='Dos mesas detectadas. Vano '+measured.toFixed(2)+
-      ' m. La pasarela se ha colocado entre sus bordes.';
-    this.selected='Vano detectado · '+measured.toFixed(2)+' m';
-    this.notice='Escaneo completado. Vano '+measured.toFixed(2)+' m.';
-    this.page='bridge';
-    this.dirty=true;
+    try{
+      const measured=applyBridgeGapPlacement(
+        this.app,scan.gap,this.app.bridgeCompetition);
+      const input=document.getElementById('bridge-span');
+      if(input)input.value=String(Number(measured.toFixed(3)));
+      const feedback=document.getElementById('bridge-detection-status');
+      if(feedback)feedback.textContent=
+        'Pasarela colocada entre las mesas · vano '+measured.toFixed(2)+' m.';
+      this.bridgeScan=false;
+      this.clearScanOverlay();
+      this.selected='Vano detectado · '+measured.toFixed(2)+' m';
+      this.notice='Pasarela colocada · vano '+measured.toFixed(2)+' m';
+      this.page='bridge';
+      this.dirty=true;
+    }catch(error){
+      this.bridgeScan=false;
+      this.scanError='Colocación pendiente: '+String(error?.message??error);
+      this.notice=this.scanError;
+      this.dirty=true;
+    }
   }
   update(time,frame){
     if(!this.session)return;
