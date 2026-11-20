@@ -163,8 +163,9 @@ export function applyBridgeGapPlacement(app,gap,experience){
   // Detach the teaching structure from the house's scaled/translated IFC root.
   // The bridge uses a local 1.2 m baseline and is placed directly in XR metres.
   if(experience.root.parent!==app.scene)app.scene.add(experience.root);
+  // Reset any transforms inherited from previous attempts before placement.
   experience.root.position.copy(gap.start);
-  experience.root.scale.setScalar(span/1.2);
+  experience.root.scale.set(span/1.2,span/1.2,span/1.2);
   experience.root.quaternion.setFromUnitVectors(
     new THREE.Vector3(1,0,0),gap.end.clone().sub(gap.start).normalize());
   experience.root.updateMatrixWorld(true);
@@ -172,6 +173,9 @@ export function applyBridgeGapPlacement(app,gap,experience){
   const actualB=experience.root.localToWorld(new THREE.Vector3(1.2,0,0));
   const error=Math.max(actualA.distanceTo(gap.start),actualB.distanceTo(gap.end));
   if(error>0.005)throw Error('Desajuste de apoyos: '+(error*100).toFixed(1)+' cm');
+  // The actual support nodes must be the ends of the bridge's 1.2 m grid.
+  // Do not accept a placement merely because preview markers coincide.
+  experience.supportPlacementError_m=error;
   app.arAnchorPoint=null;
   experience.detectedGap=gap;
   return span;
