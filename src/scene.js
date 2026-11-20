@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {xrSceneInventory} from './xr-scene-inventory.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions, areaEdges } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
@@ -95,6 +96,7 @@ export class StructuralScene {
     this.renderer.domElement.addEventListener('pointerup',(evt)=>this.pickElement(evt));
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
     this.xrPerf={fps:0,calls:0,triangles:0,geometries:0,textures:0};
+    this.xrInventory=null;
     this._xrPerfStart=0;this._xrPerfFrames=0;
     this.renderer.setAnimationLoop((time,frame)=>{
       if(this.isXR){
@@ -145,6 +147,9 @@ export class StructuralScene {
           this.xrPerf={fps:Math.round(this._xrPerfFrames*1000/(time-this._xrPerfStart)),
             calls:info.render.calls,triangles:info.render.triangles,
             geometries:info.memory.geometries,textures:info.memory.textures};
+          // Count actual visible objects by layer once per second. This is
+          // independent of the GPU draw-call counter and never changes the scene.
+          this.xrInventory=xrSceneInventory(this);
           this._xrPerfStart=time;this._xrPerfFrames=0;
           if(this.xrControls)this.xrControls.dirty=true;
         }
