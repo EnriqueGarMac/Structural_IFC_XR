@@ -419,6 +419,7 @@ export class StructuralXRControls {
         btn('bridge-sample','EJEMPLO',38,925,335,65);
         btn('bridge-clear','VACIAR',395,925,335,65);
         const state=bridge.result;
+        txt('Ajuste manual: mantén agarre derecho y mueve/gira el mando.',38,1043,17,'#86f7d9');
         txt('LEYENDA · N: naranja tracción · azul compresión · rojo fallo',
           38,1013,16,'#a4d6de');
         txt(state?
@@ -1055,6 +1056,10 @@ export class StructuralXRControls {
           d.object.quaternion.copy(relative.multiply(d.startObjectQ));
         } else {
           d.object.position.copy(d.startObjectPos).add(p.sub(d.startPos));
+          if(d.kind==='move'&&this.app.bridgeCompetition?.active){
+            const rotation=q.clone().multiply(d.startQ.clone().invert());
+            d.object.quaternion.copy(rotation.multiply(d.startObjectQ));
+          }
           if(d.kind==='move'&&this.contact.visible)this.contact.visible=false;
         }
       }
