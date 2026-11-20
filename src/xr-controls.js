@@ -46,7 +46,7 @@ export class StructuralXRControls {
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
-    this.scanOverlayTick=0;this.rawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
+    this.scanOverlayTick=0;this.scanPlaneMeshes=new Map();this.rawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
     this.raycaster=new THREE.Raycaster();
     this.raycaster.far=12;
     this.controllers=[];
@@ -587,9 +587,9 @@ export class StructuralXRControls {
       txt(this.bridgeScan?'ESCANEANDO LA SALA…':'ESCANEO EN ESPERA',38,310,27,
         this.bridgeScan?'#86f7d9':'#ffce9d');
       const scan=this.roomScan.status();
-      txt('Planos WebXR recibidos: '+this.rawPlaneCount,38,389,23);
+      txt('Máximo de planos WebXR: '+this.rawPlaneCount,38,389,23);
       txt('Superficies compatibles: '+scan.surfaces,38,429,21);
-      txt('Polígonos: '+this.planeDiagnostics.polygon+
+      txt('Mallas acumuladas: '+this.planeDiagnostics.polygon+
         ' · con posición: '+this.planeDiagnostics.pose+
         ' · horizontales: '+this.planeDiagnostics.horizontal,38,468,18);
       txt(scan.candidate?'Dos mesas candidatas · comprobando vano':
@@ -897,48 +897,58 @@ export class StructuralXRControls {
     if(stable)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
   }
   clearScanOverlay(){
-    for(const obj of [...this.scanOverlay.children]){
+    for(const obj of this.scanOverlay.children.slice()){
       this.scanOverlay.remove(obj);
       obj.geometry?.dispose();
       obj.material?.dispose();
     }
+    this.scanPlaneMeshes.clear();
     this.scanOverlay.visible=false;
+    this.scanOverlayTick=0;
+    this.rawPlaneCount=0;
+    this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
   }
   paintScanPlanes(frame,ref){
     if(!this.bridgeScan||!frame?.detectedPlanes||!ref)return;
-    if(++this.scanOverlayTick%12!==0)return;
-    this.clearScanOverlay();
-    const diagnostics={polygon:0,pose:0,horizontal:0};
+    if(++this.scanOverlayTick%6!==0)return;
+    const diagnostics={...this.planeDiagnostics};
     for(const plane of frame.detectedPlanes){
       if(!plane.polygon||plane.polygon.length<3||!plane.planeSpace)continue;
-      diagnostics.polygon++;
       let pose;
       try{pose=frame.getPose(plane.planeSpace,ref);}catch{continue;}
       if(!pose?.transform?.matrix)continue;
-      diagnostics.pose++;
       const transform=new THREE.Matrix4().fromArray(pose.transform.matrix);
       const normal=new THREE.Vector3(0,1,0).transformDirection(transform);
       const horizontal=Math.abs(normal.y)>.88;
-      if(horizontal)diagnostics.horizontal++;
-      const vertices=Array.from(plane.polygon,p=>new THREE.Vector3(p.x,p.y,p.z));
-      const indices=[];
-      for(let i=1;i<vertices.length-1;i++)indices.push(0,i,i+1);
-      const geometry=new THREE.BufferGeometry();
-      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices.flatMap(v=>v.toArray()),3));
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-      const material=new THREE.MeshBasicMaterial({
-        color:horizontal?0x46eac4:0x6ca6e8,transparent:true,opacity:.16,
-        wireframe:true,side:THREE.DoubleSide,depthTest:false,depthWrite:false
-      });
-      const mesh=new THREE.Mesh(geometry,material);
-      mesh.matrixAutoUpdate=false;
+      let mesh=this.scanPlaneMeshes.get(plane);
+      if(!mesh){
+        const vertices=Array.from(plane.polygon,p=>new THREE.Vector3(p.x,p.y,p.z));
+        const indices=[];
+        for(let i=1;i<vertices.length-1;i++)indices.push(0,i,i+1);
+        const geometry=new THREE.BufferGeometry();
+        geometry.setAttribute('position',new THREE.Float32BufferAttribute(
+          vertices.flatMap(v=>v.toArray()),3));
+        geometry.setIndex(indices);
+        const material=new THREE.MeshBasicMaterial({
+          color:horizontal?0x46eac4:0x6ca6e8,
+          transparent:true,opacity:.45,wireframe:true,
+          side:THREE.DoubleSide,depthTest:false,depthWrite:false
+        });
+        mesh=new THREE.Mesh(geometry,material);
+        mesh.matrixAutoUpdate=false;
+        mesh.renderOrder=18000;
+        this.scanOverlay.add(mesh);
+        this.scanPlaneMeshes.set(plane,mesh);
+      }
       mesh.matrix.copy(transform);
-      mesh.renderOrder=18000;
-      this.scanOverlay.add(mesh);
+      mesh.matrixWorldNeedsUpdate=true;
     }
-    this.scanOverlay.visible=true;
+    diagnostics.polygon=this.scanPlaneMeshes.size;
+    diagnostics.pose=this.scanPlaneMeshes.size;
+    diagnostics.horizontal=[...this.scanPlaneMeshes.values()]
+      .filter(mesh=>mesh.material.color.getHex()===0x46eac4).length;
     this.planeDiagnostics=diagnostics;
+    this.scanOverlay.visible=true;
     this.dirty=true;
   }
   updateBridgeScan(frame){
@@ -946,7 +956,7 @@ export class StructuralXRControls {
       this.app.xrMode!=='ar'||!frame)return;
     const ref=this.app.renderer.xr.getReferenceSpace();
     this.planeApiAvailable=frame.detectedPlanes!=null;
-    this.rawPlaneCount=frame.detectedPlanes?.size??0;
+    this.rawPlaneCount=Math.max(this.rawPlaneCount,frame.detectedPlanes?.size??0);
     this.paintScanPlanes(frame,ref);
     const scan=this.roomScan.observe(frame,ref);
     if(scan.frames%30===0){
