@@ -44,6 +44,8 @@ export class StructuralXRControls {
     // Diagnostic overlay: triangulated polygons supplied by WebXR plane detection.
     // This is NOT a full room mesh; no geometry is invented for unseen areas.
     this.scanGapMarkers=new THREE.Group();app.scene.add(this.scanGapMarkers);
+    this.manualCursor=new THREE.Mesh(new THREE.SphereGeometry(.035,12,8),new THREE.MeshBasicMaterial({color:0xffff55,depthTest:false}));
+    this.manualCursor.renderOrder=18020;this.manualCursor.visible=false;app.scene.add(this.manualCursor);
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
@@ -970,7 +972,7 @@ export class StructuralXRControls {
     if(stable)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
   }
   clearScanOverlay(){
-    this.clearGapMarkers();
+    this.clearGapMarkers();this.manualCursor.visible=false;
     this.manualBridgePoints=[];this.manualBridgeGap=null;
     for(const obj of this.scanOverlay.children.slice()){
       this.scanOverlay.remove(obj);
@@ -1009,42 +1011,46 @@ export class StructuralXRControls {
       this.scanGapMarkers.add(mesh);
     });
   }
+  manualBridgeRayPoint(controller){
+    const ray=this._ray(controller);
+    // Detected planes are drawn as local polygon meshes with world transforms.
+    this.scanOverlay.updateMatrixWorld(true);
+    const hits=ray.intersectObjects([...this.scanPlaneMeshes.values()],false);
+    const hit=hits.find(h=>h.object.material.color.getHex()===0x46eac4);
+    return hit?.point?.clone()??null;
+  }
   manualBridgePick(controller){
-    const ref=this.app.renderer.xr.getReferenceSpace();
-    const hits=this._ray(controller).intersectObjects([...this.scanPlaneMeshes.values()],false);
-    const hit=hits.find(h=>Math.abs(new THREE.Vector3(0,1,0)
-      .transformDirection(h.object.matrix).y)>.85);
-    if(!hit){
-      this.notice='Apunta a una superficie horizontal sombreada.';
-      return;
+    if(this.manualBridgeGap){
+      try{
+        const span=applyBridgeGapPlacement(this.app,this.manualBridgeGap,this.app.bridgeCompetition);
+        this.bridgeScan=false;this.clearScanOverlay();this.manualBridge=false;
+        this.page='bridge';this.notice='Pasarela colocada · '+span.toFixed(2)+' m';
+      }catch(e){this.notice=String(e.message??e);}
+      this.dirty=true;return;
     }
-    const point=hit.point.clone();
-    if(this.manualBridgePoints.length>=2){
-      if(this.manualBridgeGap){
-        try{
-          const span=applyBridgeGapPlacement(this.app,this.manualBridgeGap,this.app.bridgeCompetition);
-          this.bridgeScan=false;this.clearScanOverlay();this.manualBridge=false;
-          this.page='bridge';this.notice='Pasarela colocada · '+span.toFixed(2)+' m';
-        }catch(e){this.notice=String(e.message??e);}
-      }
-      return;
+    const point=this.manualBridgeRayPoint(controller);
+    if(!point){
+      this.notice='Apunta al plano horizontal sombreado con el mando derecho.';
+      this.dirty=true;return;
     }
-    this.manualBridgePoints.push(point);
-    if(this.manualBridgePoints.length===2){
-      const [first,second]=this.manualBridgePoints;
-      const dx=second.x-first.x,dz=second.z-first.z,span=Math.hypot(dx,dz);
-      if(span<.3||span>4||Math.abs(first.y-second.y)>.22){
-        this.manualBridgePoints=[first];
-        this.notice='Vano inválido: 0,30–4 m y alturas similares. Repite segundo borde.';
+    if(this.manualBridgePoints.length===0){
+      this.manualBridgePoints=[point];
+      this.notice='Primer punto fijado. Apunta al segundo apoyo.';
+    }else{
+      const first=this.manualBridgePoints[0];
+      const span=Math.hypot(point.x-first.x,point.z-first.z);
+      if(span<.3||span>4||Math.abs(point.y-first.y)>.22){
+        this.notice='Elige otro segundo punto: vano 0,30–4 m y altura similar.';
       }else{
-        const start=first.clone(),end=second.clone();
-        start.y=end.y=(first.y+second.y)/2;
+        const start=first.clone(),end=point.clone();
+        start.y=end.y=(first.y+point.y)/2;
+        this.manualBridgePoints.push(point);
         this.manualBridgeGap={start,end,span_m:span,
           direction:end.clone().sub(start).normalize(),source:'Selección manual'};
         this.paintGapMarkers([this.manualBridgeGap]);
-        this.notice='Vista previa '+span.toFixed(2)+' m. Gatillo para colocar.';
+        this.notice='Vista previa '+span.toFixed(2)+' m. Gatillo para confirmar.';
       }
-    }else this.notice='Primer apoyo marcado. Señala el segundo borde.';
+    }
     this.dirty=true;
   }
   facePanelToUser(){
@@ -1197,6 +1203,19 @@ export class StructuralXRControls {
     this.lastFrameTime=time;
     let hovered=null;
     let forceHovered=false;
+    if(this.bridgeScan&&this.page==='placement'&&this.manualBridge){
+      const right=this.controllers.find(c=>c.controller.userData.xrInput?.handedness==='right');
+      const point=right?this.manualBridgeRayPoint(right.controller):null;
+      this.manualCursor.visible=!!point&&!this.manualBridgeGap;
+      if(point)this.manualCursor.position.copy(point);
+      if(this.manualBridgePoints.length===1&&point&&!this.manualBridgeGap){
+        const first=this.manualBridgePoints[0],span=Math.hypot(point.x-first.x,point.z-first.z);
+        if(span>=.3&&span<=4&&Math.abs(point.y-first.y)<=.22){
+          const start=first.clone(),end=point.clone();start.y=end.y=(first.y+point.y)/2;
+          this.paintGapMarkers([{start,end,span_m:span,direction:end.clone().sub(start).normalize()}]);
+        }
+      }
+    }
     if(this.bridgeScan&&this.page==='placement'&&!this.manualBridge){
       const right=this.controllers.find(c=>c.controller.userData.xrInput?.handedness==='right');
       if(right){
