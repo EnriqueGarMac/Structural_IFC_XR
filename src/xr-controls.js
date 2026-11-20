@@ -46,7 +46,7 @@ export class StructuralXRControls {
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
-    this.scanOverlayTick=0;this.scanPlaneMeshes=new Map();this.rawPlaneCount=0;this.scanFrameCount=0;this.lastRawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
+    this.scanOverlayTick=0;this.scanPlaneMeshes=new Map();this.rawPlaneCount=0;this.scanFrameCount=0;this.xrFrameCount=0;this.lastRawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
     this.raycaster=new THREE.Raycaster();
     this.raycaster.far=12;
     this.controllers=[];
@@ -590,7 +590,7 @@ export class StructuralXRControls {
       txt('Planos ahora / máximo: '+this.lastRawPlaneCount+
         ' / '+this.rawPlaneCount,38,389,23);
       txt('Superficies compatibles: '+scan.surfaces,38,429,21);
-      txt('Fotogramas escaneados: '+this.scanFrameCount,38,606,19);
+      txt('XR / escaneo: '+this.xrFrameCount+' / '+this.scanFrameCount,38,606,19);
       txt('Mallas acumuladas: '+this.planeDiagnostics.polygon+
         ' · con posición: '+this.planeDiagnostics.pose+
         ' · horizontales: '+this.planeDiagnostics.horizontal,38,468,18);
@@ -956,7 +956,10 @@ export class StructuralXRControls {
     this.dirty=true;
   }
   updateBridgeScan(frame){
-    if(!this.bridgeScan||this.app.xrMode!=='ar'||!frame)return;
+    const onBridgeScanPage=this.page==='placement'&&
+      this.app.xrMode==='ar'&&this.selected==='Concurso de pasarelas';
+    if((!this.bridgeScan&&!onBridgeScanPage)||this.app.xrMode!=='ar'||!frame)return;
+    if(onBridgeScanPage&&!this.bridgeScan)this.bridgeScan=true;
     const ref=this.app.renderer.xr.getReferenceSpace();
     this.scanFrameCount++;
     this.planeApiAvailable=frame.detectedPlanes!=null;
@@ -989,6 +992,8 @@ export class StructuralXRControls {
   }
   update(time,frame){
     if(!this.session)return;
+    this.xrFrameCount++;
+    if(this.xrFrameCount%10===0)this.dirty=true;
     this.locatePanel();
     this.updateHitTesting(frame);
     this.updateBridgeScan(frame);
