@@ -99,6 +99,48 @@ export function detectBridgeTableGap(frame,referenceSpace){
   // repeat observations in the XR controller before accepting placement.
   return options.sort((a,b)=>a.span_m-b.span_m)[0]??null;
 }
+// Accumulate plane observations across frames: individual WebXR frames may
+// report only a subset of the room. Track plane identities without assuming
+// that a complete room mesh is available to the browser.
+export class BridgeRoomScan {
+  constructor(){this.reset();}
+  reset(){this.surfaces=new Map();this.frameCount=0;this.candidate=null;this.stability=0;}
+  observe(frame,referenceSpace){
+    this.frameCount++;
+    if(!frame?.detectedPlanes||!referenceSpace)return this.status();
+    for(const plane of frame.detectedPlanes){
+      let item;
+      try{item=planeFromDetection(plane,frame,referenceSpace);}catch{continue;}
+      if(!item)continue;
+      const label=item.label.toLowerCase();
+      if(label&&!['table','desk','unknown'].includes(label))continue;
+      if(item.width<.4||item.depth<.35||item.width>2.8||item.depth>2.8||
+         item.area<.2||item.area>7.5)continue;
+      const old=this.surfaces.get(plane);
+      this.surfaces.set(plane,{...item,observations:(old?.observations??0)+1,
+        lastSeen:this.frameCount});
+    }
+    for(const [key,item] of this.surfaces){
+      if(this.frameCount-item.lastSeen>180)this.surfaces.delete(key);
+    }
+    const stable=[...this.surfaces.values()].filter(s=>s.observations>=5);
+    const options=[];
+    for(let i=0;i<stable.length;i++)for(let j=i+1;j<stable.length;j++){
+      const gap=bridgeGapBetween(stable[i],stable[j]);
+      if(gap)options.push(gap);
+    }
+    const best=options.sort((a,b)=>a.span_m-b.span_m)[0]??null;
+    const prev=this.candidate;
+    const same=best&&prev&&Math.abs(best.span_m-prev.span_m)<.04&&
+      best.start.distanceTo(prev.start)<.08&&best.end.distanceTo(prev.end)<.08;
+    this.stability=best?(same?this.stability+1:1):0;
+    this.candidate=best;
+    return this.status();
+  }
+  status(){return {surfaces:this.surfaces.size,frames:this.frameCount,
+    gap:this.stability>=12?this.candidate:null,
+    candidate:this.candidate,stability:this.stability};}
+}
 export function applyBridgeGapPlacement(app,gap,experience){
   if(!gap||!experience)throw Error('No se han detectado dos mesas compatibles.');
   const span=gap.span_m;
