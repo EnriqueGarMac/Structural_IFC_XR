@@ -1006,7 +1006,8 @@ export class StructuralXRControls {
     }
   }
   paintScanPlanes(frame,ref){
-    if(!this.bridgeScan||!frame?.detectedPlanes||!ref)return;
+    if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
+       this.page!=='placement'||!frame?.detectedPlanes||!ref)return;
     if(++this.scanOverlayTick%6!==0)return;
     const diagnostics={...this.planeDiagnostics};
     for(const plane of frame.detectedPlanes){
@@ -1051,8 +1052,14 @@ export class StructuralXRControls {
   updateBridgeScan(frame){
     // The scan page itself is authoritative. Do not gate XR updates on
     // selected text, DOM click side effects, or bridge active state.
-    const onBridgeScanPage=this.page==='placement'&&this.app.xrMode==='ar';
-    if(this.app.xrMode!=='ar'||!frame||(!this.bridgeScan&&!onBridgeScanPage))return;
+    const onBridgeScanPage=this.page==='placement'&&this.app.xrMode==='ar'&&
+      this.app.bridgeCompetition?.active;
+    if(this.app.xrMode!=='ar'||!frame||!onBridgeScanPage){
+      if(this.bridgeScan||this.scanOverlay.visible||this.scanGapMarkers.children.length){
+        this.bridgeScan=false;this.bridgeLastGap=null;this.clearScanOverlay();
+      }
+      return;
+    }
     if(onBridgeScanPage&&!this.bridgeScan)this.bridgeScan=true;
     const ref=this.app.renderer.xr.getReferenceSpace();
     this.scanFrameCount++;
@@ -1085,6 +1092,11 @@ export class StructuralXRControls {
   }
   update(time,frame){
     if(!this.session)return;
+    if(!this.app.bridgeCompetition?.active||this.page!=='placement'){
+      if(this.bridgeScan||this.scanOverlay.visible||this.scanGapMarkers.children.length){
+        this.bridgeScan=false;this.bridgeLastGap=null;this.clearScanOverlay();
+      }
+    }
     this.xrFrameCount++;
     if(this.xrFrameCount%10===0)this.dirty=true;
     this.locatePanel();
