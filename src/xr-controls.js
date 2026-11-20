@@ -376,6 +376,11 @@ export class StructuralXRControls {
     const {btn,txt}=this._buttons();
     txt('IMIS · STRUCTURAL XR',35,55,30,uiColour.accent);
     txt('ARRASTRAR',722,55,17,'#b0d3df','right');
+    if(app?.isXR&&app.xrPerf){
+      const p=app.xrPerf;
+      txt('XR '+p.fps+' FPS · '+p.calls+' draw · '+p.triangles+' tri · '+p.geometries+' geom',38,112,16,
+        p.fps&&p.fps<65?'#ffb79b':'#9ddbd5');
+    }
     this.hits.push({id:'menu-handle',x:15,y:15,w:W-30,h:86});
     const app=this.app;
     const dataPresent=Boolean(app.results?.cases?.length);
@@ -1043,8 +1048,8 @@ export class StructuralXRControls {
     }else{
       const first=this.manualBridgePoints[0];
       const span=Math.hypot(point.x-first.x,point.z-first.z);
-      if(span<.3||span>4||Math.abs(point.y-first.y)>.22){
-        this.notice='Elige otro segundo punto: vano 0,30–4 m y altura similar.';
+      if(span<.3||span>3||Math.abs(point.y-first.y)>.22){
+        this.notice='Elige otro segundo punto: vano 0,30–3 m y altura similar.';
       }else{
         const start=first.clone(),end=point.clone();
         start.y=end.y=(first.y+point.y)/2;
