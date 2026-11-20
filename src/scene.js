@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {xrSceneInventory} from './xr-scene-inventory.mjs';
+import {XRDrawSampler} from './xr-draw-sampler.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions, areaEdges } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
@@ -97,6 +98,7 @@ export class StructuralScene {
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
     this.xrPerf={fps:0,calls:0,triangles:0,geometries:0,textures:0};
     this.xrInventory=null;
+    this.xrDrawSampler=new XRDrawSampler(this);
     this._xrPerfStart=0;this._xrPerfFrames=0;
     this.renderer.setAnimationLoop((time,frame)=>{
       if(this.isXR){
@@ -138,7 +140,12 @@ export class StructuralScene {
       if(this.isXR&&this.xrMode==='ar'&&this.bridgeCompetition?.breakAnimation)
         this.bridgeCompetition.observeFloor(frame,this.renderer.xr.getReferenceSpace());
       this.bridgeCompetition?.animate(time);
+      // Sample one frame in every ~5 seconds; callbacks are immediately
+      // restored after rendering. This captures real stereo render passes.
+      const capture=this.isXR&&time-(this._xrLastDrawCapture||0)>=5000
+        ?this.xrDrawSampler.sample():null;
       this.renderer.render(this.scene,this.camera);
+      if(capture){capture();this._xrLastDrawCapture=time;}
       if(this.isXR){
         if(!this._xrPerfStart)this._xrPerfStart=time;
         this._xrPerfFrames++;
