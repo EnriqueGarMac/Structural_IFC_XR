@@ -157,39 +157,21 @@ export class BridgeRoomScan {
 }
 export function applyBridgeGapPlacement(app,gap,experience){
   if(!gap||!experience)throw Error('Selecciona primero los dos apoyos.');
-  const span=gap.span_m;
+  const span=gap.start.distanceTo(gap.end);
+  if(span<.3||span>3)throw Error('Vano fuera de rango (0,30–3 m).');
   experience.setSpan(span);
-  app.targetMeters=span;
-  app.updateScale();
-
-  // The teaching bridge is drawn in a fixed BASE=1.2 local grid, while
-  // updateScale() normally uses the dimensions of the loaded house/IFC.
-  // Therefore scaling by the house bounds moves the second support.
-  // Measure the bridge's actual local support-to-support vector instead.
-  const startLocal=app.contentRoot.position.clone().add(
-    new THREE.Vector3(0,0,0).applyQuaternion(experience.root.quaternion)
-      .multiply(experience.root.scale).add(experience.root.position));
-  const endLocal=app.contentRoot.position.clone().add(
-    new THREE.Vector3(1.2,0,0).applyQuaternion(experience.root.quaternion)
-      .multiply(experience.root.scale).add(experience.root.position));
-  const localVector=endLocal.clone().sub(startLocal);
-  const baseRotation=experience.defaultWorldQuaternion.clone();
-  const baseDirection=localVector.clone().applyQuaternion(baseRotation).normalize();
-  const desired=gap.end.clone().sub(gap.start).normalize();
-  const turn=new THREE.Quaternion().setFromUnitVectors(baseDirection,desired);
-  app.worldRoot.quaternion.copy(turn.multiply(baseRotation));
-  const scale=span/localVector.length();
-  app.worldRoot.scale.setScalar(scale);
-  app.worldRoot.position.copy(gap.start).sub(
-    startLocal.multiplyScalar(scale).applyQuaternion(app.worldRoot.quaternion));
-  // Verify the transformed support coordinates, not merely the requested scale.
-  app.worldRoot.updateMatrixWorld(true);
-  const placedA=new THREE.Vector3(0,0,0);
-  const placedB=new THREE.Vector3(1.2,0,0);
-  experience.root.localToWorld(placedA);
-  experience.root.localToWorld(placedB);
-  const error=Math.max(placedA.distanceTo(gap.start),placedB.distanceTo(gap.end));
-  if(error>.025)throw Error('Desajuste en apoyos: '+(error*100).toFixed(1)+' cm');
+  // Detach the teaching structure from the house's scaled/translated IFC root.
+  // The bridge uses a local 1.2 m baseline and is placed directly in XR metres.
+  if(experience.root.parent!==app.scene)app.scene.add(experience.root);
+  experience.root.position.copy(gap.start);
+  experience.root.scale.setScalar(span/1.2);
+  experience.root.quaternion.setFromUnitVectors(
+    new THREE.Vector3(1,0,0),gap.end.clone().sub(gap.start).normalize());
+  experience.root.updateMatrixWorld(true);
+  const actualA=experience.root.localToWorld(new THREE.Vector3(0,0,0));
+  const actualB=experience.root.localToWorld(new THREE.Vector3(1.2,0,0));
+  const error=Math.max(actualA.distanceTo(gap.start),actualB.distanceTo(gap.end));
+  if(error>0.005)throw Error('Desajuste de apoyos: '+(error*100).toFixed(1)+' cm');
   app.arAnchorPoint=null;
   experience.detectedGap=gap;
   return span;
