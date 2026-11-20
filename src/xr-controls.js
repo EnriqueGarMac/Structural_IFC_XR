@@ -188,6 +188,11 @@ export class StructuralXRControls {
       if(menuHit.item)this.command(menuHit.item.id);
       return;
     }
+    if(this.app.bucklingTeaching?.awaitingWhere){
+      // Question mode: the trigger answers "where does it buckle?".
+      this.app.bucklingTeaching.pickWhere(this._ray(controller));
+      this.dirty=true;return;
+    }
     if(this.app.teachingAnalysis?.active&&!this.app.bridgeCompetition?.addMode){
       const ray=this._ray(controller);
       const section=this.app.teachingAnalysis.inspectForceXR(ray);
@@ -501,7 +506,8 @@ export class StructuralXRControls {
       const buckled=(app.results?.bucklingModes||[])[app.sapVisuals?.modeIndex||0];
       const detail=view==='forces'?'Esfuerzo: '+(teaching?
         app.teachingForceRenderer?.component:app.sapVisuals?.component||'M3'):
-        view==='buckling'?'Pandeo '+(buckled?.number??'—')+' · '+(bucklingSummary(buckled)?.label??'—'):
+        view==='buckling'?(app.bucklingTeaching?.hideShape?'Pandeo · oculto (modo pregunta)':
+          'Pandeo '+(buckled?.number??'—')+' · '+(bucklingSummary(buckled)?.label??'—')):
         view==='modes'?'Modo '+((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.number??'—')+
           ' · '+Number((app.results?.modes||[])[app.sapVisuals?.modeIndex||0]?.frequency_hz||0).toFixed(2)+' Hz':
           'Patrón: '+(app.pattern==='all'?'Todos':app.pattern);
@@ -531,13 +537,19 @@ export class StructuralXRControls {
         txt('Apunta al diagrama para consultar el esfuerzo en esa sección.',
           38,1052,17,'#9ce6d9');
       }else{
-        btn('sap-only',app.showSAPOnly?'MOSTRAR MODELO BIM':'VER SOLO ESTRUCTURA',
+        if(view==='buckling'&&app.bucklingTeaching?.available){
+          btn('sap-only',app.showSAPOnly?'MOSTRAR BIM':'SOLO ESTRUCTURA',38,932,334,77);
+          btn('bt:open','DOCENCIA: TENSIONES Y PREGUNTAS',394,932,336,77,true);
+        }else btn('sap-only',app.showSAPOnly?'MOSTRAR MODELO BIM':'VER SOLO ESTRUCTURA',
           38,932,692,77,true);
         txt(view==='deformation'?
           'Apunta a un nodo: consulta Ux, Uy, Uz y desplazamiento total.':
           'La escala solo afecta a la representación.',38,1052,18);
       }
       }
+    }else if(this.page==='buckling'){
+      // Buckling teaching page (buckling-teaching-ui.js): plate display and questions.
+      app.bucklingTeaching?.xrPaint(btn,txt);
     }else if(this.page==='layers'){
       btn('back','‹ Volver',38,117,230,66);
       txt('CAPAS / VISUALIZACIÓN',38,224,28,'#e1f7fc');
@@ -592,9 +604,12 @@ export class StructuralXRControls {
   }
   command(id){
     const app=this.app;
-    if(id==='back'){
+    if(id==='back'&&this.page==='buckling')this.page='results';
+    else if(id==='back'){
       this.page=['bridge','truss'].includes(this.page)?'teaching':'main';
     }
+    else if(id==='bt:open')this.page='buckling';
+    else if(id.startsWith('bt:'))app.bucklingTeaching?.xrCommand(id);
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='teaching-menu')this.page='teaching';
     else if(id==='exit'){this.session?.end();return;}

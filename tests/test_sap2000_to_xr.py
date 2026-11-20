@@ -166,6 +166,36 @@ def test_incomplete_buckling_reference_reports_only_factors():
     assert any('reference load incomplete' in w for w in rich['warnings'])
 
 
+
+def test_supports_stresses_and_yield_strength():
+    """Teaching data: BC_ point groups, shell stresses of the static case with the
+    same load as a buckling case, and fy of the steel."""
+    tables = shell_model()
+    tables['Groups 2 - Assignments'] = (['GroupName', 'ObjectType', 'ObjectLabel'], [''] * 3,
+                                        [['BC_FORK_PLATE_LEFT', 'Joint', 1], ['BC_FORK_PLATE_LEFT', 'Joint', 4],
+                                         ['PLATE', 'Area', 10], ['BC_FIXED_X', 'Joint', 99]])
+    tables['MatProp 03a - Steel Data'] = (['Material', 'Fy', 'Fu'], ['', 'N/mm2', 'N/mm2'], [['STEEL', 355, 490]])
+    tables['Case - Static 1 - Load Assigns'] = (['Case', 'LoadType', 'LoadName', 'LoadSF'], [''] * 4,
+                                               [['PRE', 'Load pattern', 'P', 1], ['OTHER', 'Load pattern', 'P', 2]])
+    fields = ['Area', 'Joint', 'OutputCase', 'S11Top', 'S22Top', 'S12Top', 'SVMTop',
+              'S11Bot', 'S22Bot', 'S12Bot', 'SVMBot']
+    units = ['', '', ''] + ['N/mm2'] * 8
+    # area 10: membrane -10 / -30 with bending (top -40, bottom +0 on s22); area 11 unstressed
+    tables['Element Stresses - Area Shells'] = (fields, units, [
+        [10, 1, 'PRE', -10, -50, 0, 46, -10, -10, 0, 10],
+        [10, 2, 'PRE', -10, -50, 0, 46, -10, -10, 0, 10],
+        [11, 2, 'PRE', 0, 0, 0, 0, 0, 0, 0, 0]])
+    rich, flat = convert(tables)
+    assert flat['supports'] == [{'id': 'BC_FORK_PLATE_LEFT', 'kind': 'FORK', 'place': 'PLATE_LEFT',
+                                 'joints': ['1', '4']}]
+    assert any('BC_FIXED_X' in w for w in rich['warnings'])  # joint 99 does not exist
+    assert flat['materials']['STEEL']['fy_MPa'] == 355
+    assert flat['bucklingReference']['BUCK']['stress_case'] == 'PRE'
+    assert 'stress_case' not in flat['bucklingReference']['BUCKSW']
+    # only area 10 (area 11 has no stress); membrane = mean of the faces: s11 -10, s22 -30
+    assert flat['areaStresses'] == {'PRE': {'10': [-30, -10, 46]}}
+
+
 if __name__ == '__main__':
     for name, test in list(globals().items()):
         if name.startswith('test_'):

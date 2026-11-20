@@ -473,10 +473,11 @@ abierto ni librerías de Python adicionales.
    | Cargas | `Load Pattern Definitions`, `Joint Loads - Force`, `Frame Loads - Distributed`, `Frame Loads - Point` |
    | Peso propio | `Frame Props 01 - General`, `Frame Section Assignments`, `Area Section Properties`, `Area Section Assignments`, `MatProp 01 - General`, `MatProp 02 - Basic Mech Props` |
 
-   Las tablas de tensiones, deformaciones y fuerzas de placas
-   (`Element Stresses`, `Element Strains`, `Element Forces - Area Shells`,
-   `Element Joint Forces - Areas`) todavía no se usan y pueden ocupar
-   decenas de MB, así que es mejor no exportarlas.
+   Las tablas de deformaciones y fuerzas de placas (`Element Strains`,
+   `Element Forces - Area Shells`, `Element Joint Forces - Areas`) no se usan y pueden ocupar
+   decenas de MB, así que es mejor no exportarlas. `Element Stresses - Area Shells` solo se usa
+   para la docencia del pandeo (ver **Docencia del pandeo**). Exporta únicamente el caso estático
+   con la carga del pandeo.
 2. Convierte el Excel con Python 3.10 o superior:
 
    ```powershell
@@ -538,11 +539,57 @@ casos de **pandeo lineal** (*Linear Buckling*). Como ejemplo se incluye
 - En **Meta Quest**: **VISTA → Modos de pandeo**; los botones −/+ ajustan la amplitud.
 
 Límites actuales:
-- aún no hay mapas de tensiones en placas;
+- los mapas de tensiones en placas solo existen en la vista de pandeo (ver la sección siguiente);
 - Pcr no se calcula si las cargas de referencia incluyen cargas que el
   conversor no sabe sumar, como las de superficie (en ese caso solo se da λ);
 - la alineación automática con un IFC y la exportación USDZ en
   **Solo modelo de cálculo** necesitan barras.
+
+---
+
+## Docencia del pandeo: tensiones, modo pregunta y apoyos
+
+Los modelos docentes de pandeo (repositorio `sap2000-miscelanea`) añaden al JSON tres bloques
+opcionales que el visor aprovecha en la vista **Modos de pandeo**. En escritorio aparecen en
+**Análisis**, bajo la amplitud de la forma; en Meta Quest, en el botón
+**DOCENCIA: TENSIONES Y PREGUNTAS** de la página de resultados.
+
+- **Mostrar en las placas.** Hay tres opciones:
+  - **Forma del modo**: la vista habitual.
+  - **Tensiones antes de pandear**: tensión principal de membrana más compresiva (azul) o tracción
+    (rojo), a la carga de referencia o multiplicada por λ.
+  - **¿Pandea o plastifica?**: cada placa se colorea con λ_cr·σ_vm/fy. En verde pandea antes de
+    plastificar; en rojo, a la carga crítica esa placa ya habría plastificado.
+
+  El resumen da λ_cr, la carga de primera plastificación λ_y = fy/σ_vm,máx, la esbeltez
+  λ̄ = √(λ_y/λ_cr) y el veredicto. Para λ_y no se cuentan las placas que tocan un apoyo, donde las
+  reacciones concentran tensiones.
+- **Modo pregunta.** Oculta la forma y λ. El alumno:
+  1. ordena las piezas del modelo de menor a mayor carga crítica;
+  2. en cada caso, dice el tipo de pandeo entre cuatro opciones;
+  3. señala con el ratón o el mando dónde pandea; acierta si el punto está por encima del 50 % de
+     la amplitud máxima del modo;
+  4. estima λ entre cuatro valores separados un factor 2.
+
+  Después se revela el modo, con una explicación y enlaces a otros modos de interés. Las respuestas
+  se descargan en CSV, con el nombre del alumno. Las respuestas correctas van en el JSON: es una
+  herramienta de aprendizaje, no de examen.
+- **Apoyos por grupos.** Los grupos de nudos de SAP2000 llamados `BC_<TIPO>_<lugar>` se dibujan como
+  **un símbolo por apoyo**, en lugar de uno por nudo restringido, que en un modelo de placas llena
+  la base de símbolos. Se ajustan al tamaño de la sección. Tipos: `FORK` (horquilla), `PIN`,
+  `FIXED`, `GUIDED`, `BEARING`, `BASEPLATE`, `LATERAL` (coacción continua: marcas a lo largo de la
+  línea), `STAY` (coacción puntual), `RIGIDJOINT`, `ENDPLATE` y `EDGE`. Al hacer clic en un símbolo
+  se muestra su descripción.
+
+El conversor lee para ello cuatro tablas, todas opcionales:
+- `Groups 2 - Assignments`: grupos `BC_*` de nudos.
+- `Element Stresses - Area Shells`: las tensiones del caso estático con la misma carga que cada caso
+  de pandeo. El caso se empareja con `Case - Static 1 - Load Assigns`. Basta una fila por placa.
+- `MatProp 03a - Steel Data`: fy.
+
+Escribe `supports`, `areaStresses` (MPa) y `materials[...].fy_MPa`. El bloque `teaching`, con las
+preguntas y las respuestas, lo añade el generador de modelos. Sin estos datos el visor funciona como
+antes.
 
 ---
 🌐 **[Abrir Structural IFC XR — aplicación web](https://enriquegarmac.github.io/Structural_IFC_XR/)**

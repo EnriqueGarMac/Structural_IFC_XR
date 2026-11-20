@@ -566,6 +566,23 @@ def export_xr(db, curve_points=17):
             continue
         joints[jid] = {'xyz_m': xyz, 'restrained_dof': joint_restr.get(jid, [False]*6)}
 
+    # Supports and restraints described as point groups named BC_<KIND>_<place>
+    # (one symbol per support in the viewer instead of one per restrained joint).
+    group_rows, _ = db.get('Groups 2 - Assignments')
+    supports = {}
+    for r in group_rows:
+        name, kind = text(r.get('GroupName')), text(r.get('ObjectType')).lower()
+        if not name.upper().startswith('BC_') or kind not in ('joint', 'point'):
+            continue
+        jid = text(r.get('ObjectLabel'))
+        if jid not in joints:
+            warnings.append(f'Support group {name}: joint {jid} missing')
+            continue
+        parts = name.split('_', 2)
+        entry = supports.setdefault(name, {'kind': parts[1].upper() if len(parts) > 1 else '',
+                                           'place': parts[2] if len(parts) > 2 else '', 'joints': []})
+        entry['joints'].append(jid)
+
     mats_g, _ = db.get('MatProp 01 - General')
     mats_p, mu = db.get('MatProp 02 - Basic Mech Props')
     materials = {text(r['Material']): {'type': r.get('Type'), 'grade': r.get('Grade')}
@@ -578,6 +595,15 @@ def export_xr(db, curve_points=17):
             m['E_GPa'] = converted(r, mu, 'E1', 'stress') / 1e6  # kN/m2 -> GPa
         except (ValueError, TypeError):
             warnings.append(f'Material {name}: weight or Young modulus conversion unsupported')
+    steel_rows, stu = db.get('MatProp 03a - Steel Data')
+    for r in steel_rows:
+        name = text(r['Material'])
+        try:
+            fy = converted(r, stu, 'Fy', 'stress')
+        except (ValueError, TypeError):
+            fy = None
+        if fy is not None:
+            materials.setdefault(name, {})['fy_MPa'] = round(fy / 1e3, 6)  # kN/m2 -> MPa
 
     sections_table, su = db.get('Frame Props 01 - General')
     sections = {}
@@ -787,6 +813,49 @@ def export_xr(db, curve_points=17):
         if not ref['complete']:
             warnings.append(f'Buckling case {case}: reference load incomplete, '
                             'critical loads not reported (only factors)')
+    # Linear static case with exactly the same loads as each buckling case: its
+    # shell stresses are the state before buckling (the buckling case has none).
+    static_loads, _ = db.get('Case - Static 1 - Load Assigns')
+    static_sets = {}
+    for r in static_loads:
+        static_sets.setdefault(text(r.get('Case')), []).append(
+            (text(r.get('LoadType')).lower(), text(r.get('LoadName')), num(r.get('LoadSF'), 1.)))
+    for case, ref in references.items():
+        mine = sorted((text(p['type']).lower(), p['name'], p['scale']) for p in ref['load_patterns'])
+        match = next((c for c, loads_c in static_sets.items() if sorted(loads_c) == mine), None)
+        if match:
+            ref['stress_case'] = match
+
+    # Shell stresses (MPa) averaged per area: membrane principal stresses (mean of
+    # top and bottom faces) and the largest von Mises stress of the two faces.
+    stress_rows, stu2 = db.get('Element Stresses - Area Shells')
+    acc = {}
+    for r in stress_rows:
+        if text(r.get('StepType')).lower() == 'mode':
+            continue
+        key = (text(r.get('OutputCase')), text(r.get('Area')))
+        try:
+            vals = [converted(r, stu2, k, 'stress', 0.) / 1e3 for k in
+                    ('S11Top', 'S22Top', 'S12Top', 'S11Bot', 'S22Bot', 'S12Bot', 'SVMTop', 'SVMBot')]
+        except (ValueError, TypeError):
+            warnings.append('Element Stresses - Area Shells: stress unit unsupported')
+            break
+        a = acc.setdefault(key, [[0.] * 8, 0])
+        a[0] = [x + y for x, y in zip(a[0], vals)]
+        a[1] += 1
+    area_stresses = {}
+    peak = {}
+    for (case, _), (total, n) in acc.items():
+        peak[case] = max(peak.get(case, 0.), max(total[6], total[7]) / n)
+    for (case, aid), (total, n) in acc.items():
+        if max(total[6], total[7]) / n <= 1e-6 * peak[case]:
+            continue  # unloaded member of the model: no stress worth sending
+        s11t, s22t, s12t, s11b, s22b, s12b, vmt, vmb = (v / n for v in total)
+        s11, s22, s12 = (s11t + s11b) / 2, (s22t + s22b) / 2, (s12t + s12b) / 2
+        c, rad = (s11 + s22) / 2, math.hypot((s11 - s22) / 2, s12)
+        area_stresses.setdefault(case, {})[aid] = [float(f'{c - rad:.5g}'), float(f'{c + rad:.5g}'),
+                                                   float(f'{max(vmt, vmb):.5g}')]
+
     buckling_rows, _ = db.get('Buckling Factors')
     buckling_modes = []
     for r in buckling_rows:
@@ -833,7 +902,7 @@ def export_xr(db, curve_points=17):
                   'distributed_load': 'kN/m'},
         'coordinate_system': {'name': 'SAP2000_GLOBAL', 'vertical_axis': 'Z',
                               'frame_internal_force_axes': 'LOCAL_1_2_3'},
-        'geometry': {'joints': joints, 'frames': frames, 'areas': areas,
+        'geometry': {'joints': joints, 'frames': frames, 'areas': areas, 'supports': supports,
                      'sections': sections, 'area_sections': area_sections,
                      'materials': materials},
         'loads': {'patterns': load_patterns, **loads},
@@ -843,12 +912,13 @@ def export_xr(db, curve_points=17):
                     'joint_reactions': reactions,
                     'modes': modes, 'buckling_modes': buckling_modes,
                     'buckling_reference': references,
+                    'area_stresses_MPa': area_stresses,
                     'frame_curves_m': static_curves,
                     'curve_sampling': {'samples_per_frame': curve_points, 'method': 'cubic Hermite from nodal 6-DOF, visualization approximation'},
                     'max_joint_displacement_m': max_disp},
         'coverage': {'input_worksheets': len(db.sheets),
                      'num_joints': len(joints), 'num_frames': len(frames),
-                     'num_areas': len(areas),
+                     'num_areas': len(areas), 'num_supports': len(supports),
                      'num_modes': len(modes), 'num_buckling_modes': len(buckling_modes),
                      'num_static_force_samples': sum(len(samples) for per_case in frame_forces.values()
                                                     for samples in per_case.values()),
@@ -962,6 +1032,9 @@ def to_compatible(rich: dict) -> dict:
         'forces': res['frame_forces'], 'modes': modes,
         'bucklingModes': buckling_modes,
         'bucklingReference': res.get('buckling_reference', {}),
+        'supports': [{'id': name, **sup} for name, sup in geom.get('supports', {}).items()],
+        'areaStresses': res.get('area_stresses_MPa', {}),
+        'areaStressFields': ['sigma_min_membrane_MPa', 'sigma_max_membrane_MPa', 'von_mises_max_MPa'],
         'sections': geom['sections'], 'areaSections': geom.get('area_sections', {}),
         'materials': geom['materials'],
         'frameCurves': res['frame_curves_m'],

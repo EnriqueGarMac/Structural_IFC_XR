@@ -34,11 +34,12 @@ export function makeSAPGeometry(results){
     const corners=area.joints.map(id=>nodes.get(id));
     if(corners.some(p=>!p))continue;
     const key=area.section??'';
-    if(!sections.has(key))sections.set(key,{positions:[],faceNames:[],count:0});
+    if(!sections.has(key))sections.set(key,{positions:[],faceNames:[],faceAreaIds:[],count:0});
     const group=sections.get(key);group.count++;
     for(let k=1;k<corners.length-1;k++){
       group.positions.push(...corners[0].toArray(),...corners[k].toArray(),...corners[k+1].toArray());
       group.faceNames.push('Placa '+area.id+(key?' · '+key:''));
+      group.faceAreaIds.push(area.id);
     }
   }
   for(const [section,group] of sections){
@@ -46,7 +47,7 @@ export function makeSAPGeometry(results){
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(group.positions,3));
     geometry.computeVertexNormals();
     pieces.push({geometry,name:'Placas '+(section||'SAP')+' ('+group.count+')',color:0xb4c6cf,
-      ifcType:'SapArea',faceNames:group.faceNames});
+      ifcType:'SapArea',faceNames:group.faceNames,faceAreaIds:group.faceAreaIds});
   }
   return pieces;
 }
@@ -131,6 +132,13 @@ export class SAPVisuals{
       if(title)title.textContent=m?'PANDEO '+m.number+' · '+summary.label:'SIN MODOS DE PANDEO';
       if(lo)lo.textContent=summary?.critical??'Forma relativa';
       if(hi)hi.textContent=summary?summary.direction:'—';
+      const teaching=m&&this.app.bucklingTeaching?.legend(m);
+      if(teaching){
+        if(title)title.textContent=teaching.title;
+        if(lo)lo.textContent=teaching.lo;
+        if(hi)hi.textContent=teaching.hi;
+        if(bar&&teaching.gradient)bar.style.background=teaching.gradient;
+      }
     }
   }
   nodePositions(r){
@@ -356,6 +364,9 @@ export class SAPVisuals{
         new THREE.LineBasicMaterial({color:resultColourHex(.8,this.palette),transparent:true,opacity:.55})
       );
       this.group.add(mesh);this.dynamic.push({mesh,base,shape});
+      // With the plates visible they already show the buckling shape (and the
+      // teaching colours); on a dense mesh the edge set would cover them.
+      if(this.view==='buckling'&&!this.app.showSAPOnly)mesh.visible=false;
     }
     for(const f of r.frames){
       const a=points.get(f.i),b=points.get(f.j);if(!a||!b)continue;
@@ -400,6 +411,9 @@ export class SAPVisuals{
       }
       attr.needsUpdate=true;heat.needsUpdate=true;
     }
+    // Teaching layer: stresses / yield check on the plates, or a neutral colour
+    // while a question hides the mode (buckling-teaching-ui.js).
+    if(this.view==='buckling')this.app.bucklingTeaching?.paintPlates(this.modalParts);
     this.updateModalAnimation(0,true);
   }
   updateModalAnimation(ms,force=false){
@@ -408,7 +422,9 @@ export class SAPVisuals{
     if(this.view!=='modes'&&!(this.view==='buckling'&&force))return;
     // Real eigenfrequencies are shown in the legend, while playback is slowed
     // so modes above the headset frame rate do not alias.
-    const sine=this.view==='buckling'?1:Math.sin(2*Math.PI*this.visualHz*ms/1000);
+    // In question mode the buckling shape stays hidden until it is revealed.
+    const sine=this.view==='buckling'?(this.app.bucklingTeaching?.hideShape?0:1):
+      Math.sin(2*Math.PI*this.visualHz*ms/1000);
     for(const {mesh,base,shape} of this.dynamic){
       const attr=mesh.geometry.getAttribute('position');
       for(let i=0;i<base.length;i++){

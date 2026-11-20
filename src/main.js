@@ -15,6 +15,7 @@ import { isControlActive } from './view-controls.mjs';
 import { SAPVisuals, makeSAPGeometry } from './sap-visuals.js';
 import { ReactionVisuals } from './reaction-visuals.js';
 import { NodeDisplacementProbe,displacementLabel } from './node-displacement-probe.js';
+import { BucklingTeaching } from './buckling-teaching-ui.js';
 import { reactionText } from './reactions.mjs';
 import * as THREE from 'three';
 import {findBestAlignment,makeIFCTransformElements} from './ifc-alignment.mjs';
@@ -26,6 +27,7 @@ setupTeachingAnalysis(app,{selectWorkspace:name=>workspace.selectTab(name)});
 app.sapVisuals=new SAPVisuals(app);
 app.reactionVisuals=new ReactionVisuals(app);
 app.nodeProbe=new NodeDisplacementProbe(app);
+app.bucklingTeaching=new BucklingTeaching(app);
 let sapGeometryActive=false;
 let originalIFC=null;
 let importedIFCName='';
@@ -109,6 +111,7 @@ function setResults(results,label){
   for(const pattern of [...new Set([...results.loads,...results.pointLoads??[]].map(l=>l.pattern))].sort())patterns.add(new Option(pattern,pattern));
   const rawFrameCount=results.loads.length;
   status(`${results.cases.length} caso(s) de cálculo disponibles`);
+  app.bucklingTeaching.onResults();
 }
 // The same selector lists vibration modes or buckling modes for the active view.
 function populateModes(kind){
@@ -309,6 +312,7 @@ $('analysis-view').addEventListener('change',e=>{
   $('force-readout').hidden=true;
   app.nodeProbe?.hideXRHover();
   app.sapVisuals?.hideXRHover();
+  app.bucklingTeaching?.onView();
 });
 $('force-component').addEventListener('change',e=>{
   if(app.teachingAnalysis?.active){app.teachingAnalysis.selectComponent(e.target.value);return;}
@@ -333,7 +337,7 @@ $('toggle-reaction-values').addEventListener('click',()=>{
   $('toggle-reaction-values').textContent=enabled?
     'Ocultar valores de reacciones':'Mostrar valores de reacciones';
 });
-$('mode-select').addEventListener('change',e=>app.sapVisuals.setMode(e.target.value));
+$('mode-select').addEventListener('change',e=>{app.sapVisuals.setMode(e.target.value);app.bucklingTeaching?.render();});
 $('modal-amplitude').addEventListener('input',e=>{
   app.sapVisuals.setAmplitude(e.target.value);
   $('modal-amplitude-value').textContent=Number(e.target.value).toFixed(2)+' m · visualización';

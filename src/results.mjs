@@ -63,11 +63,19 @@ export function normalizeResults(input) {
   // viewer fall back to the nodal displacements (shell-only models).
   const frameCurves=Object.fromEntries(Object.entries(input.frameCurves??{})
     .filter(([,curves])=>curves && Object.keys(curves).length));
+  // Teaching data (optional): supports described as joint groups BC_<KIND>_<place>,
+  // shell stresses of static cases [sigma_min_membrane, sigma_max_membrane,
+  // von_mises_max] in MPa, materials with fy, and the question-mode block.
+  const supports=(input.supports||[]).map(s=>({id:String(s.id),kind:String(s.kind??'').toUpperCase(),
+    place:String(s.place??''),joints:(s.joints||[]).map(String).filter(j=>nodeIds.has(j))}))
+    .filter(s=>s.joints.length);
   return {meta:{...input.meta, units:'m, kN'}, nodes, frames, areas, loads, pointLoads, cases,
     forces:input.forces??{},modes:input.modes??[],bucklingModes,
     bucklingReference:input.bucklingReference??{},sections:input.sections??{},
     areaSections:input.areaSections??{},frameCurves,
-    jointReactions:normalizeJointReactions(input.jointReactions??{},nodes)};
+    jointReactions:normalizeJointReactions(input.jointReactions??{},nodes),
+    materials:input.materials??{},supports,areaStresses:input.areaStresses??{},
+    teaching:input.teaching??null};
 }
 // Nodal field of a modal or buckling shape, in the same form as caseNodes.
 export function modeNodes(results, mode, offset=[0,0,0]) {

@@ -128,7 +128,7 @@ export class StructuralScene {
       const displacedMat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,side:THREE.DoubleSide,roughness:.54,metalness:.04});
       const a=new THREE.Mesh(originalGeom,origMat),b=new THREE.Mesh(copiedGeom,displacedMat);
       a.userData={name:piece.name,guid:piece.guid,expressId:piece.expressId,ifcType:piece.ifcType,
-        faceNames:piece.faceNames};
+        faceNames:piece.faceNames,faceAreaIds:piece.faceAreaIds};
       b.userData=a.userData;
       a.castShadow=b.castShadow=false;
       this.originalGroup.add(a);this.deformedGroup.add(b);
@@ -331,7 +331,7 @@ export class StructuralScene {
     if(!this.results)return;
     const nodes=caseNodes(this.results,this.caseName,this.offset);
     const size=Math.max(.08,Math.min(.6,(this.maxSize||8)*.028));
-    const symbols=buildSupportSymbols(this.results.nodes,this.offset,size);
+    const symbols=buildSupportSymbols(this.results.nodes,this.offset,size,this.results.supports);
     for(const symbol of [...symbols.children])this.supportGroup.add(symbol);
     this.supportGroup.visible=this.showSupports;
     const showAnalyticalDeformation=this.sapVisuals?.view==='deformation'&&this.showSAPOnly&&this.showDeformed&&
@@ -444,8 +444,14 @@ export class StructuralScene {
       else if(selected?.kind==='bar')this.trussExperience.selectBar(selected.id);
       return;
     }
+    // Question mode: the click answers "where does it buckle?".
+    if(this.bucklingTeaching?.pickWhere(this.pickRaycaster))return;
     if(this.sapVisuals?.view==='forces'&&this.sapVisuals.pickForce(this.pickRaycaster))return;
     if(this.sapVisuals?.view==='deformation'&&this.nodeProbe?.pick(this.pickRaycaster))return;
+    // Support symbols carry their teaching description as name.
+    const support=this.supportGroup.visible&&
+      this.pickRaycaster.intersectObjects(this.supportGroup.children,true)[0];
+    if(support?.object?.userData?.support){this.onSelection?.(support.object.name);return;}
     const hit=this.pickRaycaster.intersectObjects([...this.originalGroup.children,...this.deformedGroup.children],false)[0];
     if(hit){const u=hit.object.userData;const id=u.guid?` · GUID ${u.guid}`:'';
       // Merged plate meshes name each triangle after its SAP area.
