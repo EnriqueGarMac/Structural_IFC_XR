@@ -193,7 +193,9 @@ export class StructuralScene {
     if(!this.bounds)return;
     const size=this.bounds.getSize(new THREE.Vector3());
     this.maxSize=Math.max(size.x,size.y,size.z,.1);
-    this.worldRoot.scale.setScalar(this.targetMeters/this.maxSize);
+    const bridgeGap=this.bridgeCompetition?.active&&this.bridgeCompetition?.detectedGap;
+    this.worldRoot.scale.setScalar(bridgeGap?
+      this.bridgeCompetition.span_m/1.2:this.targetMeters/this.maxSize);
     if(this.isXR&&this.xrMode==='ar'&&this.arAnchorPoint)
       placeModelOnSurface(this,this.arAnchorPoint);
     // The grid now inherits the exact same worldRoot scale as the columns.
