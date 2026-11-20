@@ -380,13 +380,13 @@ export class StructuralXRControls {
       const p=this.app.xrPerf;
       txt('XR '+p.fps+' FPS · '+p.calls+' draw · '+p.triangles+' tri · '+p.geometries+' geom',38,112,16,
         p.fps&&p.fps<65?'#ffb79b':'#9ddbd5');
-      const inv=this.app.xrInventory;
-      if(inv){
-        const o=inv.originalGroup,d=inv.deformedGroup,f=inv.framesGroup;
-        const sap=inv.sapVisuals,all=inv.total;
-        txt('OBJ visibles: IFC '+o.meshes+' · def '+d.meshes+
-          ' · barras '+(f.meshes+f.lines)+' · esfuerzos '+(sap.meshes+sap.lines)+
-          ' · total '+(all.meshes+all.lines+all.sprites),38,136,14,'#a8d6e3');
+      const draw=this.app.xrDrawSampler?.last;
+      if(draw){
+        const d=draw.byLayer;
+        txt('DIBUJOS: IFC '+(d.original||0)+' · def '+(d.deformed||0)+
+          ' · barras '+(d.frames||0)+' · SAP '+(d.sap||0)+
+          ' · otros '+(draw.total-(d.original||0)-(d.deformed||0)-(d.frames||0)-(d.sap||0))+
+          ' · transp '+draw.transparent,38,82,14,'#a8d6e3');
       }
     }
     this.hits.push({id:'menu-handle',x:15,y:15,w:W-30,h:86});
