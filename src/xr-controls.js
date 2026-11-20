@@ -41,6 +41,12 @@ export class StructuralXRControls {
     this.panel.renderOrder=20000;
     this.panel.visible=false;
     app.scene.add(this.panel);
+    // Diagnostic overlay: triangulated polygons supplied by WebXR plane detection.
+    // This is NOT a full room mesh; no geometry is invented for unseen areas.
+    this.scanOverlay=new THREE.Group();
+    this.scanOverlay.visible=false;
+    app.scene.add(this.scanOverlay);
+    this.scanOverlayTick=0;
     this.raycaster=new THREE.Raycaster();
     this.raycaster.far=12;
     this.controllers=[];
@@ -80,7 +86,7 @@ export class StructuralXRControls {
   start(session){
     this.session=session;
     this.initializedPose=false;this.panel.visible=true;
-    this.page='main';this.dirty=true;this.roomScan.reset();this.bridgeScan=false;this.placeMode=false;this.moveMenu=false;
+    this.page='main';this.dirty=true;this.roomScan.reset();this.bridgeScan=false;this.clearScanOverlay();this.placeMode=false;this.moveMenu=false;
     this.hitAvailable=this.app.xrMode!=='vr' &&
       typeof session.requestHitTestSource==='function' &&
       (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
@@ -90,7 +96,7 @@ export class StructuralXRControls {
     this.contact.visible=false;this.hasPlacedSurface=false;
   }
   stop(){
-    this.session=null;this.roomScan.reset();this.bridgeScan=false;this.panel.visible=false;this.reticle.visible=false;
+    this.session=null;this.roomScan.reset();this.bridgeScan=false;this.clearScanOverlay();this.panel.visible=false;this.reticle.visible=false;
     this.app.sapVisuals?.hideXRHover();
     this.app.reactionVisuals?.hideXRHover();
     this.contact.visible=false;this.hasPlacedSurface=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
@@ -106,6 +112,7 @@ export class StructuralXRControls {
       item.rayLine.geometry.dispose();item.rayLine.material.dispose();
       this.app.scene.remove(item.controller,item.grip);
     }
+    this.clearScanOverlay();this.app.scene.remove(this.scanOverlay);
     this.app.scene.remove(this.panel,this.reticle,this.contact);
     this.panel.geometry.dispose();this.panel.material.dispose();this.texture.dispose();
     this.reticle.geometry.dispose();this.reticle.material.dispose();
@@ -604,7 +611,7 @@ export class StructuralXRControls {
       // In mixed reality, begin looking for two tabletops as soon as the
       // competition opens. The manual scan button remains available to retry.
       if(app.xrMode==='ar'){
-        this.roomScan.reset();this.bridgeScan=true;
+        this.roomScan.reset();this.clearScanOverlay();this.bridgeScan=true;
         this.bridgeScanStable=0;
         this.bridgeLastGap=null;
         this.notice='Buscando automáticamente dos mesas enfrentadas…';
@@ -860,13 +867,53 @@ export class StructuralXRControls {
     this.reticle.visible=stable;
     if(stable)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
   }
+  clearScanOverlay(){
+    for(const obj of [...this.scanOverlay.children]){
+      this.scanOverlay.remove(obj);
+      obj.geometry?.dispose();
+      obj.material?.dispose();
+    }
+    this.scanOverlay.visible=false;
+  }
+  paintScanPlanes(frame,ref){
+    if(!this.bridgeScan||!frame?.detectedPlanes||!ref)return;
+    if(++this.scanOverlayTick%12!==0)return;
+    this.clearScanOverlay();
+    for(const plane of frame.detectedPlanes){
+      if(!plane.polygon||plane.polygon.length<3||!plane.planeSpace)continue;
+      let pose;
+      try{pose=frame.getPose(plane.planeSpace,ref);}catch{continue;}
+      if(!pose?.transform?.matrix)continue;
+      const transform=new THREE.Matrix4().fromArray(pose.transform.matrix);
+      const normal=new THREE.Vector3(0,1,0).transformDirection(transform);
+      const horizontal=Math.abs(normal.y)>.88;
+      const vertices=Array.from(plane.polygon,p=>new THREE.Vector3(p.x,p.y,p.z));
+      const indices=[];
+      for(let i=1;i<vertices.length-1;i++)indices.push(0,i,i+1);
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices.flatMap(v=>v.toArray()),3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      const material=new THREE.MeshBasicMaterial({
+        color:horizontal?0x46eac4:0x6ca6e8,transparent:true,opacity:.16,
+        wireframe:true,side:THREE.DoubleSide,depthTest:false,depthWrite:false
+      });
+      const mesh=new THREE.Mesh(geometry,material);
+      mesh.matrixAutoUpdate=false;
+      mesh.matrix.copy(transform);
+      mesh.renderOrder=18000;
+      this.scanOverlay.add(mesh);
+    }
+    this.scanOverlay.visible=true;
+  }
   updateBridgeScan(frame){
     if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
       this.app.xrMode!=='ar'||!frame)return;
     const ref=this.app.renderer.xr.getReferenceSpace();
+    this.paintScanPlanes(frame,ref);
     const scan=this.roomScan.observe(frame,ref);
     if(scan.frames%30===0){
-      this.notice=scan.candidate?
+      this.notice=!frame.detectedPlanes?'Quest Browser no proporciona planos de la sala':scan.candidate?
         'Mesas candidatas: '+scan.surfaces+' superficies · estabilizando medición':
         'Escaneando sala: '+scan.surfaces+' superficies · mira ambas mesas';
       this.dirty=true;
@@ -874,6 +921,7 @@ export class StructuralXRControls {
     if(!scan.gap)return;
     const gap=scan.gap;
     this.bridgeScan=false;
+    this.clearScanOverlay();
     const measured=applyBridgeGapPlacement(this.app,gap,this.app.bridgeCompetition);
     const input=document.getElementById('bridge-span');
     if(input)input.value=String(Number(measured.toFixed(3)));
