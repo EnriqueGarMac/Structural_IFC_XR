@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {xrSceneInventory} from './xr-scene-inventory.mjs';
+import {XRStaticBIMBatch} from './xr-static-bim-batch.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions, areaEdges } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
@@ -92,6 +93,7 @@ export class StructuralScene {
     this.mobileOriginalShadowMap=false;this.mobileCastShadowState=new Map();
     this.pickRaycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();
     this.xrControls=new StructuralXRControls(this);
+    this.xrStaticBIMBatch=new XRStaticBIMBatch(this);
     this.renderer.domElement.addEventListener('pointerdown',(evt)=>this.pickStart={x:evt.clientX,y:evt.clientY});
     this.renderer.domElement.addEventListener('pointerup',(evt)=>this.pickElement(evt));
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
@@ -168,6 +170,7 @@ export class StructuralScene {
     }
   }
   setModel(items){
+    this.xrStaticBIMBatch?.clear();
     this.clearGroup(this.originalGroup);this.clearGroup(this.deformedGroup);this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     this.parts=[];
     const bbox=new THREE.Box3(),allBounds=new THREE.Box3();
@@ -281,6 +284,7 @@ export class StructuralScene {
     return true;
   }
   updateVisualization(rebuildOverlays=true){
+    this.xrStaticBIMBatch?.clear();
     const hasCases=!!this.results?.cases?.length;
     const nodes=hasCases?caseNodes(this.results,this.caseName,this.offset):[];
     this.maxU=maxDisplacement(nodes);
@@ -376,6 +380,7 @@ export class StructuralScene {
     this.sapVisuals?.updateLegend();
     this.reactionVisuals?.updateLegend();
     this.webSun?.update();
+    this.xrStaticBIMBatch?.refresh();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);this.clearGroup(this.supportGroup);
@@ -830,6 +835,7 @@ export class StructuralScene {
     this.groundMarkers.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
+      this.xrStaticBIMBatch?.clear();
         this.xrSession=null;this.isXR=false;this.xrMode=null;this.arAnchorPoint=null;
       this.vrEnvironment.visible=false;
       this.stopMobileAR();
@@ -849,6 +855,7 @@ export class StructuralScene {
         this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
         await this.startMobileAR(session);
       }else this.xrControls.start(session);
+      this.xrStaticBIMBatch?.refresh();
       }catch(err){
       await session.end().catch(()=>{});
       throw err;
