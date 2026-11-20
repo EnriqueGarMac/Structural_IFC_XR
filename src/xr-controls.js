@@ -43,6 +43,7 @@ export class StructuralXRControls {
     app.scene.add(this.panel);
     // Diagnostic overlay: triangulated polygons supplied by WebXR plane detection.
     // This is NOT a full room mesh; no geometry is invented for unseen areas.
+    this.scanGapMarkers=new THREE.Group();app.scene.add(this.scanGapMarkers);
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
@@ -187,6 +188,18 @@ export class StructuralXRControls {
           'Modelo apoyado sobre la superficie detectada.');
       }
       return;
+    }
+    if(this.page==='placement'&&this.bridgeScan&&
+       controller.userData.xrInput?.handedness==='right'){
+      const hits=this._ray(controller).intersectObjects(this.scanGapMarkers.children,false);
+      if(hits.length){
+        this.bridgeOptionIndex=hits[0].object.userData.gapIndex;
+        this.bridgeLastGap=this.roomScan.status().options[this.bridgeOptionIndex];
+        this.paintGapMarkers(this.roomScan.status().options);
+        this.notice='Vano seleccionado '+this.bridgeLastGap.span_m.toFixed(2)+' m';
+        this.dirty=true;
+        return;
+      }
     }
     const menuHit=this._menuHit(controller);
     if(menuHit){
@@ -618,6 +631,7 @@ export class StructuralXRControls {
       }
       btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?820:668,692,75,true);
       btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?904:783,692,70);
+      txt('Apunta al vano sombreado y pulsa gatillo derecho.',38,978,19);
       txt('Gatillo izquierdo: mover menú · derecho: elegir.',38,1010,19);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
@@ -689,6 +703,7 @@ export class StructuralXRControls {
           this.bridgeOptionIndex=(this.bridgeOptionIndex+(id==='bridge-next'?1:-1)+options.length)%options.length;
           this.bridgeLastGap=options[this.bridgeOptionIndex];
           this.notice='Opción '+(this.bridgeOptionIndex+1)+' de '+options.length;
+          this.paintGapMarkers(options);
         }
       }else if(id==='bridge-confirm'){
         if(this.bridgeLastGap){
@@ -704,6 +719,7 @@ export class StructuralXRControls {
         if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
         else {
           this.roomScan.reset();this.clearScanOverlay();this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
+          this.bridgeOptionIndex=0;this.scanError='';this.page='placement';
           this.notice='Busca dos mesas horizontales y enfrentadas.';
         }
       }else if(id==='bridge-evaluate'){
@@ -933,6 +949,7 @@ export class StructuralXRControls {
     if(stable)this.reticle.position.copy(chosen.point).add(new THREE.Vector3(0,.012,0));
   }
   clearScanOverlay(){
+    this.clearGapMarkers();
     for(const obj of this.scanOverlay.children.slice()){
       this.scanOverlay.remove(obj);
       obj.geometry?.dispose();
@@ -945,6 +962,41 @@ export class StructuralXRControls {
     this.scanFrameCount=0;
     this.lastRawPlaneCount=0;
     this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
+  }
+  clearGapMarkers(){
+    for(const mesh of this.scanGapMarkers.children.slice()){
+      this.scanGapMarkers.remove(mesh);
+      mesh.geometry.dispose();mesh.material.dispose();
+    }
+  }
+  paintGapMarkers(options){
+    this.clearGapMarkers();
+    options.forEach((gap,i)=>{
+      const mesh=new THREE.Mesh(
+        new THREE.BoxGeometry(Math.max(.03,gap.span_m),.014,.30),
+        new THREE.MeshBasicMaterial({
+          color:i===this.bridgeOptionIndex?0x35ff9e:0x35aaff,
+          transparent:true,opacity:i===this.bridgeOptionIndex?.62:.34,
+          depthTest:false,depthWrite:false
+        }));
+      mesh.position.copy(gap.start).add(gap.end).multiplyScalar(.5);
+      mesh.position.y+=.025;
+      mesh.rotation.y=-Math.atan2(gap.direction.z,gap.direction.x);
+      mesh.userData.gapIndex=i;
+      mesh.renderOrder=18010;
+      this.scanGapMarkers.add(mesh);
+    });
+  }
+  facePanelToUser(){
+    const camera=this.app.renderer.xr.getCamera();
+    const head=new THREE.Vector3();
+    camera.getWorldPosition(head);
+    const target=head.sub(this.panel.position);
+    target.y=0;
+    if(target.lengthSq()>.0001){
+      this.panel.quaternion.setFromRotationMatrix(
+        new THREE.Matrix4().lookAt(new THREE.Vector3(),target,new THREE.Vector3(0,1,0)));
+    }
   }
   paintScanPlanes(frame,ref){
     if(!this.bridgeScan||!frame?.detectedPlanes||!ref)return;
@@ -1017,6 +1069,7 @@ export class StructuralXRControls {
     const options=scan.options??[];
     this.bridgeOptionIndex=Math.min(this.bridgeOptionIndex,Math.max(0,options.length-1));
     this.bridgeLastGap=options[this.bridgeOptionIndex]??scan.gap;
+    if(scan.frames%12===0)this.paintGapMarkers(options);
     if(!previous||Math.abs(previous.span_m-this.bridgeLastGap.span_m)>.02){
       this.notice='Vano identificado: '+this.bridgeLastGap.span_m.toFixed(2)+
         ' m. Pulsa COLOCAR PASARELA.';
@@ -1060,6 +1113,7 @@ export class StructuralXRControls {
             const rotation=q.clone().multiply(d.startQ.clone().invert());
             d.object.quaternion.copy(rotation.multiply(d.startObjectQ));
           }
+          if(d.kind==='menu')this.facePanelToUser();
           if(d.kind==='move'&&this.contact.visible)this.contact.visible=false;
         }
       }
