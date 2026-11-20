@@ -104,7 +104,7 @@ export function detectBridgeTableGap(frame,referenceSpace){
 // that a complete room mesh is available to the browser.
 export class BridgeRoomScan {
   constructor(){this.reset();}
-  reset(){this.surfaces=new Map();this.frameCount=0;this.candidate=null;this.stability=0;}
+  reset(){this.surfaces=new Map();this.frameCount=0;this.candidate=null;this.stability=0;this.options=[];}
   observe(frame,referenceSpace){
     this.frameCount++;
     if(!frame?.detectedPlanes||!referenceSpace)return this.status();
@@ -129,7 +129,8 @@ export class BridgeRoomScan {
       const gap=bridgeGapBetween(stable[i],stable[j]);
       if(gap)options.push(gap);
     }
-    const best=options.sort((a,b)=>a.span_m-b.span_m)[0]??null;
+    this.options=options.sort((a,b)=>a.span_m-b.span_m).slice(0,12);
+    const best=this.options[0]??null;
     const prev=this.candidate;
     const same=best&&prev&&Math.abs(best.span_m-prev.span_m)<.04&&
       best.start.distanceTo(prev.start)<.08&&best.end.distanceTo(prev.end)<.08;
@@ -139,7 +140,7 @@ export class BridgeRoomScan {
   }
   status(){return {surfaces:this.surfaces.size,frames:this.frameCount,
     gap:this.stability>=12?this.candidate:null,
-    candidate:this.candidate,stability:this.stability};}
+    candidate:this.candidate,stability:this.stability,options:this.options};}
 }
 export function applyBridgeGapPlacement(app,gap,experience){
   if(!gap||!experience)throw Error('No se han detectado dos mesas compatibles.');
