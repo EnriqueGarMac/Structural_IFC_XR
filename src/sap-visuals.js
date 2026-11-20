@@ -319,11 +319,12 @@ export class SAPVisuals{
   inspectXRRay(raycaster){
     const data=this.pickForce(raycaster);
     if(!data){this.hideXRHover();return null;}
+    // Hover markers and labels are throttled by XR controls (350 ms).
     this.setHoverSection(data);
     this.ensureXRTooltip();
     const sign=data.value>0?'+':'';
     const line='B'+data.frameId+'  '+data.component+' '+sign+data.value.toFixed(2)+' '+data.unit+
-      '  ·  s='+data.station.toFixed(2)+' m';
+      '  ·  s='+data.station.toFixed(1)+' m';
     if(this.xrTooltip){
       if(this.xrTooltipText!==line){
         const color='#'+forceSignColour(data.value,this.palette).toString(16).padStart(6,'0');
