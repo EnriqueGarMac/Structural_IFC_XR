@@ -166,8 +166,14 @@ export function applyBridgeGapPlacement(app,gap,experience){
   // Reset any transforms inherited from previous attempts before placement.
   experience.root.position.copy(gap.start);
   experience.root.scale.set(span/1.2,span/1.2,span/1.2);
-  experience.root.quaternion.setFromUnitVectors(
-    new THREE.Vector3(1,0,0),gap.end.clone().sub(gap.start).normalize());
+  // The bridge is drawn in local XZ (Z is its height). Align X to the
+  // measured span while keeping local Z vertical in the XR world.
+  const axisX=gap.end.clone().sub(gap.start).normalize();
+  const up=new THREE.Vector3(0,1,0);
+  const axisY=new THREE.Vector3().crossVectors(up,axisX).normalize();
+  const axisZ=new THREE.Vector3().crossVectors(axisX,axisY).normalize();
+  experience.root.quaternion.setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(axisX,axisY,axisZ));
   experience.root.updateMatrixWorld(true);
   const actualA=experience.root.localToWorld(new THREE.Vector3(0,0,0));
   const actualB=experience.root.localToWorld(new THREE.Vector3(1.2,0,0));
