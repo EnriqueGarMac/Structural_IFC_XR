@@ -25,7 +25,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
-    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
+    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.bridgeOptionIndex=0;this.bridgeOptionIndex=0;this.bridgeOptionKey='';this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -608,12 +608,16 @@ export class StructuralXRControls {
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
         'API activa: comprobando geometría y dimensiones.',38,577,19,'#ffce9d');
       if(this.bridgeLastGap){
-        txt('Vano detectado: '+this.bridgeLastGap.span_m.toFixed(2)+' m',38,650,20,'#86f7d9');
-        btn('bridge-confirm','COLOCAR PASARELA ENTRE MESAS',38,686,692,72,true);
+        const n=this.roomScan.status().options?.length??1;
+        txt('Opción '+(this.bridgeOptionIndex+1)+' de '+n+
+          ' · vano '+this.bridgeLastGap.span_m.toFixed(2)+' m',38,638,21,'#86f7d9');
+        btn('bridge-prev','‹ ANTERIOR',38,665,328,62,false,n>1);
+        btn('bridge-next','SIGUIENTE ›',403,665,327,62,false,n>1);
+        btn('bridge-confirm','COLOCAR PASARELA ELEGIDA',38,739,692,65,true);
       }
-      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?775:668,692,75,true);
-      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?866:783,692,70);
-      txt('Gatillo izquierdo: mantener para mover el menú.',38,948,19);
+      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?820:668,692,75,true);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?904:783,692,70);
+      txt('Gatillo izquierdo: mover menú · derecho: elegir.',38,1010,19);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
     }else if(this.page==='placement'){
@@ -678,6 +682,13 @@ export class StructuralXRControls {
         bridge.removeMode=!bridge.removeMode;
         if(bridge.removeMode)bridge.editMode=false;
         bridge.startNode=null;bridge.draw();
+      }else if(id==='bridge-prev'||id==='bridge-next'){
+        const options=this.roomScan.status().options??[];
+        if(options.length){
+          this.bridgeOptionIndex=(this.bridgeOptionIndex+(id==='bridge-next'?1:-1)+options.length)%options.length;
+          this.bridgeLastGap=options[this.bridgeOptionIndex];
+          this.notice='Opción '+(this.bridgeOptionIndex+1)+' de '+options.length;
+        }
       }else if(id==='bridge-confirm'){
         if(this.bridgeLastGap){
           try{
@@ -1002,9 +1013,11 @@ export class StructuralXRControls {
     // Keep scanning and show the stable gap until explicitly confirmed.
     // Auto-placement used to close this screen immediately after detection.
     const previous=this.bridgeLastGap;
-    this.bridgeLastGap=scan.gap;
-    if(!previous||Math.abs(previous.span_m-scan.gap.span_m)>.02){
-      this.notice='Vano identificado: '+scan.gap.span_m.toFixed(2)+
+    const options=scan.options??[];
+    this.bridgeOptionIndex=Math.min(this.bridgeOptionIndex,Math.max(0,options.length-1));
+    this.bridgeLastGap=options[this.bridgeOptionIndex]??scan.gap;
+    if(!previous||Math.abs(previous.span_m-this.bridgeLastGap.span_m)>.02){
+      this.notice='Vano identificado: '+this.bridgeLastGap.span_m.toFixed(2)+
         ' m. Pulsa COLOCAR PASARELA.';
       this.dirty=true;
     }
@@ -1125,7 +1138,7 @@ export class StructuralXRControls {
             if(parent)delta.applyQuaternion(parent.getWorldQuaternion(new THREE.Quaternion()).invert());
             this.app.worldRoot.position.add(delta);
           }
-        }else{
+        }else if(!this.app.bridgeCompetition?.active){
           const q=new THREE.Quaternion();
           if(Math.abs(x)>.16){
             q.setFromAxisAngle(new THREE.Vector3(0,1,0),-x*dt*1.6);
@@ -1136,7 +1149,7 @@ export class StructuralXRControls {
             this.app.worldRoot.quaternion.premultiply(q);
           }
         }
-      }else if(source.handedness==='right'&&Math.abs(y)>.16){
+      }else if(source.handedness==='right'&&!this.app.bridgeCompetition?.active&&Math.abs(y)>.16){
         // Continuous scaling: rounding on every frame would swallow small
         // joystick increments, so quantize the label, not the actual size.
         const newSize=clamp(this.app.targetMeters-y*dt*1.3,0.12,5);
