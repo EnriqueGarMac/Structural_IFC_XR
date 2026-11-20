@@ -124,6 +124,14 @@ export class StructuralScene {
       }else if(!bridgeActive&&this.worldRoot.visible===false){
         this.worldRoot.visible=true;
       }
+      // Return the bridge to its normal parent outside the XR competition.
+      if(!bridgeActive&&this.bridgeCompetition?.root.parent===this.scene){
+        this.contentRoot.add(this.bridgeCompetition.root);
+        this.bridgeCompetition.root.position.set(0,0,0);
+        this.bridgeCompetition.root.quaternion.identity();
+        this.bridgeCompetition.root.scale.setScalar(1);
+        this.bridgeCompetition.detectedGap=null;
+      }
       this.sapVisuals?.updateModalAnimation(time);
       if(this.isXR&&this.xrMode==='ar'&&this.bridgeCompetition?.breakAnimation)
         this.bridgeCompetition.observeFloor(frame,this.renderer.xr.getReferenceSpace());
