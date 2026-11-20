@@ -380,6 +380,14 @@ export class StructuralXRControls {
       const p=this.app.xrPerf;
       txt('XR '+p.fps+' FPS · '+p.calls+' draw · '+p.triangles+' tri · '+p.geometries+' geom',38,112,16,
         p.fps&&p.fps<65?'#ffb79b':'#9ddbd5');
+      const inv=this.app.xrInventory;
+      if(inv){
+        const o=inv.originalGroup,d=inv.deformedGroup,f=inv.framesGroup;
+        const sap=inv.sapVisuals,all=inv.total;
+        txt('OBJ visibles: IFC '+o.meshes+' · def '+d.meshes+
+          ' · barras '+(f.meshes+f.lines)+' · esfuerzos '+(sap.meshes+sap.lines)+
+          ' · total '+(all.meshes+all.lines+all.sprites),38,136,14,'#a8d6e3');
+      }
     }
     this.hits.push({id:'menu-handle',x:15,y:15,w:W-30,h:86});
     const app=this.app;
