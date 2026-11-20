@@ -46,7 +46,7 @@ export class StructuralXRControls {
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
-    this.scanOverlayTick=0;this.scanPlaneMeshes=new Map();this.rawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
+    this.scanOverlayTick=0;this.scanPlaneMeshes=new Map();this.rawPlaneCount=0;this.scanFrameCount=0;this.lastRawPlaneCount=0;this.planeApiAvailable=false;this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
     this.raycaster=new THREE.Raycaster();
     this.raycaster.far=12;
     this.controllers=[];
@@ -587,8 +587,10 @@ export class StructuralXRControls {
       txt(this.bridgeScan?'ESCANEANDO LA SALA…':'ESCANEO EN ESPERA',38,310,27,
         this.bridgeScan?'#86f7d9':'#ffce9d');
       const scan=this.roomScan.status();
-      txt('Máximo de planos WebXR: '+this.rawPlaneCount,38,389,23);
+      txt('Planos ahora / máximo: '+this.lastRawPlaneCount+
+        ' / '+this.rawPlaneCount,38,389,23);
       txt('Superficies compatibles: '+scan.surfaces,38,429,21);
+      txt('Fotogramas escaneados: '+this.scanFrameCount,38,606,19);
       txt('Mallas acumuladas: '+this.planeDiagnostics.polygon+
         ' · con posición: '+this.planeDiagnostics.pose+
         ' · horizontales: '+this.planeDiagnostics.horizontal,38,468,18);
@@ -598,8 +600,8 @@ export class StructuralXRControls {
         'WebXR no expone detectedPlanes en esta sesión.':
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
         'API activa: comprobando geometría y dimensiones.',38,577,19,'#ffce9d');
-      btn('bridge-scan','REINICIAR ESCANEO',38,640,692,90,true);
-      btn('bridge-menu','VOLVER AL CONCURSO',38,755,692,82);
+      btn('bridge-scan','REINICIAR ESCANEO',38,668,692,90,true);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,783,692,82);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
     }else if(this.page==='placement'){
@@ -906,6 +908,8 @@ export class StructuralXRControls {
     this.scanOverlay.visible=false;
     this.scanOverlayTick=0;
     this.rawPlaneCount=0;
+    this.scanFrameCount=0;
+    this.lastRawPlaneCount=0;
     this.planeDiagnostics={polygon:0,pose:0,horizontal:0};
   }
   paintScanPlanes(frame,ref){
@@ -954,8 +958,11 @@ export class StructuralXRControls {
   updateBridgeScan(frame){
     if(!this.bridgeScan||this.app.xrMode!=='ar'||!frame)return;
     const ref=this.app.renderer.xr.getReferenceSpace();
+    this.scanFrameCount++;
     this.planeApiAvailable=frame.detectedPlanes!=null;
-    this.rawPlaneCount=Math.max(this.rawPlaneCount,frame.detectedPlanes?.size??0);
+    this.lastRawPlaneCount=frame.detectedPlanes?.size??0;
+    this.rawPlaneCount=Math.max(this.rawPlaneCount,this.lastRawPlaneCount);
+    if(this.scanFrameCount%10===0)this.dirty=true;
     this.paintScanPlanes(frame,ref);
     const scan=this.roomScan.observe(frame,ref);
     if(scan.frames%15===0)this.dirty=true;
