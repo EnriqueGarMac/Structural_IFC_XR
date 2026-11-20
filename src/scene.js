@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import {XROpaqueBatch} from './xr-opaque-batch.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { caseNodes, makeDisplacementSampler, maxDisplacement, selectedLoads, loadMagnitude, analyticalNodePositions, areaEdges } from './results.mjs';
 import { StructuralXRControls } from './xr-controls.js';
@@ -85,7 +84,6 @@ export class StructuralScene {
     this.groundMarkers=new THREE.Group();
     this.worldRoot.add(this.groundMarkers);
     this.axes=new THREE.AxesHelper(1.5);this.contentRoot.add(this.axes);
-    this.xrOpaqueBatch=new XROpaqueBatch(this);
     this.parts=[];this.results=null;this.caseName='';this.pattern='all';this.offset=[0,0,0];this.maxU=0;this.bounds=null;
     this.amp=25;this.targetMeters=2.5;this.showLoads=true;this.showDeformed=true;this.showOriginal=true;
     this.showFrames=true;this.showSupports=true;this.showStructureOnly=false;this.ifcOpacity=1;this.ifcOpacityScope='envelope';this.showAxes=true;this.hideGround=true;this.showSAPOnly=false;this.isXR=false;this.xrSession=null;this.xrMode=null;
@@ -165,7 +163,6 @@ export class StructuralScene {
     }
   }
   setModel(items){
-    this.xrOpaqueBatch?.clear();
     this.clearGroup(this.originalGroup);this.clearGroup(this.deformedGroup);this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);
     this.parts=[];
     const bbox=new THREE.Box3(),allBounds=new THREE.Box3();
@@ -298,7 +295,6 @@ export class StructuralScene {
     const visibility=displayModeVisibility({showSAPOnly:this.showSAPOnly,
       hideGround:this.hideGround,showOriginal:this.showOriginal,
       showDeformed:this.showDeformed,hasCases:hasCases||isModal});
-    this.xrOpaqueBatch?.clear();
     this.originalGroup.visible=visibility.original;
     this.deformedGroup.visible=isModal&&!this.showSAPOnly?this.showDeformed:visibility.deformed;
     for(const part of this.parts){
@@ -375,7 +371,6 @@ export class StructuralScene {
     this.sapVisuals?.updateLegend();
     this.reactionVisuals?.updateLegend();
     this.webSun?.update();
-    this.xrOpaqueBatch?.refresh();
   }
   updateOverlays(){
     this.clearGroup(this.loadsGroup);this.clearGroup(this.framesGroup);this.clearGroup(this.supportGroup);
@@ -830,8 +825,7 @@ export class StructuralScene {
     this.groundMarkers.visible=false;
     this.controls.enabled=false;
     session.addEventListener('end',()=>{
-      this.xrOpaqueBatch?.clear();
-      this.xrSession=null;this.isXR=false;this.xrMode=null;this.arAnchorPoint=null;
+        this.xrSession=null;this.isXR=false;this.xrMode=null;this.arAnchorPoint=null;
       this.vrEnvironment.visible=false;
       this.stopMobileAR();
       this.xrControls.stop();
@@ -850,8 +844,7 @@ export class StructuralScene {
         this.worldRoot.quaternion.copy(this.xrControls.baseQuat);
         await this.startMobileAR(session);
       }else this.xrControls.start(session);
-      this.xrOpaqueBatch?.refresh();
-    }catch(err){
+      }catch(err){
       await session.end().catch(()=>{});
       throw err;
     }
