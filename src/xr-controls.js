@@ -7,7 +7,7 @@ import {bucklingSummary} from './results.mjs';
 import {isControlActive} from './view-controls.mjs';
 import {FORCE_PALETTES,nextPalette} from './visual-palettes.mjs';
 import {placeModelOnSurface,matchingTablePlane,tableFitSize} from './ar-placement.mjs';
-import {detectBridgeTableGap,applyBridgeGapPlacement} from './bridge-table-detection.mjs';
+import {BridgeRoomScan,applyBridgeGapPlacement} from './bridge-table-detection.mjs';
 import {BRIDGE_SECTIONS} from './bridge-competition-solver.mjs';
 
 // A real 3D UI: HTML overlays do not reliably appear in immersive WebXR.
@@ -25,7 +25,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
-    this.dirty=true;this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
+    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -80,7 +80,7 @@ export class StructuralXRControls {
   start(session){
     this.session=session;
     this.initializedPose=false;this.panel.visible=true;
-    this.page='main';this.dirty=true;this.placeMode=false;this.moveMenu=false;
+    this.page='main';this.dirty=true;this.roomScan.reset();this.bridgeScan=false;this.placeMode=false;this.moveMenu=false;
     this.hitAvailable=this.app.xrMode!=='vr' &&
       typeof session.requestHitTestSource==='function' &&
       (!session.enabledFeatures||session.enabledFeatures.includes('hit-test'));
@@ -90,7 +90,7 @@ export class StructuralXRControls {
     this.contact.visible=false;this.hasPlacedSurface=false;
   }
   stop(){
-    this.session=null;this.panel.visible=false;this.reticle.visible=false;
+    this.session=null;this.roomScan.reset();this.bridgeScan=false;this.panel.visible=false;this.reticle.visible=false;
     this.app.sapVisuals?.hideXRHover();
     this.app.reactionVisuals?.hideXRHover();
     this.contact.visible=false;this.hasPlacedSurface=false;this.placeMode=false;this.moveMenu=false;this.drag=null;this.latestHit=null;
@@ -392,7 +392,7 @@ export class StructuralXRControls {
         btn('bridge-load:+','+ 0,5 kN',542,598,188,75);
         txt('VANO: '+bridge.span_m.toFixed(2)+' m · '+bridge.members.length+' elementos',
           38,725,22,'#b1dfe0');
-        btn('bridge-scan','DETECTAR HUECO ENTRE DOS MESAS',38,750,692,70,true,
+        btn('bridge-scan',this.bridgeScan?'REINICIAR ESCANEO DE LA SALA': 'ESCANEAR DOS MESAS',38,750,692,70,true,
           app.xrMode==='ar');
         btn('bridge-evaluate','COMPROBAR',38,833,430,78,true);
         btn('bridge-reference',bridge.undeformedView?'VER DEFORMADA':'SIN DEFORMAR',
@@ -604,7 +604,7 @@ export class StructuralXRControls {
       // In mixed reality, begin looking for two tabletops as soon as the
       // competition opens. The manual scan button remains available to retry.
       if(app.xrMode==='ar'){
-        this.bridgeScan=true;
+        this.roomScan.reset();this.bridgeScan=true;
         this.bridgeScanStable=0;
         this.bridgeLastGap=null;
         this.notice='Buscando automáticamente dos mesas enfrentadas…';
@@ -631,7 +631,7 @@ export class StructuralXRControls {
       }else if(id==='bridge-scan'){
         if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
         else {
-          this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
+          this.roomScan.reset();this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
           this.notice='Busca dos mesas horizontales y enfrentadas.';
         }
       }else if(id==='bridge-evaluate'){
@@ -864,14 +864,15 @@ export class StructuralXRControls {
     if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
       this.app.xrMode!=='ar'||!frame)return;
     const ref=this.app.renderer.xr.getReferenceSpace();
-    const gap=detectBridgeTableGap(frame,ref);
-    if(!gap){this.bridgeScanStable=0;this.bridgeLastGap=null;return;}
-    const previous=this.bridgeLastGap;
-    const consistent=previous&&Math.abs(previous.span_m-gap.span_m)<.035&&
-      previous.start.distanceTo(gap.start)<.06&&previous.end.distanceTo(gap.end)<.06;
-    this.bridgeScanStable=consistent?this.bridgeScanStable+1:1;
-    this.bridgeLastGap=gap;
-    if(this.bridgeScanStable<7)return;
+    const scan=this.roomScan.observe(frame,ref);
+    if(scan.frames%30===0){
+      this.notice=scan.candidate?
+        'Mesas candidatas: '+scan.surfaces+' superficies · estabilizando medición':
+        'Escaneando sala: '+scan.surfaces+' superficies · mira ambas mesas';
+      this.dirty=true;
+    }
+    if(!scan.gap)return;
+    const gap=scan.gap;
     this.bridgeScan=false;
     const measured=applyBridgeGapPlacement(this.app,gap,this.app.bridgeCompetition);
     const input=document.getElementById('bridge-span');
@@ -880,6 +881,7 @@ export class StructuralXRControls {
     if(feedback)feedback.textContent='Dos mesas detectadas. Vano '+measured.toFixed(2)+
       ' m. La pasarela se ha colocado entre sus bordes.';
     this.selected='Vano detectado · '+measured.toFixed(2)+' m';
+    this.notice='Escaneo completado. Vano '+measured.toFixed(2)+' m.';
     this.dirty=true;
   }
   update(time,frame){
