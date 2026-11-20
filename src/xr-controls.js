@@ -667,7 +667,7 @@ export class StructuralXRControls {
       }else if(id==='bridge-scan'){
         if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
         else {
-          this.roomScan.reset();this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
+          this.roomScan.reset();this.clearScanOverlay();this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
           this.notice='Busca dos mesas horizontales y enfrentadas.';
         }
       }else if(id==='bridge-evaluate'){
@@ -952,20 +952,20 @@ export class StructuralXRControls {
     this.dirty=true;
   }
   updateBridgeScan(frame){
-    if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
-      this.app.xrMode!=='ar'||!frame)return;
+    if(!this.bridgeScan||this.app.xrMode!=='ar'||!frame)return;
     const ref=this.app.renderer.xr.getReferenceSpace();
     this.planeApiAvailable=frame.detectedPlanes!=null;
     this.rawPlaneCount=Math.max(this.rawPlaneCount,frame.detectedPlanes?.size??0);
     this.paintScanPlanes(frame,ref);
     const scan=this.roomScan.observe(frame,ref);
+    if(scan.frames%15===0)this.dirty=true;
     if(scan.frames%30===0){
       this.notice=!frame.detectedPlanes?'Quest Browser no proporciona planos de la sala':scan.candidate?
         'Mesas candidatas: '+scan.surfaces+' superficies · estabilizando medición':
         'Escaneando sala: '+scan.surfaces+' superficies · mira ambas mesas';
       this.dirty=true;
     }
-    if(!scan.gap)return;
+    if(!scan.gap||!this.app.bridgeCompetition?.active)return;
     const gap=scan.gap;
     this.bridgeScan=false;
     this.clearScanOverlay();
