@@ -607,9 +607,12 @@ export class StructuralXRControls {
         'WebXR no expone detectedPlanes en esta sesión.':
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
         'API activa: comprobando geometría y dimensiones.',38,577,19,'#ffce9d');
-      if(this.bridgeLastGap)btn('bridge-confirm','COLOCAR PASARELA ENTRE MESAS',38,668,692,82,true);
-      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?762:668,692,80,true);
-      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?857:783,692,72);
+      if(this.bridgeLastGap){
+        txt('Vano detectado: '+this.bridgeLastGap.span_m.toFixed(2)+' m',38,650,20,'#86f7d9');
+        btn('bridge-confirm','COLOCAR PASARELA ENTRE MESAS',38,686,692,72,true);
+      }
+      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?775:668,692,75,true);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?866:783,692,70);
       txt('Gatillo izquierdo: mantener para mover el menú.',38,948,19);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
@@ -680,6 +683,7 @@ export class StructuralXRControls {
           try{
             const measured=applyBridgeGapPlacement(app,this.bridgeLastGap,bridge);
             this.bridgeScan=false;this.clearScanOverlay();
+            this.bridgeLastGap=null;
             this.notice='Pasarela colocada · vano '+measured.toFixed(2)+' m';
             this.page='bridge';
           }catch(error){this.notice='No se pudo colocar: '+String(error?.message??error);}
@@ -995,27 +999,13 @@ export class StructuralXRControls {
       this.dirty=true;
     }
     if(!scan.gap||!this.app.bridgeCompetition?.active)return;
-    // A stable pair of table surfaces is enough to position the bridge.
-    // Keep the manual confirmation path as a fallback if placement fails.
+    // Keep scanning and show the stable gap until explicitly confirmed.
+    // Auto-placement used to close this screen immediately after detection.
+    const previous=this.bridgeLastGap;
     this.bridgeLastGap=scan.gap;
-    try{
-      const measured=applyBridgeGapPlacement(
-        this.app,scan.gap,this.app.bridgeCompetition);
-      const input=document.getElementById('bridge-span');
-      if(input)input.value=String(Number(measured.toFixed(3)));
-      const feedback=document.getElementById('bridge-detection-status');
-      if(feedback)feedback.textContent=
-        'Pasarela colocada entre las mesas · vano '+measured.toFixed(2)+' m.';
-      this.bridgeScan=false;
-      this.clearScanOverlay();
-      this.selected='Vano detectado · '+measured.toFixed(2)+' m';
-      this.notice='Pasarela colocada · vano '+measured.toFixed(2)+' m';
-      this.page='bridge';
-      this.dirty=true;
-    }catch(error){
-      this.bridgeScan=false;
-      this.scanError='Colocación pendiente: '+String(error?.message??error);
-      this.notice=this.scanError;
+    if(!previous||Math.abs(previous.span_m-scan.gap.span_m)>.02){
+      this.notice='Vano identificado: '+scan.gap.span_m.toFixed(2)+
+        ' m. Pulsa COLOCAR PASARELA.';
       this.dirty=true;
     }
   }
