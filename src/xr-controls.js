@@ -25,7 +25,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
-    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.bridgeOptionIndex=0;this.bridgeOptionIndex=0;this.bridgeOptionKey='';this.manualBridge=false;this.manualBridgePoints=[];this.manualBridgeGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
+    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.bridgeOptionIndex=0;this.bridgeOptionIndex=0;this.bridgeOptionKey='';this.manualBridge=true;this.manualBridgePoints=[];this.manualBridgeGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -44,7 +44,7 @@ export class StructuralXRControls {
     // Diagnostic overlay: triangulated polygons supplied by WebXR plane detection.
     // This is NOT a full room mesh; no geometry is invented for unseen areas.
     this.scanGapMarkers=new THREE.Group();app.scene.add(this.scanGapMarkers);
-    this.manualCursor=new THREE.Mesh(new THREE.SphereGeometry(.035,12,8),new THREE.MeshBasicMaterial({color:0xffff55,depthTest:false}));
+    this.manualCursor=new THREE.Mesh(new THREE.RingGeometry(.035,.049,48),new THREE.MeshBasicMaterial({color:0xffff55,side:THREE.DoubleSide,depthTest:false,depthWrite:false}));
     this.manualCursor.renderOrder=18020;this.manualCursor.visible=false;app.scene.add(this.manualCursor);
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
@@ -632,8 +632,7 @@ export class StructuralXRControls {
       txt('Mallas acumuladas: '+this.planeDiagnostics.polygon+
         ' · con posición: '+this.planeDiagnostics.pose+
         ' · horizontales: '+this.planeDiagnostics.horizontal,38,468,18);
-      txt(scan.candidate?'Dos mesas candidatas · comprobando vano':
-        'Mira lentamente las dos mesas y sus bordes.',38,515,20);
+      txt('Apunta al plano sombreado para elegir el primer y segundo apoyo.',38,515,18);
       txt(!this.planeApiAvailable?
         'WebXR no expone detectedPlanes en esta sesión.':
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
@@ -648,7 +647,7 @@ export class StructuralXRControls {
           ' · vano '+this.bridgeLastGap.span_m.toFixed(2)+' m',38,638,21,'#86f7d9');
         txt('Apunta al vano: verde = vista previa. Gatillo = aceptar.',38,705,19,'#86f7d9');
       }
-      btn('bridge-manual',this.manualBridge?'VOLVER A AUTOMÁTICO':'SELECCIONAR DOS APOYOS',38,750,692,70,true);
+      btn('bridge-manual','REINICIAR SELECCIÓN DE APOYOS',38,750,692,70,true);
       btn('bridge-scan','REINICIAR ESCANEO',38,830,692,70);
       btn('bridge-menu','VOLVER AL CONCURSO',38,910,692,65);
       txt('Apunta con el mando derecho a la pasarela sombreada.',38,978,19);
@@ -695,8 +694,8 @@ export class StructuralXRControls {
       if(app.xrMode==='ar'){
         this.roomScan.reset();this.clearScanOverlay();this.scanError='';this.bridgeScan=true;
         this.bridgeScanStable=0;
-        this.bridgeLastGap=null;
-        this.notice='Buscando automáticamente dos mesas enfrentadas…';
+        this.bridgeLastGap=null;this.manualBridge=true;
+        this.notice='Selecciona el primer apoyo sobre un plano detectado.';
       }
     }
     else if(id.startsWith('bridge-')){
@@ -736,15 +735,15 @@ export class StructuralXRControls {
           }catch(error){this.notice='No se pudo colocar: '+String(error?.message??error);}
         }
       }else if(id==='bridge-manual'){
-        this.manualBridge=!this.manualBridge;
+        this.manualBridge=true;
         this.manualBridgePoints=[];this.manualBridgeGap=null;
         this.clearGapMarkers();this.bridgeLastGap=null;
-        this.notice=this.manualBridge?'Señala el borde de la primera mesa.':'Detección automática activada.';
+        this.notice='Señala el primer apoyo con el mando derecho.';
       }else if(id==='bridge-scan'){
         if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
         else {
           this.roomScan.reset();this.clearScanOverlay();this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
-          this.bridgeOptionIndex=0;this.manualBridge=false;this.scanError='';this.page='placement';
+          this.bridgeOptionIndex=0;this.manualBridge=true;this.scanError='';this.page='placement';
           this.notice='Busca dos mesas horizontales y enfrentadas.';
         }
       }else if(id==='bridge-evaluate'){
@@ -1018,8 +1017,10 @@ export class StructuralXRControls {
     // Detected planes are drawn as local polygon meshes with world transforms.
     this.scanOverlay.updateMatrixWorld(true);
     const hits=ray.intersectObjects([...this.scanPlaneMeshes.values()],false);
-    const hit=hits.find(h=>h.object.material.color.getHex()===0x46eac4);
-    return hit?.point?.clone()??null;
+    const hit=hits.find(h=>h.object.userData.scanHorizontal);
+    if(!hit)return null;
+    const normal=new THREE.Vector3(0,1,0).transformDirection(hit.object.matrixWorld).normalize();
+    return {point:hit.point.clone(),normal};
   }
   manualBridgePick(controller){
     if(this.manualBridgeGap){
@@ -1030,11 +1031,12 @@ export class StructuralXRControls {
       }catch(e){this.notice=String(e.message??e);}
       this.dirty=true;return;
     }
-    const point=this.manualBridgeRayPoint(controller);
-    if(!point){
+    const target=this.manualBridgeRayPoint(controller);
+    if(!target){
       this.notice='Apunta al plano horizontal sombreado con el mando derecho.';
       this.dirty=true;return;
     }
+    const point=target.point;
     if(this.manualBridgePoints.length===0){
       this.manualBridgePoints=[point];
       this.notice='Primer punto fijado. Apunta al segundo apoyo.';
@@ -1092,7 +1094,7 @@ export class StructuralXRControls {
         geometry.setIndex(indices);
         const material=new THREE.MeshBasicMaterial({
           color:horizontal?0x46eac4:0x6ca6e8,
-          transparent:true,opacity:.45,wireframe:true,
+          transparent:true,opacity:.22,wireframe:false,
           side:THREE.DoubleSide,depthTest:false,depthWrite:false
         });
         mesh=new THREE.Mesh(geometry,material);
@@ -1101,6 +1103,8 @@ export class StructuralXRControls {
         this.scanOverlay.add(mesh);
         this.scanPlaneMeshes.set(plane,mesh);
       }
+      mesh.userData.scanHorizontal=horizontal;
+      mesh.material.color.setHex(horizontal?0x46eac4:0x6ca6e8);
       mesh.matrix.copy(transform);
       mesh.matrixWorldNeedsUpdate=true;
     }
@@ -1131,6 +1135,8 @@ export class StructuralXRControls {
     this.rawPlaneCount=Math.max(this.rawPlaneCount,this.lastRawPlaneCount);
     if(this.scanFrameCount%10===0)this.dirty=true;
     this.paintScanPlanes(frame,ref);
+    // The competition uses detected plane polygons only, never automatic table pairing.
+    if(this.manualBridge){if(this.scanFrameCount%15===0)this.dirty=true;return;}
     const scan=this.roomScan.observe(frame,ref);
     if(scan.frames%15===0)this.dirty=true;
     if(scan.frames%30===0){
@@ -1207,9 +1213,13 @@ export class StructuralXRControls {
     let forceHovered=false;
     if(this.bridgeScan&&this.page==='placement'&&this.manualBridge){
       const right=this.controllers.find(c=>c.controller.userData.xrInput?.handedness==='right');
-      const point=right?this.manualBridgeRayPoint(right.controller):null;
+      const target=right?this.manualBridgeRayPoint(right.controller):null;
+      const point=target?.point;
       this.manualCursor.visible=!!point&&!this.manualBridgeGap;
-      if(point)this.manualCursor.position.copy(point);
+      if(point){
+        this.manualCursor.position.copy(point).addScaledVector(target.normal,.008);
+        this.manualCursor.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),target.normal);
+      }
       if(this.manualBridgePoints.length===1&&point&&!this.manualBridgeGap){
         const first=this.manualBridgePoints[0],span=Math.hypot(point.x-first.x,point.z-first.z);
         if(span>=.3&&span<=4&&Math.abs(point.y-first.y)<=.22){
