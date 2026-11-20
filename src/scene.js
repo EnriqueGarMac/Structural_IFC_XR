@@ -101,6 +101,23 @@ export class StructuralScene {
         if(this.mobileAR)this.updateMobileAR(frame);
         else this.xrControls.update(time,frame);
       }else this.controls.update();
+      // Competition is a standalone experience. Never render the house/IFC
+      // behind the bridge: it shares worldRoot and can appear enormous in AR.
+      const bridgeActive=Boolean(this.bridgeCompetition?.active);
+      if(bridgeActive&&!this._bridgeHiddenGroups){
+        this._bridgeHiddenGroups=new Map();
+        for(const child of this.contentRoot.children){
+          if(child===this.bridgeCompetition.root)continue;
+          this._bridgeHiddenGroups.set(child,child.visible);
+          child.visible=false;
+        }
+      }else if(!bridgeActive&&this._bridgeHiddenGroups){
+        for(const [child,visible] of this._bridgeHiddenGroups)child.visible=visible;
+        this._bridgeHiddenGroups=null;
+      }
+      if(bridgeActive&&this._bridgeHiddenGroups){
+        for(const child of this._bridgeHiddenGroups.keys())child.visible=false;
+      }
       this.sapVisuals?.updateModalAnimation(time);
       if(this.isXR&&this.xrMode==='ar'&&this.bridgeCompetition?.breakAnimation)
         this.bridgeCompetition.observeFloor(frame,this.renderer.xr.getReferenceSpace());
