@@ -956,9 +956,10 @@ export class StructuralXRControls {
     this.dirty=true;
   }
   updateBridgeScan(frame){
-    const onBridgeScanPage=this.page==='placement'&&
-      this.app.xrMode==='ar'&&this.selected==='Concurso de pasarelas';
-    if((!this.bridgeScan&&!onBridgeScanPage)||this.app.xrMode!=='ar'||!frame)return;
+    // The scan page itself is authoritative. Do not gate XR updates on
+    // selected text, DOM click side effects, or bridge active state.
+    const onBridgeScanPage=this.page==='placement'&&this.app.xrMode==='ar';
+    if(this.app.xrMode!=='ar'||!frame||(!this.bridgeScan&&!onBridgeScanPage))return;
     if(onBridgeScanPage&&!this.bridgeScan)this.bridgeScan=true;
     const ref=this.app.renderer.xr.getReferenceSpace();
     this.scanFrameCount++;
