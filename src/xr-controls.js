@@ -995,7 +995,7 @@ export class StructuralXRControls {
     target.y=0;
     if(target.lengthSq()>.0001){
       this.panel.quaternion.setFromRotationMatrix(
-        new THREE.Matrix4().lookAt(new THREE.Vector3(),target,new THREE.Vector3(0,1,0)));
+        new THREE.Matrix4().lookAt(target,new THREE.Vector3(),new THREE.Vector3(0,1,0)));
     }
   }
   paintScanPlanes(frame,ref){
