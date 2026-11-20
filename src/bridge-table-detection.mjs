@@ -130,7 +130,17 @@ export class BridgeRoomScan {
     const options=[];
     for(let i=0;i<stable.length;i++)for(let j=i+1;j<stable.length;j++){
       const gap=bridgeGapBetween(stable[i],stable[j]);
-      if(gap)options.push(gap);
+      if(!gap)continue;
+      // Reject a span that crosses another tabletop in the intervening row.
+      const blocked=stable.some((other,k)=>{
+        if(k===i||k===j||Math.abs(other.top-gap.start.y)>.22)return false;
+        const box=other.bounds.clone().expandByScalar(.06);
+        const direction=gap.end.clone().sub(gap.start);
+        const ray=new THREE.Ray(gap.start.clone(),direction.clone().normalize());
+        const hit=ray.intersectBox(box,new THREE.Vector3());
+        return hit&&hit.distanceTo(gap.start)<direction.length()-.04;
+      });
+      if(!blocked)options.push(gap);
     }
     this.options=options.sort((a,b)=>a.span_m-b.span_m).slice(0,12);
     const best=this.options[0]??null;
