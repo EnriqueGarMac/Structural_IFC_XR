@@ -1202,9 +1202,9 @@ export class StructuralXRControls {
           const relative=q.clone().multiply(d.startQ.clone().invert());
           d.object.quaternion.copy(relative.multiply(d.startObjectQ));
         } else {
-          const target=d.startObjectPos.clone().add(p.sub(d.startPos).multiplyScalar(d.kind==='menu'?1.5:1));
-          if(d.kind==='menu')d.object.position.lerp(target,.24);
-          else d.object.position.copy(target);
+          const target=d.startObjectPos.clone().add(p.sub(d.startPos));
+          // Direct 1:1 controller tracking: no cumulative lerp lag.
+          d.object.position.copy(target);
           if(d.kind==='move'&&this.app.bridgeCompetition?.active){
             const rotation=q.clone().multiply(d.startQ.clone().invert());
             d.object.quaternion.copy(rotation.multiply(d.startObjectQ));
@@ -1219,6 +1219,8 @@ export class StructuralXRControls {
     this.lastFrameTime=time;
     let hovered=null;
     let forceHovered=false;
+    const pollForceHover=time-(this.lastForceHoverPoll||0)>=350;
+    if(pollForceHover)this.lastForceHoverPoll=time;
     if(this.bridgeScan&&this.page==='placement'&&this.manualBridge){
       const right=this.controllers.find(c=>c.controller.userData.xrInput?.handedness==='right');
       const target=right?this.manualBridgeRayPoint(right.controller):null;
@@ -1285,8 +1287,10 @@ export class StructuralXRControls {
             if(this.selected!==label){this.selected=label;this.dirty=true;}
           }
         }else if(this.app.sapVisuals?.view==='forces'){
-          const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
-          if(selected)forceHovered=true;
+          if(pollForceHover){
+            const selected=this.app.sapVisuals.inspectXRRay(this._ray(controller));
+            if(selected)forceHovered=true;
+          }
         }else if(this.app.sapVisuals?.view==='deformation'){
           const selected=this.app.nodeProbe?.inspectXRRay(this._ray(controller));
           if(selected)forceHovered=true;
@@ -1353,7 +1357,7 @@ export class StructuralXRControls {
       if(ctrl){
         const ray=this._ray(ctrl).ray;
         const target=ray.origin.clone().addScaledVector(ray.direction,1.2);
-        this.panel.position.lerp(target,.22);
+        this.panel.position.copy(target);
         // Do not copy headset rotation: it introduces visible jitter.
       }
     }
