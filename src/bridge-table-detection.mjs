@@ -9,8 +9,11 @@ function axisOverlap(a,b,axis){
   const max=Math.min(a.bounds.max[axis],b.bounds.max[axis]);
   return {min,max,length:max-min,centre:(min+max)/2};
 }
-export function bridgeGapBetween(a,b,{minGap=.20,maxGap=3,heightTolerance=.18}={}){
+export function bridgeGapBetween(a,b,{minGap=.45,maxGap=4,heightTolerance=.18}={}){
   if(!a||!b||Math.abs(a.top-b.top)>heightTolerance)return null;
+  // Fragments of one tabletop can appear as distinct WebXR planes.
+  // Reject nearby fragments and strongly overlapping bounding boxes.
+  if(a.bounds.intersectsBox(b.bounds))return null;
   let candidates=[];
   const oz=axisOverlap(a,b,'z'),ox=axisOverlap(a,b,'x');
   if(oz.length>.12){
@@ -49,7 +52,7 @@ export function bridgeGapBetween(a,b,{minGap=.20,maxGap=3,heightTolerance=.18}={
 // explicitly records the two points. We measure the horizontal distance
 // between those points; these are not automatically discovered plane edges.
 export function bridgeGapFromHitPoints(first,second,{
-  minGap=.3,maxGap=3,heightTolerance=.12
+  minGap=.3,maxGap=4,heightTolerance=.18
 }={}){
   if(!first||!second||![first.x,first.y,first.z,
     second.x,second.y,second.z].every(Number.isFinite))
@@ -114,8 +117,8 @@ export class BridgeRoomScan {
       if(!item)continue;
       const label=item.label.toLowerCase();
       if(label&&['wall','ceiling','floor','door','window'].includes(label))continue;
-      if(item.width<.30||item.depth<.25||item.width>4.5||item.depth>4.5||
-         item.area<.12||item.area>15)continue;
+      if(item.width<.30||item.depth<.30||item.width>5||item.depth>5||
+         item.area<.15||item.area>20)continue;
       const old=this.surfaces.get(plane);
       this.surfaces.set(plane,{...item,observations:(old?.observations??0)+1,
         lastSeen:this.frameCount});
