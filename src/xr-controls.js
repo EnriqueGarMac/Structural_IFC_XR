@@ -601,6 +601,14 @@ export class StructuralXRControls {
     else if(id==='bridge-open'){
       document.getElementById('bridge-start')?.click();
       this.page='bridge';this.selected='Concurso de pasarelas';
+      // In mixed reality, begin looking for two tabletops as soon as the
+      // competition opens. The manual scan button remains available to retry.
+      if(app.xrMode==='ar'){
+        this.bridgeScan=true;
+        this.bridgeScanStable=0;
+        this.bridgeLastGap=null;
+        this.notice='Buscando automáticamente dos mesas enfrentadas…';
+      }
     }
     else if(id.startsWith('bridge-')){
       const bridge=app.bridgeCompetition;
