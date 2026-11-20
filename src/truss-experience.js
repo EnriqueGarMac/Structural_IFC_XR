@@ -222,6 +222,16 @@ export class TrussExperience {
       const mesh=cylinderBetween(moved(na),moved(nb),bar.id===this.selectedBarId?radius*1.32:radius,
         bar.id===this.selectedBarId?COLORS.selected:color);
       mesh.userData={trussBarId:bar.id};
+      // Reference configuration: a faint ghost behind the calculated deformation.
+      // Keep it non-pickable so interaction always targets the deformed member.
+      if(this.ampFactor>0 && maxU>1e-12){
+        const reference=cylinderBetween(na,nb,radius*.82,COLORS.base);
+        reference.material.transparent=true;
+        reference.material.opacity=.14;
+        reference.material.depthWrite=false;
+        reference.renderOrder=-1;
+        this.root.add(reference);
+      }
       this.root.add(mesh);this.pickBars.push(mesh);
       // The common force-diagram engine owns characteristic labels when
       // this exercise is attached to the main Analysis tab.
