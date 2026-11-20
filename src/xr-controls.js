@@ -376,8 +376,8 @@ export class StructuralXRControls {
     const {btn,txt}=this._buttons();
     txt('IMIS · STRUCTURAL XR',35,55,30,uiColour.accent);
     txt('ARRASTRAR',722,55,17,'#b0d3df','right');
-    if(app?.isXR&&app.xrPerf){
-      const p=app.xrPerf;
+    if(this.app?.isXR&&this.app.xrPerf){
+      const p=this.app.xrPerf;
       txt('XR '+p.fps+' FPS · '+p.calls+' draw · '+p.triangles+' tri · '+p.geometries+' geom',38,112,16,
         p.fps&&p.fps<65?'#ffb79b':'#9ddbd5');
     }
