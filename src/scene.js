@@ -27,7 +27,8 @@ export class StructuralScene {
     this.camera.position.set(4.6,3.5,5.8);
     this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:false});
     this.renderer.setClearColor(0x07131d,0);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    // Quest XR uses the headset's native render target; avoid oversampling the 2D canvas.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
     this.renderer.xr.enabled=true;
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -93,6 +94,8 @@ export class StructuralScene {
     this.renderer.domElement.addEventListener('pointerdown',(evt)=>this.pickStart={x:evt.clientX,y:evt.clientY});
     this.renderer.domElement.addEventListener('pointerup',(evt)=>this.pickElement(evt));
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
+    this.xrPerf={fps:0,calls:0,triangles:0,geometries:0,textures:0};
+    this._xrPerfStart=0;this._xrPerfFrames=0;
     this.renderer.setAnimationLoop((time,frame)=>{
       if(this.isXR){
         if(this.mobileAR)this.updateMobileAR(frame);
@@ -103,6 +106,18 @@ export class StructuralScene {
         this.bridgeCompetition.observeFloor(frame,this.renderer.xr.getReferenceSpace());
       this.bridgeCompetition?.animate(time);
       this.renderer.render(this.scene,this.camera);
+      if(this.isXR){
+        if(!this._xrPerfStart)this._xrPerfStart=time;
+        this._xrPerfFrames++;
+        if(time-this._xrPerfStart>=1000){
+          const info=this.renderer.info;
+          this.xrPerf={fps:Math.round(this._xrPerfFrames*1000/(time-this._xrPerfStart)),
+            calls:info.render.calls,triangles:info.render.triangles,
+            geometries:info.memory.geometries,textures:info.memory.textures};
+          this._xrPerfStart=time;this._xrPerfFrames=0;
+          if(this.xrControls)this.xrControls.dirty=true;
+        }
+      }else{this._xrPerfStart=0;this._xrPerfFrames=0;}
     });
     this.resize();
   }
