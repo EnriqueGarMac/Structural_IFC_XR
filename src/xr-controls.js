@@ -1183,7 +1183,7 @@ export class StructuralXRControls {
           const relative=q.clone().multiply(d.startQ.clone().invert());
           d.object.quaternion.copy(relative.multiply(d.startObjectQ));
         } else {
-          d.object.position.copy(d.startObjectPos).add(p.sub(d.startPos));
+          d.object.position.copy(d.startObjectPos).add(p.sub(d.startPos).multiplyScalar(d.kind==='menu'?1.8:1));
           if(d.kind==='move'&&this.app.bridgeCompetition?.active){
             const rotation=q.clone().multiply(d.startQ.clone().invert());
             d.object.quaternion.copy(rotation.multiply(d.startObjectQ));
@@ -1293,10 +1293,8 @@ export class StructuralXRControls {
             q.setFromAxisAngle(new THREE.Vector3(0,1,0),-x*dt*1.6);
             this.app.worldRoot.quaternion.premultiply(q);
           }
-          if(Math.abs(y)>.16){
-            q.setFromAxisAngle(new THREE.Vector3(1,0,0),y*dt*1.6);
-            this.app.worldRoot.quaternion.premultiply(q);
-          }
+          // Keep pitch/roll unchanged: only yaw about the world vertical.
+          // Do not alter position.y, so the model stays on its support plane.
         }
       }else if(source.handedness==='right'&&!this.app.bridgeCompetition?.active&&Math.abs(y)>.16){
         // Continuous scaling: rounding on every frame would swallow small
