@@ -349,18 +349,19 @@ test('automatic mobile plane detection accepts a tabletop below the XR local ori
   near(gap.start.y,-.8);
 });
 test('Quest placement maps exact measured endpoints without inventing scale',()=>{
-  const app={worldRoot:new THREE.Object3D(),targetMeters:1,arAnchorPoint:null,
-    updateScale(){this.updated=true;}};
-  const experience={span_m:1.2,defaultWorldQuaternion:
-    new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,0)),
-    setSpan(x){this.span_m=x;}};
+  const scene=new THREE.Scene();
+  const worldRoot=new THREE.Object3D();
+  const app={scene,worldRoot,arAnchorPoint:new THREE.Vector3(0,0,0)};
+  const root=new THREE.Group();
+  const experience={root,span_m:1.2,setSpan(x){this.span_m=x;}};
   const gap={span_m:.8,start:new THREE.Vector3(1,.8,0),
     end:new THREE.Vector3(1.8,.8,0),direction:new THREE.Vector3(1,0,0)};
   near(applyBridgeGapPlacement(app,gap,experience),.8);
-  near(app.worldRoot.position.x,1);
-  near(app.worldRoot.position.y,.8);
-  near(app.targetMeters,.8);
+  assert.equal(root.parent,scene);
+  near(root.scale.x,2/3);
+  near(root.localToWorld(new THREE.Vector3(0,0,0)).distanceTo(gap.start),0);
+  near(root.localToWorld(new THREE.Vector3(1.2,0,0)).distanceTo(gap.end),0);
+  near(experience.supportPlacementError_m,0);
   assert.equal(app.arAnchorPoint,null);
-  assert.equal(app.updated,true);
   assert.equal(experience.detectedGap,gap);
 });
