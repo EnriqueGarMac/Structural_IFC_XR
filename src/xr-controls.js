@@ -145,6 +145,12 @@ export class StructuralXRControls {
   }
   onSelectStart(controller){
     if(!this.session)return;
+    // In the bridge competition the left trigger is reserved for moving
+    // the panel, even if its ray crosses a menu button.
+    if(this.app.bridgeCompetition?.active&&controller.userData.xrInput?.handedness==='left'){
+      if(!this.drag)this.beginDrag('menu',controller,controller,this.panel);
+      return;
+    }
     if(this.moveMenu){
       // Second trigger confirms the current panel placement even when
       // the menu is physically following the ray.
@@ -604,6 +610,7 @@ export class StructuralXRControls {
       if(this.bridgeLastGap)btn('bridge-confirm','COLOCAR PASARELA ENTRE MESAS',38,668,692,82,true);
       btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?762:668,692,80,true);
       btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?857:783,692,72);
+      txt('Gatillo izquierdo: mantener para mover el menú.',38,948,19);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
         38,895,19);
     }else if(this.page==='placement'){
