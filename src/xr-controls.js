@@ -25,7 +25,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 export class StructuralXRControls {
   constructor(app){
     this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
-    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.bridgeOptionIndex=0;this.bridgeOptionIndex=0;this.bridgeOptionKey='';this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
+    this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.bridgeOptionIndex=0;this.bridgeOptionIndex=0;this.bridgeOptionKey='';this.manualBridge=false;this.manualBridgePoints=[];this.manualBridgeGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
     this.canvas=document.createElement('canvas');this.canvas.width=W;this.canvas.height=H;
@@ -189,6 +189,12 @@ export class StructuralXRControls {
           'Modelo apoyado sobre la superficie detectada.');
       }
       return;
+    }
+    if(this.page==='placement'&&this.bridgeScan&&this.manualBridge&&
+       controller.userData.xrInput?.handedness==='right'){
+      const menuHit=this._menuHit(controller);
+      if(menuHit?.item){this.command(menuHit.item.id);return;}
+      this.manualBridgePick(controller);return;
     }
     if(this.page==='placement'&&this.bridgeScan&&
        controller.userData.xrInput?.handedness==='right'){
@@ -628,14 +634,19 @@ export class StructuralXRControls {
         'WebXR no expone detectedPlanes en esta sesión.':
         this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
         'API activa: comprobando geometría y dimensiones.',38,577,19,'#ffce9d');
-      if(this.bridgeLastGap){
+      if(this.manualBridge){
+        txt('MANUAL · '+this.manualBridgePoints.length+'/2 apoyos',38,638,21,'#86f7d9');
+        txt(this.manualBridgeGap?'Vista previa lista: gatillo para colocar':'Señala los bordes interiores con el gatillo derecho.',38,705,19,'#86f7d9');
+      }
+      if(this.bridgeLastGap&&!this.manualBridge){
         const n=this.roomScan.status().options?.length??1;
         txt('Opción '+(this.bridgeOptionIndex+1)+' de '+n+
           ' · vano '+this.bridgeLastGap.span_m.toFixed(2)+' m',38,638,21,'#86f7d9');
         txt('Apunta al vano: verde = vista previa. Gatillo = aceptar.',38,705,19,'#86f7d9');
       }
-      btn('bridge-scan','REINICIAR ESCANEO',38,this.bridgeLastGap?790:668,692,75,true);
-      btn('bridge-menu','VOLVER AL CONCURSO',38,this.bridgeLastGap?880:783,692,70);
+      btn('bridge-manual',this.manualBridge?'VOLVER A AUTOMÁTICO':'SELECCIONAR DOS APOYOS',38,750,692,70,true);
+      btn('bridge-scan','REINICIAR ESCANEO',38,830,692,70);
+      btn('bridge-menu','VOLVER AL CONCURSO',38,910,692,65);
       txt('Apunta con el mando derecho a la pasarela sombreada.',38,978,19);
       txt('Gatillo izquierdo: mover menú · derecho: elegir.',38,1010,19);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
@@ -720,11 +731,16 @@ export class StructuralXRControls {
             this.page='bridge';
           }catch(error){this.notice='No se pudo colocar: '+String(error?.message??error);}
         }
+      }else if(id==='bridge-manual'){
+        this.manualBridge=!this.manualBridge;
+        this.manualBridgePoints=[];this.manualBridgeGap=null;
+        this.clearGapMarkers();this.bridgeLastGap=null;
+        this.notice=this.manualBridge?'Señala el borde de la primera mesa.':'Detección automática activada.';
       }else if(id==='bridge-scan'){
         if(app.xrMode!=='ar')this.notice='La detección de mesas requiere Quest RM.';
         else {
           this.roomScan.reset();this.clearScanOverlay();this.bridgeScan=true;this.bridgeScanStable=0;this.bridgeLastGap=null;
-          this.bridgeOptionIndex=0;this.scanError='';this.page='placement';
+          this.bridgeOptionIndex=0;this.manualBridge=false;this.scanError='';this.page='placement';
           this.notice='Busca dos mesas horizontales y enfrentadas.';
         }
       }else if(id==='bridge-evaluate'){
@@ -955,6 +971,7 @@ export class StructuralXRControls {
   }
   clearScanOverlay(){
     this.clearGapMarkers();
+    this.manualBridgePoints=[];this.manualBridgeGap=null;
     for(const obj of this.scanOverlay.children.slice()){
       this.scanOverlay.remove(obj);
       obj.geometry?.dispose();
@@ -991,6 +1008,44 @@ export class StructuralXRControls {
       mesh.renderOrder=18010;
       this.scanGapMarkers.add(mesh);
     });
+  }
+  manualBridgePick(controller){
+    const ref=this.app.renderer.xr.getReferenceSpace();
+    const hits=this._ray(controller).intersectObjects([...this.scanPlaneMeshes.values()],false);
+    const hit=hits.find(h=>Math.abs(new THREE.Vector3(0,1,0)
+      .transformDirection(h.object.matrix).y)>.85);
+    if(!hit){
+      this.notice='Apunta a una superficie horizontal sombreada.';
+      return;
+    }
+    const point=hit.point.clone();
+    if(this.manualBridgePoints.length>=2){
+      if(this.manualBridgeGap){
+        try{
+          const span=applyBridgeGapPlacement(this.app,this.manualBridgeGap,this.app.bridgeCompetition);
+          this.bridgeScan=false;this.clearScanOverlay();this.manualBridge=false;
+          this.page='bridge';this.notice='Pasarela colocada · '+span.toFixed(2)+' m';
+        }catch(e){this.notice=String(e.message??e);}
+      }
+      return;
+    }
+    this.manualBridgePoints.push(point);
+    if(this.manualBridgePoints.length===2){
+      const [first,second]=this.manualBridgePoints;
+      const dx=second.x-first.x,dz=second.z-first.z,span=Math.hypot(dx,dz);
+      if(span<.3||span>4||Math.abs(first.y-second.y)>.22){
+        this.manualBridgePoints=[first];
+        this.notice='Vano inválido: 0,30–4 m y alturas similares. Repite segundo borde.';
+      }else{
+        const start=first.clone(),end=second.clone();
+        start.y=end.y=(first.y+second.y)/2;
+        this.manualBridgeGap={start,end,span_m:span,
+          direction:end.clone().sub(start).normalize(),source:'Selección manual'};
+        this.paintGapMarkers([this.manualBridgeGap]);
+        this.notice='Vista previa '+span.toFixed(2)+' m. Gatillo para colocar.';
+      }
+    }else this.notice='Primer apoyo marcado. Señala el segundo borde.';
+    this.dirty=true;
   }
   facePanelToUser(){
     // Use headset yaw, not a look-at vector that can flip by 180 degrees
@@ -1080,7 +1135,8 @@ export class StructuralXRControls {
     // Keep scanning and show the stable gap until explicitly confirmed.
     // Auto-placement used to close this screen immediately after detection.
     const previous=this.bridgeLastGap;
-    const options=scan.options??[];
+    const options=this.manualBridge?[]:scan.options??[];
+    if(this.manualBridge)return;
     this.bridgeOptionIndex=Math.min(this.bridgeOptionIndex,Math.max(0,options.length-1));
     this.bridgeLastGap=options[this.bridgeOptionIndex]??scan.gap;
     if(scan.frames%12===0)this.paintGapMarkers(options);
@@ -1141,7 +1197,7 @@ export class StructuralXRControls {
     this.lastFrameTime=time;
     let hovered=null;
     let forceHovered=false;
-    if(this.bridgeScan&&this.page==='placement'){
+    if(this.bridgeScan&&this.page==='placement'&&!this.manualBridge){
       const right=this.controllers.find(c=>c.controller.userData.xrInput?.handedness==='right');
       if(right){
         const hits=this._ray(right.controller).intersectObjects(this.scanGapMarkers.children,false);
