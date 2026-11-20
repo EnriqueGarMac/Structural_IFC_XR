@@ -1,3 +1,4 @@
+import {nextXRTestMode} from './xr-ab-diagnostics.mjs';
 import * as THREE from 'three';
 import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniquePattern,
   amplificationFromSliderX,sliderXFromAmplification} from './xr-logic.mjs';
@@ -618,8 +619,7 @@ export class StructuralXRControls {
       btn('ifc-opacity-step','Opacidad IFC: '+Math.round(app.ifcOpacity*100)+
         '%  ·  siguiente nivel',38,925,692,66,true);
       btn('palette:results','ESCALA DE RESULTADOS: '+
-        (FORCE_PALETTES[app.sapVisuals?.palette]?.label??'Clásica'),
-        38,998,692,67,true);
+        (FORCE_PALETTES[app.sapVisuals?.palette]?.label??'Clásica')
     }else if(this.page==='placement' && app.xrMode==='vr'){
       btn('back','‹ Volver',38,117,230,66);
       txt('ESTUDIO VIRTUAL · VR',38,219,29,'#e4f8ff');
@@ -852,6 +852,10 @@ export class StructuralXRControls {
         slider.value=String(Math.round((1-next)*100));
         slider.dispatchEvent(new Event('input'));
       }
+    }
+    else if(id==='xr-test'){
+      app.xrTestMode=nextXRTestMode(app.xrTestMode);
+      this.notice='Diagnóstico XR: '+app.xrTestMode+'. Espera 5 s para medir.';
     }
     else if(id==='terrain'){
       this.syncControl('hide-ground',!app.hideGround);
