@@ -156,15 +156,32 @@ export class BridgeRoomScan {
     candidate:this.candidate,stability:this.stability,options:this.options};}
 }
 export function applyBridgeGapPlacement(app,gap,experience){
-  if(!gap||!experience)throw Error('No se han detectado dos mesas compatibles.');
+  if(!gap||!experience)throw Error('Selecciona primero los dos apoyos.');
   const span=gap.span_m;
   experience.setSpan(span);
   app.targetMeters=span;
   app.updateScale();
-  app.worldRoot.quaternion.setFromUnitVectors(
-    new THREE.Vector3(1,0,0),gap.direction
-  ).multiply(experience.defaultWorldQuaternion);
-  app.worldRoot.position.copy(gap.start);
+
+  // The teaching bridge is drawn in a fixed BASE=1.2 local grid, while
+  // updateScale() normally uses the dimensions of the loaded house/IFC.
+  // Therefore scaling by the house bounds moves the second support.
+  // Measure the bridge's actual local support-to-support vector instead.
+  const startLocal=app.contentRoot.position.clone().add(
+    new THREE.Vector3(0,0,0).applyQuaternion(experience.root.quaternion)
+      .multiply(experience.root.scale).add(experience.root.position));
+  const endLocal=app.contentRoot.position.clone().add(
+    new THREE.Vector3(1.2,0,0).applyQuaternion(experience.root.quaternion)
+      .multiply(experience.root.scale).add(experience.root.position));
+  const localVector=endLocal.clone().sub(startLocal);
+  const baseRotation=experience.defaultWorldQuaternion.clone();
+  const baseDirection=localVector.clone().applyQuaternion(baseRotation).normalize();
+  const desired=gap.end.clone().sub(gap.start).normalize();
+  const turn=new THREE.Quaternion().setFromUnitVectors(baseDirection,desired);
+  app.worldRoot.quaternion.copy(turn.multiply(baseRotation));
+  const scale=span/localVector.length();
+  app.worldRoot.scale.setScalar(scale);
+  app.worldRoot.position.copy(gap.start).sub(
+    startLocal.multiplyScalar(scale).applyQuaternion(app.worldRoot.quaternion));
   app.arAnchorPoint=null;
   experience.detectedGap=gap;
   return span;
