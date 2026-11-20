@@ -180,7 +180,7 @@ export class SAPVisuals{
         geometry.computeVertexNormals();
         const colour=forceSignColour(seg.sign,this.palette);
         const material=new THREE.MeshBasicMaterial({
-          color:colour,transparent:true,opacity:.62,side:THREE.DoubleSide,
+          color:colour,transparent:false,opacity:1,side:THREE.DoubleSide,
           depthWrite:true,depthTest:true,
           polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
         });
@@ -202,12 +202,12 @@ export class SAPVisuals{
       }
       if(outline.length>1)this.group.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(outline),
-        new THREE.LineBasicMaterial({color:colours.outline,transparent:true,opacity:.84,
+        new THREE.LineBasicMaterial({color:colours.outline,transparent:false,opacity:1,
           depthTest:true,depthWrite:false})
       ));
       if(stems.length)this.group.add(new THREE.LineSegments(
         new THREE.BufferGeometry().setFromPoints(stems),
-        new THREE.LineBasicMaterial({color:colours.stems,transparent:true,opacity:.24,
+        new THREE.LineBasicMaterial({color:colours.stems,transparent:false,opacity:1,
           depthTest:true,depthWrite:false})
       ));
       if(this.showCharacteristics&&typeof document!=='undefined'){
