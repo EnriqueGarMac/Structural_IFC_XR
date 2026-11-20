@@ -993,14 +993,16 @@ export class StructuralXRControls {
     });
   }
   facePanelToUser(){
+    // Use headset yaw, not a look-at vector that can flip by 180 degrees
+    // when the panel crosses the headset during a controller drag.
     const camera=this.app.renderer.xr.getCamera();
-    const head=new THREE.Vector3();
-    camera.getWorldPosition(head);
-    const target=head.sub(this.panel.position);
-    target.y=0;
-    if(target.lengthSq()>.0001){
-      this.panel.quaternion.setFromRotationMatrix(
-        new THREE.Matrix4().lookAt(new THREE.Vector3(),target,new THREE.Vector3(0,1,0)));
+    const q=new THREE.Quaternion();
+    camera.getWorldQuaternion(q);
+    const forward=new THREE.Vector3(0,0,1).applyQuaternion(q);
+    forward.y=0;
+    if(forward.lengthSq()>.0001){
+      forward.normalize();
+      this.panel.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),forward);
     }
   }
   paintScanPlanes(frame,ref){
