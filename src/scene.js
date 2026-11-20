@@ -118,6 +118,12 @@ export class StructuralScene {
       if(bridgeActive&&this._bridgeHiddenGroups){
         for(const child of this._bridgeHiddenGroups.keys())child.visible=false;
       }
+      // The competition's XR geometry is independent of house/IFC scale.
+      if(bridgeActive&&this.bridgeCompetition.root.parent===this.scene){
+        this.worldRoot.visible=false;
+      }else if(!bridgeActive&&this.worldRoot.visible===false){
+        this.worldRoot.visible=true;
+      }
       this.sapVisuals?.updateModalAnimation(time);
       if(this.isXR&&this.xrMode==='ar'&&this.bridgeCompetition?.breakAnimation)
         this.bridgeCompetition.observeFloor(frame,this.renderer.xr.getReferenceSpace());
@@ -225,9 +231,7 @@ export class StructuralScene {
     if(!this.bounds)return;
     const size=this.bounds.getSize(new THREE.Vector3());
     this.maxSize=Math.max(size.x,size.y,size.z,.1);
-    const bridgeGap=this.bridgeCompetition?.active&&this.bridgeCompetition?.detectedGap;
-    this.worldRoot.scale.setScalar(bridgeGap?
-      this.bridgeCompetition.span_m/1.2:this.targetMeters/this.maxSize);
+    this.worldRoot.scale.setScalar(this.targetMeters/this.maxSize);
     if(this.isXR&&this.xrMode==='ar'&&this.arAnchorPoint)
       placeModelOnSurface(this,this.arAnchorPoint);
     // The grid now inherits the exact same worldRoot scale as the columns.
