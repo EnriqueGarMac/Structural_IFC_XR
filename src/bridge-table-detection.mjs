@@ -9,11 +9,11 @@ function axisOverlap(a,b,axis){
   const max=Math.min(a.bounds.max[axis],b.bounds.max[axis]);
   return {min,max,length:max-min,centre:(min+max)/2};
 }
-export function bridgeGapBetween(a,b,{minGap=.20,maxGap=3,heightTolerance=.10}={}){
+export function bridgeGapBetween(a,b,{minGap=.20,maxGap=3,heightTolerance=.18}={}){
   if(!a||!b||Math.abs(a.top-b.top)>heightTolerance)return null;
   let candidates=[];
   const oz=axisOverlap(a,b,'z'),ox=axisOverlap(a,b,'x');
-  if(oz.length>.22){
+  if(oz.length>.12){
     if(a.bounds.max.x<=b.bounds.min.x){
       candidates.push({gap:b.bounds.min.x-a.bounds.max.x,
         start:new THREE.Vector3(a.bounds.max.x,(a.top+b.top)/2,oz.centre),
@@ -25,7 +25,7 @@ export function bridgeGapBetween(a,b,{minGap=.20,maxGap=3,heightTolerance=.10}={
         end:new THREE.Vector3(a.bounds.min.x,(a.top+b.top)/2,oz.centre)});
     }
   }
-  if(ox.length>.22){
+  if(ox.length>.12){
     if(a.bounds.max.z<=b.bounds.min.z){
       candidates.push({gap:b.bounds.min.z-a.bounds.max.z,
         start:new THREE.Vector3(ox.centre,(a.top+b.top)/2,a.bounds.max.z),
@@ -113,9 +113,9 @@ export class BridgeRoomScan {
       try{item=planeFromDetection(plane,frame,referenceSpace);}catch{continue;}
       if(!item)continue;
       const label=item.label.toLowerCase();
-      if(label&&!['table','desk','unknown'].includes(label))continue;
-      if(item.width<.4||item.depth<.35||item.width>2.8||item.depth>2.8||
-         item.area<.2||item.area>7.5)continue;
+      if(label&&['wall','ceiling','floor','door','window'].includes(label))continue;
+      if(item.width<.30||item.depth<.25||item.width>4.5||item.depth>4.5||
+         item.area<.12||item.area>15)continue;
       const old=this.surfaces.get(plane);
       this.surfaces.set(plane,{...item,observations:(old?.observations??0)+1,
         lastSeen:this.frameCount});
