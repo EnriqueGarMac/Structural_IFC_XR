@@ -562,7 +562,7 @@ export class StructuralXRControls {
       txt('ESTUDIO VIRTUAL · VR',38,219,29,'#e4f8ff');
       txt('Gatillo sobre estructura: selecciona y gira',38,294,22,'#a0e1e9');
       txt('Grip: desplaza el modelo en el espacio',38,354,22,'#a0e1e9');
-      txt('Joystick izquierdo: rota la estructura',38,414,22,'#a0e1e9');
+      txt(app.trussExperience?.active?'Joystick izquierdo: desplazarse':'Joystick izquierdo: rota la estructura',38,414,22,'#a0e1e9');
       txt('Joystick derecho: ajusta tamaño',38,474,22,'#a0e1e9');
       btn('reset-model','Recentrar modelo enfrente de ti',38,575,692,90,true);
       btn('results','Consultar cargas, esfuerzos y modos',38,709,692,90);
@@ -960,14 +960,38 @@ export class StructuralXRControls {
       if(!axes||axes.length<2||this.drag)continue;
       const x=axes.length>3?axes[2]:axes[0],y=axes.length>3?axes[3]:axes[1];
       if(source.handedness==='left'){
-        const q=new THREE.Quaternion();
-        if(Math.abs(x)>.16){
-          q.setFromAxisAngle(new THREE.Vector3(0,1,0),-x*dt*1.6);
-          this.app.worldRoot.quaternion.premultiply(q);
-        }
-        if(Math.abs(y)>.16){
-          q.setFromAxisAngle(new THREE.Vector3(1,0,0),y*dt*1.6);
-          this.app.worldRoot.quaternion.premultiply(q);
+        if(this.app.trussExperience?.active && this.app.xrMode==='vr'){
+          // Locomotion is camera-relative and horizontal: move the scene
+          // opposite to the desired walking direction, without rotating it.
+          const camera=this.app.renderer.xr.getCamera();
+          const heading=new THREE.Vector3();
+          camera.getWorldDirection(heading);
+          heading.y=0;
+          if(heading.lengthSq()<1e-8)heading.set(0,0,-1);
+          heading.normalize();
+          const right=new THREE.Vector3().crossVectors(heading,new THREE.Vector3(0,1,0)).normalize();
+          const deadzone=.16,speed=1.8;
+          const strafe=Math.abs(x)>deadzone?x:0;
+          const forward=Math.abs(y)>deadzone?-y:0;
+          if(strafe||forward){
+            const delta=right.multiplyScalar(strafe).addScaledVector(heading,forward);
+            if(delta.lengthSq()>1)delta.normalize();
+            // Convert the world-space motion into the parent frame.
+            delta.multiplyScalar(-speed*dt);
+            const parent=this.app.worldRoot.parent;
+            if(parent)delta.applyQuaternion(parent.getWorldQuaternion(new THREE.Quaternion()).invert());
+            this.app.worldRoot.position.add(delta);
+          }
+        }else{
+          const q=new THREE.Quaternion();
+          if(Math.abs(x)>.16){
+            q.setFromAxisAngle(new THREE.Vector3(0,1,0),-x*dt*1.6);
+            this.app.worldRoot.quaternion.premultiply(q);
+          }
+          if(Math.abs(y)>.16){
+            q.setFromAxisAngle(new THREE.Vector3(1,0,0),y*dt*1.6);
+            this.app.worldRoot.quaternion.premultiply(q);
+          }
         }
       }else if(source.handedness==='right'&&Math.abs(y)>.16){
         // Continuous scaling: rounding on every frame would swallow small
