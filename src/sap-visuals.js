@@ -181,7 +181,7 @@ export class SAPVisuals{
         const colour=forceSignColour(seg.sign,this.palette);
         const material=new THREE.MeshBasicMaterial({
           color:colour,transparent:true,opacity:.62,side:THREE.DoubleSide,
-          depthWrite:false,depthTest:true,
+          depthWrite:true,depthTest:true,
           polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
         });
         const mesh=new THREE.Mesh(geometry,material);
@@ -203,12 +203,12 @@ export class SAPVisuals{
       if(outline.length>1)this.group.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(outline),
         new THREE.LineBasicMaterial({color:colours.outline,transparent:true,opacity:.84,
-          depthTest:false})
+          depthTest:true,depthWrite:false})
       ));
       if(stems.length)this.group.add(new THREE.LineSegments(
         new THREE.BufferGeometry().setFromPoints(stems),
         new THREE.LineBasicMaterial({color:colours.stems,transparent:true,opacity:.24,
-          depthTest:false})
+          depthTest:true,depthWrite:false})
       ));
       if(this.showCharacteristics&&typeof document!=='undefined'){
         for(const p of characteristicStations(stations,3)){
@@ -243,7 +243,7 @@ export class SAPVisuals{
     const texture=new THREE.CanvasTexture(canvas);
     texture.colorSpace=THREE.SRGBColorSpace;
     const material=new THREE.SpriteMaterial({map:texture,transparent:true,
-      depthTest:false,depthWrite:false});
+      depthTest:true,depthWrite:false});
     return new THREE.Sprite(material);
   }
   // Pointer and WebXR ray intersections use the exact same SAP station data.
@@ -312,7 +312,7 @@ export class SAPVisuals{
     const label=this.makeLabel('Esfuerzo','#e8fbff');
     // World-space billboard attached to the XR scene, not the transformed SAP root.
     label.scale.set(.55,.14,1);
-    label.material.depthTest=false;label.renderOrder=25000;
+    label.material.depthTest=true;label.renderOrder=25000;
     label.visible=false;this.app.scene.add(label);
     this.xrTooltip=label;
   }
