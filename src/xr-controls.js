@@ -46,7 +46,7 @@ export class StructuralXRControls {
     this.scanOverlay=new THREE.Group();
     this.scanOverlay.visible=false;
     app.scene.add(this.scanOverlay);
-    this.scanOverlayTick=0;
+    this.scanOverlayTick=0;this.rawPlaneCount=0;this.planeApiAvailable=false;
     this.raycaster=new THREE.Raycaster();
     this.raycaster.far=12;
     this.controllers=[];
@@ -587,13 +587,14 @@ export class StructuralXRControls {
       txt(this.bridgeScan?'ESCANEANDO LA SALA…':'ESCANEO EN ESPERA',38,310,27,
         this.bridgeScan?'#86f7d9':'#ffce9d');
       const scan=this.roomScan.status();
-      txt('Superficies detectadas: '+scan.surfaces,38,389,23);
+      txt('Planos WebXR recibidos: '+this.rawPlaneCount,38,389,23);
+      txt('Superficies compatibles: '+scan.surfaces,38,429,21);
       txt(scan.candidate?'Dos mesas candidatas · comprobando vano':
-        'Mira lentamente las dos mesas y sus bordes.',38,459,20);
-      txt(!this.session?.enabledFeatures?.includes('plane-detection')?
-        'Detección de planos no confirmada por el navegador.':
-        'Las superficies detectadas se dibujan en la sala.',38,527,19,
-        '#ffce9d');
+        'Mira lentamente las dos mesas y sus bordes.',38,493,20);
+      txt(!this.planeApiAvailable?
+        'WebXR no expone detectedPlanes en esta sesión.':
+        this.rawPlaneCount===0?'API disponible, pero no devuelve planos.':
+        'API activa: comprobando geometría y dimensiones.',38,555,19,'#ffce9d');
       btn('bridge-scan','REINICIAR ESCANEO',38,640,692,90,true);
       btn('bridge-menu','VOLVER AL CONCURSO',38,755,692,82);
       txt('La retícula se colocará entre las mesas al detectar el vano.',
@@ -935,6 +936,8 @@ export class StructuralXRControls {
     if(!this.bridgeScan||!this.app.bridgeCompetition?.active||
       this.app.xrMode!=='ar'||!frame)return;
     const ref=this.app.renderer.xr.getReferenceSpace();
+    this.planeApiAvailable=frame.detectedPlanes!=null;
+    this.rawPlaneCount=frame.detectedPlanes?.size??0;
     this.paintScanPlanes(frame,ref);
     const scan=this.roomScan.observe(frame,ref);
     if(scan.frames%30===0){
