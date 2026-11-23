@@ -99,9 +99,7 @@ test('bridge contest is a selectable resource nested inside teaching, not a top-
   const teachingStart=html.indexOf('id="panel-teaching" class="workspace-panel"');
   // Locate the matching closing section, not the first nested section close.
   let teachingEnd=-1,depth=0;
-  const sectionTags=/<\\/?section\\b[^>]*>/g;
-  sectionTags.lastIndex=teachingStart;
-  for(const match of html.slice(teachingStart).matchAll(/<\\/?section\\b[^>]*>/g)){
+  for(const match of html.slice(teachingStart).matchAll(/<\/?section\b[^>]*>/g)){
     const tag=match[0];
     depth+=tag.startsWith('</')?-1:1;
     if(depth===0){teachingEnd=teachingStart+match.index+tag.length;break;}
