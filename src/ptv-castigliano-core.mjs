@@ -18,17 +18,19 @@ export function castigliano(P=LESSON.P,Q=0){
 export function near(actual,expected,rel=.06,abs=.015){
  return Number.isFinite(actual)&&Math.abs(actual-expected)<=Math.max(abs,Math.abs(expected)*rel);
 }
+const entered=(answers,key)=>String(answers[key]??'').trim()!=='';
+const numeric=(answers,key)=>entered(answers,key)?Number(String(answers[key]).replace(',','.')):NaN;
 export function evaluateLesson(answers,P=LESSON.P){
  const s=solveLesson(P);
  const checks={
   roles:['xr','real','virtual','energy'].every(k=>String(answers[k]||'').trim().length>=2),
   prediction:answers.prediction==='AB-traccion-diagonales-compresion'&&String(answers.reason||'').trim().length>=25,
-  reactions:near(Number(answers.ra),P/2)&&near(Number(answers.rb),P/2),
-  axial:near(Number(answers.nab),s.N[0])&&near(Number(answers.nac),s.N[1])&&near(Number(answers.nbc),s.N[2]),
-  virtual:near(Number(answers.vab),s.n[0])&&near(Number(answers.vac),s.n[1])&&near(Number(answers.vbc),s.n[2]),
-  contributions:near(Number(answers.cab),s.contributions[0])&&near(Number(answers.cac),s.contributions[1])&&near(Number(answers.cbc),s.contributions[2]),
-  displacement:near(Number(answers.delta),s.delta),
-  castigliano:near(Number(answers.energy),s.energy)&&near(Number(answers.castdelta),s.delta),
+  reactions:near(numeric(answers,'ra'),P/2)&&near(numeric(answers,'rb'),P/2),
+  axial:near(numeric(answers,'nab'),s.N[0])&&near(numeric(answers,'nac'),s.N[1])&&near(numeric(answers,'nbc'),s.N[2]),
+  virtual:near(numeric(answers,'vab'),s.n[0])&&near(numeric(answers,'vac'),s.n[1])&&near(numeric(answers,'vbc'),s.n[2]),
+  contributions:near(numeric(answers,'cab'),s.contributions[0])&&near(numeric(answers,'cac'),s.contributions[1])&&near(numeric(answers,'cbc'),s.contributions[2]),
+  displacement:near(numeric(answers,'delta'),s.delta),
+  castigliano:near(numeric(answers,'energy'),s.energy)&&near(numeric(answers,'castdelta'),s.delta),
   explanation:String(answers.explanation||'').trim().length>=80,
   reflection:String(answers.reflection||'').trim().length>=80
  };
@@ -40,7 +42,9 @@ export function reportText(answers,P=LESSON.P){
  const e=evaluateLesson(answers,P);
  return ['IMIS-LAB · PRÁCTICA PTV Y CASTIGLIANO','Fecha: '+new Date().toISOString(),
   'Grupo: '+(answers.group||''),'Integrantes: '+['xr','real','virtual','energy'].map(k=>k+': '+(answers[k]||'')).join(' | '),
-  'Carga P: '+P+' kN','Puntuación automática: '+e.score+'/100',
+  'Carga P: '+P+' kN','Puntuación provisional (verificación de presencia, no calidad de textos): '+e.score+'/100',
+  'Puntos numéricos verificables: '+e.objectiveScore+'/75',
+  'Puntos que requieren revisión docente: '+e.pendingHumanReview+'/25',
   ...Object.entries(e.checks).map(([k,v])=>k+': '+(v?'correcto':'pendiente/incorrecto')),
   'RESPUESTAS',...Object.entries(answers).map(([k,v])=>k+': '+String(v)),
   'REFERENCIA DOCENTE','N (kN): '+e.reference.N.join(', '),
