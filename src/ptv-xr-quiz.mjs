@@ -12,7 +12,7 @@ const questions=[
  {stage:'CASTIGLIANO',title:'dU/dQ en Q=0 (mm)',help:['Q es una carga auxiliar en C.','Comparad con el resultado del PTV.'],key:'castdelta',expected:solveLesson().delta}
 ];
 export class PTVXRQuiz{
- constructor(){this.index=0;this.value='';this.answers={};this.done=false;this.feedback='';}
+ constructor(){this.index=0;this.value='';this.answers={};this.done=false;this.feedback='';this.attempts={};this.startedAt=new Date().toISOString();}
  get current(){return questions[this.index];}
  input(key){
   if(this.done)return;
@@ -29,13 +29,15 @@ export class PTVXRQuiz{
   const ok=q.kind==='choice'?this.value===q.answer:
     this.value.trim()!==''&&Number.isFinite(actual)&&
     Math.abs(actual-q.expected)<=Math.max(.015,Math.abs(q.expected)*.06);
-  if(!ok){this.feedback='Revisad el resultado con el equipo.';return false;}
+  this.attempts[this.index]=(this.attempts[this.index]||0)+1;
+  if(!ok){this.feedback='Revisad el resultado con el equipo. Intento '+this.attempts[this.index]+'.';return false;}
   this.answers[q.key||'prediction']=this.value;
   this.index++;
   this.value='';this.feedback='Respuesta validada. Buen trabajo.';
   if(this.index===questions.length){this.done=true;this.feedback='Reto XR completado. Entregad la hoja grupal desde el móvil.';}
   return true;
  }
- reset(){this.index=0;this.value='';this.answers={};this.done=false;this.feedback='';}
+ reset(){this.index=0;this.value='';this.answers={};this.done=false;this.feedback='';this.attempts={};this.startedAt=new Date().toISOString();}
+ getSummary(){return {completed:this.done,answered:this.index,total:questions.length,attempts:{...this.attempts},totalAttempts:Object.values(this.attempts).reduce((a,b)=>a+b,0),startedAt:this.startedAt};}
 }
 export const PTV_XR_TOTAL=questions.length;
