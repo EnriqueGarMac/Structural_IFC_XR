@@ -22,3 +22,12 @@ test('numeric keypad edits negative and decimal values',()=>{
  assert.equal(q.value,'-7.1');
  q.input('clear');assert.equal(q.value,'');
 });
+
+test('XR attempt counts include rejected answers and reset cleanly',()=>{
+ const q=new PTVXRQuiz();
+ q.value='BC';assert.equal(q.submit(),false);
+ q.value='AB';assert.equal(q.submit(),true);
+ assert.equal(q.getSummary().totalAttempts,2);
+ assert.equal(q.getSummary().attempts[0],2);
+ q.reset();assert.equal(q.getSummary().totalAttempts,0);
+});
