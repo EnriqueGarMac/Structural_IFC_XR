@@ -1,3 +1,4 @@
+import {PTVXRQuiz,PTV_XR_TOTAL} from './ptv-xr-quiz.mjs';
 import {nextXRTestMode} from './xr-ab-diagnostics.mjs';
 import * as THREE from 'three';
 import {clamp,rotateIndex,snapModelSize,isValidHorizontalHit,caseLabel,nextUniquePattern,
@@ -25,7 +26,7 @@ const textFit=(value,max=52)=>String(value??'').length>max?String(value).slice(0
 
 export class StructuralXRControls {
   constructor(app){
-    this.app=app;this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
+    this.app=app;this.ptvQuiz=new PTVXRQuiz();this.page='main';this.hits=[];this.hoverId=null;this.selected='—';this.notice='';
     this.dirty=true;this.roomScan=new BridgeRoomScan();this.bridgeScan=false;this.bridgeScanStable=0;this.bridgeLastGap=null;this.bridgeOptionIndex=0;this.bridgeOptionIndex=0;this.bridgeOptionKey='';this.manualBridge=true;this.manualBridgePoints=[];this.manualBridgeGap=null;this.drag=null;this.placeMode=false;this.moveMenu=false;this.shadow=false;this.hasPlacedSurface=false;this.hitAvailable=false;this.latestHit=null;this.hitObservation=null;
     this.hitSources=new Map();this.hitByInput=new Map();this.currentSource=null;
     this.session=null;this.initializedPose=false;this.buttonLatches=new Map();
@@ -425,8 +426,38 @@ export class StructuralXRControls {
       btn('bridge-open','02 · CONCURSO DE PASARELAS',38,624,692,123,true);
       txt('Diseña una estructura ligera que salve el hueco entre mesas.',
         38,781,20,'#a8d4d9');
-      txt('Ambas experiencias funcionan con los mandos.',
-        38,957,19,'#b0d5d8');
+      btn('ptv-open','03 · PTV Y CASTIGLIANO · EQUIPO',38,825,692,95,true);
+      txt('Un alumno en Quest; tres calculan y debaten en móvil.',38,957,18,'#b0d5d8');
+    }else if(this.page==='ptv'){
+      const quiz=this.ptvQuiz,q=quiz.current;
+      btn('back','‹ Recursos docentes',38,117,310,64);
+      txt('PTV + CASTIGLIANO · EQUIPO DE CUATRO',38,215,26,'#e4f8ff');
+      txt('RETO '+Math.min(quiz.index+1,PTV_XR_TOTAL)+' / '+PTV_XR_TOTAL,38,262,21,'#8ce9da');
+      if(quiz.done){
+        txt('¡RETO COMPLETADO!',38,340,32,'#86f7d9');
+        txt('Los tres compañeros completan la hoja en el móvil.',38,423,19);
+        txt('Enviad una única entrega a enriquegm@ugr.es.',38,474,20);
+        btn('ptv-reset','Repetir reto XR',38,625,692,90);
+      }else{
+        txt(q.stage,38,314,20,'#8ce9da');
+        txt(q.title,38,363,26,'#ffffff');
+        q.help.forEach((line,i)=>txt(line,38,409+i*36,19));
+        if(q.kind==='choice'){
+          q.options.forEach(([value,label],i)=>btn('ptv-choice:'+value,
+            (quiz.value===value?'✓ ':'')+label,38,520+i*104,692,83,quiz.value===value));
+        }else{
+          txt('RESPUESTA: '+(quiz.value||'—'),384,531,32,'#f5d899','center');
+          const keys=['1','2','3','4','5','6','7','8','9','-','0','.'];
+          keys.forEach((key,i)=>{
+            const col=i%3,row=Math.floor(i/3);
+            btn('ptv-key:'+key,key,38+col*236,570+row*84,216,73);
+          });
+          btn('ptv-clear','BORRAR',38,914,216,60);
+          btn('ptv-backspace','⌫',274,914,216,60);
+        }
+        btn('ptv-submit','VALIDAR RESPUESTA',38,990,692,72,true);
+      }
+      txt(textFit(quiz.feedback,56),38,1078,17,'#f4cda1');
     }else if(this.page==='bridge'){
       const bridge=app.bridgeCompetition;
       btn('back','‹ Volver',38,117,230,66);
@@ -692,12 +723,19 @@ export class StructuralXRControls {
   command(id){
     const app=this.app;
     if(id==='back'){
-      this.page=['bridge','truss'].includes(this.page)?'teaching':'main';
+      this.page=['bridge','truss','ptv'].includes(this.page)?'teaching':'main';
     }
     else if(['results','layers','placement'].includes(id))this.page=id;
     else if(id==='teaching-menu')this.page='teaching';
     else if(id==='bridge-menu')this.page='bridge';
     else if(id==='exit'){this.session?.end();return;}
+    else if(id==='ptv-open'){this.page='ptv';this.ptvQuiz.reset();}
+    else if(id==='ptv-reset'){this.ptvQuiz.reset();}
+    else if(id.startsWith('ptv-choice:')){this.ptvQuiz.value=id.slice(11);this.ptvQuiz.feedback='';}
+    else if(id.startsWith('ptv-key:')){this.ptvQuiz.input(id.slice(8));this.ptvQuiz.feedback='';}
+    else if(id==='ptv-clear'){this.ptvQuiz.input('clear');}
+    else if(id==='ptv-backspace'){this.ptvQuiz.input('backspace');}
+    else if(id==='ptv-submit'){this.ptvQuiz.submit();}
     else if(id==='bridge-open'){
       document.getElementById('bridge-start')?.click();
       this.page=app.xrMode==='ar'?'placement':'bridge';
