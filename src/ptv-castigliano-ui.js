@@ -61,7 +61,7 @@ export function setupPTVCastigliano(){
    if(completed){
      const e=evaluateLesson(answers);
      const report=root.querySelector('#ptv-report');
-     report.innerHTML='<h3>Práctica completada · '+e.score+'/100</h3><p>Revisad el informe antes de enviarlo. Las preguntas abiertas requieren evaluación docente adicional.</p>'+
+     report.innerHTML='<h3>Práctica completada · '+e.objectiveScore+'/75 puntos verificables</h3><p>Quedan 25 puntos sujetos a revisión docente: predicción y razonamiento (10), explicación de la equivalencia (5), reflexión (5) y participación identificada (5). La nota definitiva la asignará el profesor.</p>'+
        '<button type="button" class="secondary-btn" id="ptv-download">Descargar hoja evaluable (.txt)</button> '+
        '<button type="button" class="secondary-btn" id="ptv-email">Preparar correo de entrega</button>';
      const content=reportText(answers);
