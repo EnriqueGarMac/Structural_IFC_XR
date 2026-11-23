@@ -97,7 +97,15 @@ test('interface retains scientific status, result legend and direct AR entry',()
 
 test('bridge contest is a selectable resource nested inside teaching, not a top-level tab',()=>{
   const teachingStart=html.indexOf('id="panel-teaching" class="workspace-panel"');
-  const teachingEnd=html.indexOf('id="bridge-controls"',teachingStart)+1;
+  // Locate the matching closing section, not the first nested section close.
+  let teachingEnd=-1,depth=0;
+  const sectionTags=/<\\/?section\\b[^>]*>/g;
+  sectionTags.lastIndex=teachingStart;
+  for(const match of html.slice(teachingStart).matchAll(/<\\/?section\\b[^>]*>/g)){
+    const tag=match[0];
+    depth+=tag.startsWith('</')?-1:1;
+    if(depth===0){teachingEnd=teachingStart+match.index+tag.length;break;}
+  }
   const contestCard=html.indexOf('id="teaching-choice-bridge"',teachingStart);
   const trussCard=html.indexOf('id="teaching-choice-truss"',teachingStart);
   const contestControls=html.indexOf('id="bridge-controls"',teachingStart);
@@ -105,7 +113,7 @@ test('bridge contest is a selectable resource nested inside teaching, not a top-
   assert.ok(teachingStart>=0&&teachingEnd>teachingStart);
   assert.ok(trussCard>teachingStart&&trussCard<teachingEnd);
   assert.ok(contestCard>teachingStart&&contestCard<teachingEnd);
-  assert.ok(contestControls>contestCard&&contestControls<=teachingEnd);
+  assert.ok(contestControls>contestCard&&contestControls<teachingEnd);
   assert.ok(trussControls>trussCard&&trussControls<teachingEnd);
   assert.match(html,/id="teaching-picker" role="group" aria-label="Selecciona una experiencia docente"/);
   assert.match(html,/id="truss-start"[^>]*aria-pressed="false"/);
