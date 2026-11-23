@@ -24,7 +24,7 @@ test('grading rejects incorrect or missing inputs',()=>{
 
 test('assessment accepts a complete correct group and distinguishes teacher review',()=>{
  const r=solveLesson();
- const a={group:'G1',xr:'Alumno XR',real:'Alumno real',virtual:'Alumno virtual',energy:'Alumno energia',
+ const a={group:'G1',xr:'Alumno XR',real:'Alumno real',virtual:'Alumno virtual',energyStudent:'Alumno energia',
  prediction:'AB-traccion-diagonales-compresion',reason:'La simetría exige compresión diagonal y tracción en el tirante inferior.',
  ra:'5',rb:'5',nab:'5',nac:String(r.N[1]),nbc:String(r.N[2]),
  vab:'.5',vac:String(r.n[1]),vbc:String(r.n[2]),
@@ -36,6 +36,9 @@ test('assessment accepts a complete correct group and distinguishes teacher revi
  assert.equal(e.score,100);
  assert.equal(e.objectiveScore,75);
  assert.equal(e.pendingHumanReview,25);
+ assert.equal(e.checks.roles,true);
+ assert.equal(e.checks.castigliano,true);
+ assert.equal(evaluateLesson({...a,energyStudent:''}).checks.roles,false);
  for(const key of ['ra','nac','vab','cab','delta','energy']){
    const bad={...a,[key]:''};
    assert.ok(evaluateLesson(bad).score<100,'blank '+key+' must not pass');
