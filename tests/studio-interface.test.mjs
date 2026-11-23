@@ -98,11 +98,11 @@ test('interface retains scientific status, result legend and direct AR entry',()
 test('bridge contest is a selectable resource nested inside teaching, not a top-level tab',()=>{
   const teachingStart=html.indexOf('id="panel-teaching" class="workspace-panel"');
   // Locate the matching closing section, not the first nested section close.
-  let teachingEnd=-1,depth=0;
-  for(const match of html.slice(teachingStart).matchAll(/<\/?section\b[^>]*>/g)){
+  let teachingEnd=-1,depth=1;
+  for(const match of html.slice(html.indexOf('>',teachingStart)+1).matchAll(/<\/?section\b[^>]*>/g)){
     const tag=match[0];
     depth+=tag.startsWith('</')?-1:1;
-    if(depth===0){teachingEnd=teachingStart+match.index+tag.length;break;}
+    if(depth===0){teachingEnd=html.indexOf('>',teachingStart)+1+match.index+tag.length;break;}
   }
   const contestCard=html.indexOf('id="teaching-choice-bridge"',teachingStart);
   const trussCard=html.indexOf('id="teaching-choice-truss"',teachingStart);
