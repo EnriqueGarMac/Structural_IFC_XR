@@ -651,7 +651,7 @@ export class StructuralXRControls {
       btn('ifc-opacity-step','Opacidad IFC: '+Math.round(app.ifcOpacity*100)+
         '%  ·  siguiente nivel',38,925,692,66,true);
       btn('palette:results','ESCALA DE RESULTADOS: '+
-        (FORCE_PALETTES[app.sapVisuals?.palette]?.label??'Clásica')
+        (FORCE_PALETTES[app.sapVisuals?.palette]?.label??'Clásica'),38,1000,692,66);
     }else if(this.page==='placement' && app.xrMode==='vr'){
       btn('back','‹ Volver',38,117,230,66);
       txt('ESTUDIO VIRTUAL · VR',38,219,29,'#e4f8ff');
