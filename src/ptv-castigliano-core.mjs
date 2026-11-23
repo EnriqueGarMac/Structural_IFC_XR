@@ -23,7 +23,7 @@ const numeric=(answers,key)=>entered(answers,key)?Number(String(answers[key]).re
 export function evaluateLesson(answers,P=LESSON.P){
  const s=solveLesson(P);
  const checks={
-  roles:['xr','real','virtual','energy'].every(k=>String(answers[k]||'').trim().length>=2),
+  roles:['xr','real','virtual','energyStudent'].every(k=>String(answers[k]||'').trim().length>=2),
   prediction:answers.prediction==='AB-traccion-diagonales-compresion'&&String(answers.reason||'').trim().length>=25,
   reactions:near(numeric(answers,'ra'),P/2)&&near(numeric(answers,'rb'),P/2),
   axial:near(numeric(answers,'nab'),s.N[0])&&near(numeric(answers,'nac'),s.N[1])&&near(numeric(answers,'nbc'),s.N[2]),
@@ -44,7 +44,7 @@ export function evaluateLesson(answers,P=LESSON.P){
 export function reportText(answers,P=LESSON.P){
  const e=evaluateLesson(answers,P);
  return ['IMIS-LAB · PRÁCTICA PTV Y CASTIGLIANO','Fecha: '+new Date().toISOString(),
-  'Grupo: '+(answers.group||''),'Integrantes: '+['xr','real','virtual','energy'].map(k=>k+': '+(answers[k]||'')).join(' | '),
+  'Grupo: '+(answers.group||''),'Integrantes: '+['xr','real','virtual','energyStudent'].map(k=>k+': '+(answers[k]||'')).join(' | '),
   'Carga P: '+P+' kN','Puntuación provisional (verificación de presencia, no calidad de textos): '+e.score+'/100',
   'Puntos numéricos verificables: '+e.objectiveScore+'/75',
   'Puntos que requieren revisión docente: '+e.pendingHumanReview+'/25',
