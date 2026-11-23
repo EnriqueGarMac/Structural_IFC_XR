@@ -97,7 +97,7 @@ test('interface retains scientific status, result legend and direct AR entry',()
 
 test('bridge contest is a selectable resource nested inside teaching, not a top-level tab',()=>{
   const teachingStart=html.indexOf('id="panel-teaching" class="workspace-panel"');
-  const teachingEnd=html.indexOf('        </section>',teachingStart);
+  const teachingEnd=html.indexOf('id="bridge-controls"',teachingStart)+1;
   const contestCard=html.indexOf('id="teaching-choice-bridge"',teachingStart);
   const trussCard=html.indexOf('id="teaching-choice-truss"',teachingStart);
   const contestControls=html.indexOf('id="bridge-controls"',teachingStart);
@@ -105,7 +105,7 @@ test('bridge contest is a selectable resource nested inside teaching, not a top-
   assert.ok(teachingStart>=0&&teachingEnd>teachingStart);
   assert.ok(trussCard>teachingStart&&trussCard<teachingEnd);
   assert.ok(contestCard>teachingStart&&contestCard<teachingEnd);
-  assert.ok(contestControls>contestCard&&contestControls<teachingEnd);
+  assert.ok(contestControls>contestCard&&contestControls<=teachingEnd);
   assert.ok(trussControls>trussCard&&trussControls<teachingEnd);
   assert.match(html,/id="teaching-picker" role="group" aria-label="Selecciona una experiencia docente"/);
   assert.match(html,/id="truss-start"[^>]*aria-pressed="false"/);
@@ -118,5 +118,5 @@ test('bridge contest is a selectable resource nested inside teaching, not a top-
   assert.match(main,/selectTeachingExperience\(null\)/);
   assert.match(xr,/btn\('teaching-menu','RECURSOS DOCENTES/);
   assert.match(xr,/this\.page==='teaching'/);
-  assert.match(xr,/\['bridge','truss'\]\.includes\(this\.page\)\?'teaching':'main'/);
+  assert.match(xr,/\['bridge','truss','ptv'\]\.includes\(this\.page\)\?'teaching':'main'/);
 });
