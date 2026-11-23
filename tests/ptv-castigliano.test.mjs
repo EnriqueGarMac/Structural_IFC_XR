@@ -21,3 +21,24 @@ test('grading rejects incorrect or missing inputs',()=>{
  assert.equal(e.checks.axial,false);
  assert.equal(e.checks.explanation,false);
 });
+
+test('assessment accepts a complete correct group and distinguishes teacher review',()=>{
+ const r=solveLesson();
+ const a={group:'G1',xr:'Alumno XR',real:'Alumno real',virtual:'Alumno virtual',energy:'Alumno energia',
+ prediction:'AB-traccion-diagonales-compresion',reason:'La simetría exige compresión diagonal y tracción en el tirante inferior.',
+ ra:'5',rb:'5',nab:'5',nac:String(r.N[1]),nbc:String(r.N[2]),
+ vab:'.5',vac:String(r.n[1]),vbc:String(r.n[2]),
+ cab:String(r.contributions[0]),cac:String(r.contributions[1]),cbc:String(r.contributions[2]),
+ delta:String(r.delta),energy:String(r.energy),castdelta:String(r.delta),
+ explanation:'Derivamos la energía axial respecto de una carga auxiliar Q en la dirección del desplazamiento, obteniendo la suma de productos real y virtual.',
+ reflection:'Al duplicar P se duplica la flecha y la energía se cuadruplica. Al duplicar el área, el desplazamiento y la energía se reducen a la mitad.'};
+ const e=evaluateLesson(a);
+ assert.equal(e.score,100);
+ assert.equal(e.objectiveScore,75);
+ assert.equal(e.pendingHumanReview,25);
+ for(const key of ['ra','nac','vab','cab','delta','energy']){
+   const bad={...a,[key]:''};
+   assert.ok(evaluateLesson(bad).score<100,'blank '+key+' must not pass');
+ }
+ assert.equal(evaluateLesson({...a,ra:'0'}).checks.reactions,false);
+});
