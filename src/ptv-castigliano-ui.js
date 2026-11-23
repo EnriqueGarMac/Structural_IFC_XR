@@ -10,6 +10,7 @@ const stages=[
 ];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const savedKey='imis-ptv-castigliano-v1';
+const TEACHER_EMAIL='enriquegm@ugr.es';
 function diagram(){
  return '<svg viewBox="0 0 460 235" role="img" aria-label="Celosía triangular: A a la izquierda, B a la derecha, C en el vértice, carga vertical descendente en C" style="max-width:100%;background:#102b39;border-radius:12px"><path d="M 60 180 L 400 180 L 230 45 Z" fill="none" stroke="#86e7d9" stroke-width="7"/><path d="M60 191 l-16 20 h32z M400 191 l-16 20 h32z" fill="#d4e6ee"/><line x1="230" y1="3" x2="230" y2="33" stroke="#ffb78a" stroke-width="4"/><path d="M222 26 L230 39 L238 26" fill="none" stroke="#ffb78a" stroke-width="3"/><g fill="white" font-size="18"><text x="42" y="173">A</text><text x="409" y="174">B</text><text x="244" y="53">C</text><text x="246" y="20">P=10 kN</text><text x="211" y="202">AB</text><text x="115" y="96">AC</text><text x="333" y="96">BC</text></g></svg>';
 }
@@ -27,9 +28,9 @@ export function setupPTVCastigliano(){
      (type==='textarea'?'<textarea data-answer="'+id+'" rows="4" style="width:100%">'+esc(answers[id]||'')+'</textarea>':
       type==='select'?'<select data-answer="'+id+'" style="width:100%">'+opts.map(([v,l])=>'<option value="'+esc(v)+'"'+(answers[id]===v?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>':
       '<input data-answer="'+id+'" type="'+type+'" '+(type==='number'?'step="any" inputmode="decimal"':'')+' value="'+esc(answers[id]||'')+'" style="width:100%">')+'</label>').join('');
-   const teacherEmail=document.getElementById('ptv-teacher-email')?.value||'';
+   const teacherEmail=TEACHER_EMAIL;
    root.innerHTML='<button type="button" id="ptv-close" class="secondary-btn">Volver a experiencias docentes</button>'+ 
-     '<label for="ptv-teacher-email">Correo del profesor <input id="ptv-teacher-email" type="email" placeholder="profesor@universidad.es"></label>'+ 
+     '<p><strong>Entrega:</strong> '+TEACHER_EMAIL+' (se abrirá el correo del dispositivo para confirmar el envío).</p>'+ 
      '<div class="teaching-active-head"><strong>PTV y Castigliano · aprendizaje cooperativo</strong><span>Fase '+(stage+1)+' de 7 · '+(completed?'Finalizada':'En curso')+'</span></div>'+
      '<p>Una persona utiliza las Quest y tres trabajan en sus móviles. Deben debatir antes de registrar una única respuesta consensuada.</p>'+
      diagram()+'<h3>'+esc(item.title)+'</h3><p>'+esc(item.intro)+'</p>'+fields+
@@ -39,7 +40,7 @@ export function setupPTVCastigliano(){
      '<button type="button" id="ptv-next" class="secondary-btn teaching-primary">'+(stage===6?'Evaluar y finalizar':'Comprobar y continuar')+'</button>'+
      '<button type="button" id="ptv-reset" class="secondary-btn">Reiniciar práctica</button></div>'+
      (completed?'<div id="ptv-report"></div>':'');
-   root.querySelector('#ptv-teacher-email').value=teacherEmail;
+
    root.querySelectorAll('[data-answer]').forEach(el=>el.addEventListener('input',()=>{answers[el.dataset.answer]=el.value;completed=false;persist();}));
    root.querySelector('#ptv-prev')?.addEventListener('click',()=>{stage--;persist();render();});
    root.querySelector('#ptv-reset').addEventListener('click',()=>{
@@ -70,12 +71,12 @@ export function setupPTVCastigliano(){
        setTimeout(()=>URL.revokeObjectURL(url),10000);
      });
      report.querySelector('#ptv-email').addEventListener('click',()=>{
-       const recipient=document.getElementById('ptv-teacher-email')?.value?.trim()||'';
+       const recipient=TEACHER_EMAIL;
        if(!recipient||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)){
          alert('Introduce primero el correo del profesor. No se ha enviado ningún mensaje.');return;
        }
        const subject='Práctica PTV y Castigliano · '+(answers.group||'grupo');
-       const body='Adjuntamos nuestra hoja de respuestas evaluable de PTV y Castigliano. Puntuación orientativa: '+e.score+'/100.\n\nAdjuntaremos el archivo descargado desde la aplicación.';
+       const body='Hoja evaluable de PTV y Castigliano. Grupo: '+(answers.group||'sin identificar')+'\n\n'+content+'\n\nIMPORTANTE: revisad y pulsad Enviar en la aplicación de correo.';
        window.location.href='mailto:'+encodeURIComponent(recipient)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
      });
    }
