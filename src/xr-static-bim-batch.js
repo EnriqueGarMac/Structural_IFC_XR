@@ -26,8 +26,7 @@ export class XRStaticBIMBatch {
       p.structural===false&&p.orig.visible&&p.orig.geometry?.getAttribute('position')&&
       p.orig.geometry.getAttribute('normal')&&p.orig.material?.isMeshStandardMaterial&&
       !p.orig.material.transparent&&p.orig.material.opacity>=.999&&
-      !p.orig.material.map&&p.orig.material.side===THREE.DoubleSide&&
-      p.orig.geometry.groups.length===0);
+      !p.orig.material.map&&p.orig.material.side===THREE.DoubleSide);
     if(candidates.length<24)return;
     const geometries=[];
     try{
