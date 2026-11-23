@@ -432,11 +432,12 @@ export class StructuralXRControls {
       const quiz=this.ptvQuiz,q=quiz.current;
       btn('back','‹ Recursos docentes',38,117,310,64);
       txt('PTV + CASTIGLIANO · EQUIPO DE CUATRO',38,215,26,'#e4f8ff');
-      txt('RETO '+Math.min(quiz.index+1,PTV_XR_TOTAL)+' / '+PTV_XR_TOTAL,38,262,21,'#8ce9da');
+      txt('RETO '+Math.min(quiz.index+1,PTV_XR_TOTAL)+' / '+PTV_XR_TOTAL+' · Intentos '+quiz.getSummary().totalAttempts,38,262,21,'#8ce9da');
       if(quiz.done){
         txt('¡RETO COMPLETADO!',38,340,32,'#86f7d9');
         txt('Los tres compañeros completan la hoja en el móvil.',38,423,19);
         txt('Enviad una única entrega a enriquegm@ugr.es.',38,474,20);
+        txt('Intentos totales: '+quiz.getSummary().totalAttempts,38,535,23,'#f5d899');
         btn('ptv-reset','Repetir reto XR',38,625,692,90);
       }else{
         txt(q.stage,38,314,20,'#8ce9da');
