@@ -27,7 +27,10 @@ export function setupPTVCastigliano(){
      (type==='textarea'?'<textarea data-answer="'+id+'" rows="4" style="width:100%">'+esc(answers[id]||'')+'</textarea>':
       type==='select'?'<select data-answer="'+id+'" style="width:100%">'+opts.map(([v,l])=>'<option value="'+esc(v)+'"'+(answers[id]===v?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>':
       '<input data-answer="'+id+'" type="'+type+'" '+(type==='number'?'step="any" inputmode="decimal"':'')+' value="'+esc(answers[id]||'')+'" style="width:100%">')+'</label>').join('');
-   root.innerHTML='<div class="teaching-active-head"><strong>PTV y Castigliano · aprendizaje cooperativo</strong><span>Fase '+(stage+1)+' de 7 · '+(completed?'Finalizada':'En curso')+'</span></div>'+
+   const teacherEmail=document.getElementById('ptv-teacher-email')?.value||'';
+   root.innerHTML='<button type="button" id="ptv-close" class="secondary-btn">Volver a experiencias docentes</button>'+ 
+     '<label for="ptv-teacher-email">Correo del profesor <input id="ptv-teacher-email" type="email" placeholder="profesor@universidad.es"></label>'+ 
+     '<div class="teaching-active-head"><strong>PTV y Castigliano · aprendizaje cooperativo</strong><span>Fase '+(stage+1)+' de 7 · '+(completed?'Finalizada':'En curso')+'</span></div>'+
      '<p>Una persona utiliza las Quest y tres trabajan en sus móviles. Deben debatir antes de registrar una única respuesta consensuada.</p>'+
      diagram()+'<h3>'+esc(item.title)+'</h3><p>'+esc(item.intro)+'</p>'+fields+
      '<p id="ptv-feedback" role="status" aria-live="polite"></p>'+
@@ -36,6 +39,7 @@ export function setupPTVCastigliano(){
      '<button type="button" id="ptv-next" class="secondary-btn teaching-primary">'+(stage===6?'Evaluar y finalizar':'Comprobar y continuar')+'</button>'+
      '<button type="button" id="ptv-reset" class="secondary-btn">Reiniciar práctica</button></div>'+
      (completed?'<div id="ptv-report"></div>':'');
+   root.querySelector('#ptv-teacher-email').value=teacherEmail;
    root.querySelectorAll('[data-answer]').forEach(el=>el.addEventListener('input',()=>{answers[el.dataset.answer]=el.value;completed=false;persist();}));
    root.querySelector('#ptv-prev')?.addEventListener('click',()=>{stage--;persist();render();});
    root.querySelector('#ptv-reset').addEventListener('click',()=>{
