@@ -36,7 +36,10 @@ export function evaluateLesson(answers,P=LESSON.P){
  };
  const weights={roles:5,prediction:10,reactions:10,axial:15,virtual:15,contributions:15,displacement:10,castigliano:10,explanation:5,reflection:5};
  const score=Object.entries(checks).reduce((sum,[key,ok])=>sum+(ok?weights[key]:0),0);
- return {checks,weights,score,maxScore:100,reference:s};
+ const objectiveKeys=['reactions','axial','virtual','contributions','displacement','castigliano'];
+ const objectiveScore=objectiveKeys.reduce((sum,k)=>sum+(checks[k]?weights[k]:0),0);
+ const pendingHumanReview=weights.roles+weights.prediction+weights.explanation+weights.reflection;
+ return {checks,weights,score,maxScore:100,objectiveScore,objectiveMax:75,pendingHumanReview,reference:s};
 }
 export function reportText(answers,P=LESSON.P){
  const e=evaluateLesson(answers,P);
